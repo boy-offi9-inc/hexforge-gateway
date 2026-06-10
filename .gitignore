@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+*.log
+.DS_Store
+
+# Local file-backed storage fallback (providers/local-storage.provider.ts)
+/data/
+
+# CLI wrapper's remembered ids (scripts/hf.sh)
+.hexforge/

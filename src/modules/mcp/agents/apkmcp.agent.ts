@@ -68,13 +68,50 @@ async function sendMcpMessage(
   const contentType = res.headers.get("content-type") ?? "";
 
   if (contentType.includes("text/event-stream")) {
-    // Naive: wait for the whole stream to close, then parse whatever
-    // text accumulated.
-    const text = await res.text();
-    const dataLine = text.split("\n").find((line) => line.startsWith("data:"));
-    if (!dataLine) throw new Error("No data line found in event-stream response");
-    const parsed = JSON.parse(dataLine.slice(5).trim());
-    return { result: parsed.result, error: parsed.error, sessionId: returnedSessionId };
+    // The stream may stay open indefinitely for future server pushes, so we
+    // can't wait for it to close (res.text() would hang forever). Read
+    // incrementally and stop as soon as we see a complete JSON-RPC message
+    // matching this request's id.
+    if (!res.body) throw new Error("MCP server returned an event-stream with no body");
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    const timeoutMs = 30_000;
+    const deadline = Date.now() + timeoutMs;
+
+    try {
+      while (Date.now() < deadline) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const events = buffer.split("\n\n");
+        buffer = events.pop() ?? "";
+
+        for (const evt of events) {
+          const dataLine = evt.split("\n").find((line) => line.startsWith("data:"));
+          if (!dataLine) continue;
+
+          const jsonStr = dataLine.slice(5).trim();
+          let parsed: any;
+          try {
+            parsed = JSON.parse(jsonStr);
+          } catch {
+            continue;
+          }
+
+          if (parsed.id === message.id) {
+            await reader.cancel().catch(() => {});
+            return { result: parsed.result, error: parsed.error, sessionId: returnedSessionId };
+          }
+        }
+      }
+    } finally {
+      await reader.cancel().catch(() => {});
+    }
+
+    throw new Error(`Timed out waiting for MCP response to "${message.method}" after ${timeoutMs}ms`);
   }
 
   const parsed = await res.json();

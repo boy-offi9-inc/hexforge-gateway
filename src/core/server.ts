@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import websocketPlugin from "@fastify/websocket";
 import { healthRoutes } from "../api/v1/health.routes.js";
 import { rootRoutes } from "../api/v1/root.routes.js";
+import { workspaceRoutes } from "../api/v1/workspace.routes.js";
 import { registerAuth } from "./auth.js";
 import { config } from "./config.js";
 
@@ -17,6 +18,7 @@ export async function buildServer() {
 
   await app.register(healthRoutes);
   await app.register(rootRoutes);
+  await app.register(workspaceRoutes);
 
   return app;
 }

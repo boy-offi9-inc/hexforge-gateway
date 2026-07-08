@@ -99,6 +99,14 @@ class JobEngine {
       return false;
     };
 
+    // Fast-failing tasks (e.g. an immediate validation error, no real I/O
+    // wait) can reach a terminal state before we finish awaiting dispatch()
+    // above - the orchestrator's own map is authoritative and synchronous
+    // to read, so check it before subscribing rather than assuming we'll
+    // always catch the event live.
+    const maybeAlreadySettled = orchestrator.getTask(task.id);
+    if (maybeAlreadySettled && handleTerminal(maybeAlreadySettled)) return;
+
     const onTaskUpdate = (payload: EventMap["mcp.task.updated"]) => {
       if (payload.task.id !== task.id) return; // not this attempt's task
       if (handleTerminal(payload.task)) {

@@ -4,6 +4,7 @@ import { healthRoutes } from "../api/v1/health.routes.js";
 import { rootRoutes } from "../api/v1/root.routes.js";
 import { workspaceRoutes } from "../api/v1/workspace.routes.js";
 import { jobRoutes } from "../api/v1/job.routes.js";
+import { workflowRoutes } from "../api/v1/workflow.routes.js";
 import { registerAuth } from "./auth.js";
 import { config } from "./config.js";
 
@@ -21,6 +22,7 @@ export async function buildServer() {
   await app.register(rootRoutes);
   await app.register(workspaceRoutes);
   await app.register(jobRoutes);
+  await app.register(workflowRoutes);
 
   return app;
 }

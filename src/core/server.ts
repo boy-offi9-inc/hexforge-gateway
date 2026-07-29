@@ -7,6 +7,7 @@ import { jobRoutes } from "../api/v1/job.routes.js";
 import { workflowRoutes } from "../api/v1/workflow.routes.js";
 import { knowledgeRoutes } from "../api/v1/knowledge.routes.js";
 import { pluginIntrospectionRoutes } from "../api/v1/plugin.routes.js";
+import { registerWebsocketGateway } from "./websocket.js";
 import { registerAuth } from "./auth.js";
 import { config } from "./config.js";
 
@@ -27,6 +28,7 @@ export async function buildServer() {
   await app.register(workflowRoutes);
   await app.register(knowledgeRoutes);
   await app.register(pluginIntrospectionRoutes);
+  await registerWebsocketGateway(app);
 
   return app;
 }

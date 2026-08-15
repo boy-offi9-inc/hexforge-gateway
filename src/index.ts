@@ -17,6 +17,9 @@ async function printStartupBanner(baseUrl: string) {
   console.log(`  storage: ${config.STORAGE_BACKEND}${config.STORAGE_BACKEND === "local" ? ` (${config.DATA_DIR})` : ""}`);
   console.log(`  ai: ${config.AI_PROVIDER}`);
   console.log(`  auth: ${isAuthEffectivelyEnabled ? "enabled" : "OPEN - anyone who can reach this port has full access"}`);
+  if (config.AUTH_ENABLED && !isAuthEffectivelyEnabled) {
+    console.log(`  WARNING: AUTH_ENABLED=true but no API_KEYS set - auth is NOT actually active. Set API_KEYS in .env.`);
+  }
   console.log("");
 
   if (workspaces.length > 0) {

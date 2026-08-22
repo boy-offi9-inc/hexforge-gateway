@@ -5,6 +5,7 @@ import { mkdir, readdir } from "node:fs/promises";
 import path from "node:path";
 import type { McpTask } from "../../../core/types.js";
 import { config } from "../../../core/config.js";
+import { friendlyExecError } from "./shared/exec-error.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -55,21 +56,6 @@ async function listFilesCapped(dir: string, limit = 200): Promise<string[]> {
   return results;
 }
 
-function friendlyApktoolError(err: any): Error {
-  if (err?.code === "ENOENT") {
-    return new Error(
-      'apktool executable not found on PATH. Install it first (e.g. via your package manager, or see https://apktool.org/docs/install).'
-    );
-  }
-  // Node's child_process rejection puts the actual failure reason on
-  // err.stderr/err.stdout, not err.message (which is just "Command
-  // failed: apktool ...") - without this, every failure reports the same
-  // useless message regardless of cause. Same fix as jadx.agent.ts.
-  const detail = (err?.stderr || err?.stdout || "").toString().trim().slice(-2000);
-  const baseMessage = err instanceof Error ? err.message : String(err);
-  return new Error(detail ? `apktool failed: ${baseMessage}\n\n${detail}` : `apktool failed: ${baseMessage}`);
-}
-
 async function decodeHandler(task: McpTask): Promise<unknown> {
   const payload = task.payload as DecodePayload;
   if (!payload.apkPath) {
@@ -99,7 +85,7 @@ async function decodeHandler(task: McpTask): Promise<unknown> {
       stderrTail: stderr ? stderr.slice(-2000) : undefined,
     };
   } catch (err) {
-    throw friendlyApktoolError(err);
+    throw friendlyExecError("apktool", "Install it first (e.g. via your package manager, or see https://apktool.org/docs/install).", err);
   }
 }
 
@@ -145,7 +131,7 @@ async function buildHandler(task: McpTask): Promise<unknown> {
       stderrTail: stderr ? stderr.slice(-2000) : undefined,
     };
   } catch (err) {
-    throw friendlyApktoolError(err);
+    throw friendlyExecError("apktool", "Install it first (e.g. via your package manager, or see https://apktool.org/docs/install).", err);
   }
 }
 

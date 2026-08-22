@@ -5,6 +5,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { McpTask } from "../../../core/types.js";
 import { config } from "../../../core/config.js";
+import { friendlyExecError, type ExecFailure } from "./shared/exec-error.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -65,23 +66,11 @@ function deviceArgs(payload: DeviceScopedPayload): string[] {
   return payload.deviceSerial ? ["-D", payload.deviceSerial] : ["-U"];
 }
 
-function friendlyFridaError(binary: string, err: any): Error {
-  if (err?.code === "ENOENT") {
-    return new Error(
-      `"${binary}" not found on PATH. Install frida-tools first: "pip install frida-tools" (needs Python). ` +
-        "A frida-server matching that version also needs to be running on the target device - see this agent's docs."
-    );
-  }
-  const detail = (err?.stderr || err?.stdout || "").toString().trim().slice(-2000);
-  const baseMessage = err instanceof Error ? err.message : String(err);
-  return new Error(detail ? `${binary} failed: ${baseMessage}\n\n${detail}` : `${binary} failed: ${baseMessage}`);
-}
-
 async function runAdb(args: string[]): Promise<{ stdout: string; stderr: string }> {
   try {
     return await execFileAsync("adb", args, { maxBuffer: 1024 * 1024 * 10 });
   } catch (err) {
-    throw friendlyFridaError("adb", err);
+    throw friendlyExecError("adb", "Install frida-tools first: \"pip install frida-tools\" (needs Python). A frida-server matching that version also needs to be running on the target device - see this agent's docs.", err);
   }
 }
 
@@ -90,7 +79,7 @@ async function listDevicesHandler(): Promise<unknown> {
   try {
     ({ stdout } = await execFileAsync("frida-ls-devices", [], { maxBuffer: 1024 * 1024 }));
   } catch (err) {
-    throw friendlyFridaError("frida-ls-devices", err);
+    throw friendlyExecError("frida-ls-devices", "Install frida-tools first: \"pip install frida-tools\" (needs Python). A frida-server matching that version also needs to be running on the target device - see this agent's docs.", err);
   }
   const lines = stdout.split("\n").slice(2).map((l) => l.trim()).filter(Boolean); // skip header + separator row
   const devices = lines.map((line) => {
@@ -109,7 +98,7 @@ async function listProcessesHandler(task: McpTask): Promise<unknown> {
   try {
     ({ stdout } = await execFileAsync("frida-ps", args, { maxBuffer: 1024 * 1024 * 5 }));
   } catch (err) {
-    throw friendlyFridaError("frida-ps", err);
+    throw friendlyExecError("frida-ps", "Install frida-tools first: \"pip install frida-tools\" (needs Python). A frida-server matching that version also needs to be running on the target device - see this agent's docs.", err);
   }
 
   const lines = stdout.split("\n").slice(2).map((l) => l.trim()).filter(Boolean);
@@ -197,8 +186,9 @@ async function traceHandler(task: McpTask): Promise<unknown> {
       maxBuffer: 1024 * 1024 * 10,
     });
     return { target: payload.target, mode, scriptPath, timedOut: false, stdout, stderr };
-  } catch (err: any) {
-    if (err?.killed && err?.signal === "SIGTERM") {
+  } catch (err) {
+    const failure = err as ExecFailure;
+    if (failure?.killed && failure?.signal === "SIGTERM") {
       // Ran out of time, not a real failure - this is the expected way a
       // "trace" call ends, since the script has no way to signal "I'm
       // done" back to this agent. Whatever it emitted before the kill is
@@ -208,11 +198,11 @@ async function traceHandler(task: McpTask): Promise<unknown> {
         mode,
         scriptPath,
         timedOut: true,
-        stdout: (err.stdout ?? "").toString(),
-        stderr: (err.stderr ?? "").toString(),
+        stdout: (failure.stdout ?? "").toString(),
+        stderr: (failure.stderr ?? "").toString(),
       };
     }
-    throw friendlyFridaError("frida", err);
+    throw friendlyExecError("frida", "Install frida-tools first: \"pip install frida-tools\" (needs Python). A frida-server matching that version also needs to be running on the target device - see this agent's docs.", err);
   }
 }
 

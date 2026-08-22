@@ -5,6 +5,7 @@ import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import type { McpTask } from "../../../core/types.js";
 import { config } from "../../../core/config.js";
+import { friendlyExecError } from "./shared/exec-error.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -55,24 +56,11 @@ function deviceArgs(payload: DeviceScopedPayload): string[] {
   return payload.deviceSerial ? ["-s", payload.deviceSerial] : [];
 }
 
-function friendlyAdbError(err: any): Error {
-  if (err?.code === "ENOENT") {
-    return new Error(
-      'adb executable not found on PATH. Install Android platform-tools first (e.g. "brew install android-platform-tools", or see https://developer.android.com/tools/releases/platform-tools).'
-    );
-  }
-  // Same fix as jadx/apktool - Node puts the real reason on
-  // err.stderr/err.stdout, not err.message.
-  const detail = (err?.stderr || err?.stdout || "").toString().trim().slice(-2000);
-  const baseMessage = err instanceof Error ? err.message : String(err);
-  return new Error(detail ? `adb failed: ${baseMessage}\n\n${detail}` : `adb failed: ${baseMessage}`);
-}
-
 async function run(args: string[], maxBuffer = 1024 * 1024 * 20) {
   try {
     return await execFileAsync("adb", args, { maxBuffer });
   } catch (err) {
-    throw friendlyAdbError(err);
+    throw friendlyExecError("adb", "Install Android platform-tools first (e.g. \"brew install android-platform-tools\", or see https://developer.android.com/tools/releases/platform-tools).", err);
   }
 }
 

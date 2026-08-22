@@ -5,6 +5,7 @@ import { mkdir, readdir } from "node:fs/promises";
 import path from "node:path";
 import type { McpTask } from "../../../core/types.js";
 import { config } from "../../../core/config.js";
+import { friendlyExecError } from "./shared/exec-error.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -88,18 +89,11 @@ export async function jadxHandler(task: McpTask): Promise<unknown> {
       stdoutTail: stdout.slice(-2000),
       stderrTail: stderr ? stderr.slice(-2000) : undefined,
     };
-  } catch (err: any) {
-    if (err?.code === "ENOENT") {
-      throw new Error(
-        'jadx executable not found on PATH. Install it first (e.g. "brew install jadx" or see https://github.com/skylot/jadx/releases).'
-      );
-    }
-    // Node's child_process rejection puts the actual failure reason on
-    // err.stderr/err.stdout, not err.message (which is just "Command
-    // failed: jadx -d ...") - without this, every jadx failure reports
-    // the same useless message regardless of cause.
-    const detail = (err?.stderr || err?.stdout || "").toString().trim().slice(-2000);
-    const baseMessage = err instanceof Error ? err.message : String(err);
-    throw new Error(detail ? `jadx failed: ${baseMessage}\n\n${detail}` : `jadx failed: ${baseMessage}`);
+  } catch (err) {
+    throw friendlyExecError(
+      "jadx",
+      'Install it first (e.g. "brew install jadx" or see https://github.com/skylot/jadx/releases).',
+      err
+    );
   }
 }

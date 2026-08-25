@@ -8,6 +8,7 @@ import { aiHandler } from "./agents/ai.agent.js";
 import { filesystemHandler } from "./agents/filesystem.agent.js";
 import { adbHandler } from "./agents/adb.agent.js";
 import { fridaHandler } from "./agents/frida.agent.js";
+import { apkidHandler } from "./agents/apkid.agent.js";
 
 /**
  * McpOrchestrator dispatches tasks to registered agent handlers and tracks
@@ -98,3 +99,4 @@ orchestrator.registerAgent("ai", aiHandler);
 orchestrator.registerAgent("filesystem", filesystemHandler);
 orchestrator.registerAgent("adb", adbHandler);
 orchestrator.registerAgent("frida", fridaHandler);
+orchestrator.registerAgent("apkid", apkidHandler);

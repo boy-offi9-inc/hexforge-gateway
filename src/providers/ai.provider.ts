@@ -141,6 +141,27 @@ async function completeWithOpenAi(req: CompletionRequest): Promise<string> {
   return completeWithOpenAiCompatibleShape("OpenAI", "https://api.openai.com/v1", config.OPENAI_API_KEY, config.OPENAI_MODEL, req);
 }
 
+async function completeWithDeepseek(req: CompletionRequest): Promise<string> {
+  if (!config.DEEPSEEK_API_KEY) {
+    throw new Error("DEEPSEEK_API_KEY is not set - AI provider is not configured.");
+  }
+  return completeWithOpenAiCompatibleShape("DeepSeek", "https://api.deepseek.com/v1", config.DEEPSEEK_API_KEY, config.DEEPSEEK_MODEL, req);
+}
+
+async function completeWithXai(req: CompletionRequest): Promise<string> {
+  if (!config.XAI_API_KEY) {
+    throw new Error("XAI_API_KEY is not set - AI provider is not configured.");
+  }
+  return completeWithOpenAiCompatibleShape("xAI", "https://api.x.ai/v1", config.XAI_API_KEY, config.XAI_MODEL, req);
+}
+
+async function completeWithMistral(req: CompletionRequest): Promise<string> {
+  if (!config.MISTRAL_API_KEY) {
+    throw new Error("MISTRAL_API_KEY is not set - AI provider is not configured.");
+  }
+  return completeWithOpenAiCompatibleShape("Mistral", "https://api.mistral.ai/v1", config.MISTRAL_API_KEY, config.MISTRAL_MODEL, req);
+}
+
 /**
  * Generic escape hatch for anything else that speaks the same Chat
  * Completions shape - point it at LM Studio (default port 1234),
@@ -272,11 +293,18 @@ export async function complete(req: CompletionRequest): Promise<string> {
       return completeWithOllama(req);
     case "openai":
       return completeWithOpenAi(req);
+    case "deepseek":
+      return completeWithDeepseek(req);
+    case "xai":
+      return completeWithXai(req);
+    case "mistral":
+      return completeWithMistral(req);
     case "openai-compatible":
       return completeWithOpenAiCompatible(req);
     default:
       throw new Error(
-        `Unsupported AI_PROVIDER "${config.AI_PROVIDER}". Implemented: "anthropic", "groq", "gemini", "ollama", "openai", "openai-compatible".`
+        `Unsupported AI_PROVIDER "${config.AI_PROVIDER}". Implemented: "anthropic", "groq", "gemini", "ollama", ` +
+          `"openai", "deepseek", "xai", "mistral", "openai-compatible".`
       );
   }
 }

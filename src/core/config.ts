@@ -27,7 +27,9 @@ const envSchema = z.object({
   // to share state across devices/users, e.g. once a web interface exists.
   STORAGE_BACKEND: z.enum(["local", "supabase"]).default("local"),
 
-  AI_PROVIDER: z.enum(["anthropic", "groq", "gemini", "ollama", "openai", "openai-compatible"]).default("anthropic"),
+  AI_PROVIDER: z
+    .enum(["anthropic", "groq", "gemini", "ollama", "openai", "deepseek", "xai", "mistral", "openai-compatible"])
+    .default("anthropic"),
   ANTHROPIC_API_KEY: z.string().optional(),
   ANTHROPIC_MODEL: z.string().default("claude-sonnet-5"),
   GROQ_API_KEY: z.string().optional(),
@@ -43,6 +45,16 @@ const envSchema = z.object({
   OLLAMA_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_MODEL: z.string().default("gpt-5.4-mini"),
+  DEEPSEEK_API_KEY: z.string().optional(),
+  // deepseek-chat/deepseek-reasoner (the names most docs still show) were
+  // deprecated 2026-07-24 - deepseek-v4-flash/deepseek-v4-pro are current.
+  DEEPSEEK_MODEL: z.string().default("deepseek-v4-flash"),
+  XAI_API_KEY: z.string().optional(),
+  XAI_MODEL: z.string().default("grok-4-6"),
+  MISTRAL_API_KEY: z.string().optional(),
+  // "-latest" is a Mistral-maintained alias that follows their current
+  // recommended model, rather than a specific version that goes stale.
+  MISTRAL_MODEL: z.string().default("mistral-large-latest"),
   // Generic escape hatch for anything else speaking the OpenAI Chat
   // Completions shape: LM Studio (default port shown below), llama.cpp's
   // server, vLLM, text-generation-webui, OpenRouter, etc. No default
@@ -110,6 +122,12 @@ export const isAiConfigured = (() => {
       return true;
     case "openai":
       return !!config.OPENAI_API_KEY;
+    case "deepseek":
+      return !!config.DEEPSEEK_API_KEY;
+    case "xai":
+      return !!config.XAI_API_KEY;
+    case "mistral":
+      return !!config.MISTRAL_API_KEY;
     case "openai-compatible":
       // No key required (most local servers don't check one) but a model
       // name is, since there's no sensible default across different servers.

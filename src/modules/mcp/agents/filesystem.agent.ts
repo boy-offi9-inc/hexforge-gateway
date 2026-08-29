@@ -177,16 +177,16 @@ async function statHandler(task: McpTask): Promise<unknown> {
 
 interface SearchWorkerResult {
   dirPath: string;
-  pattern: string;
   filesScanned: number;
   matchCount: number;
-  matches: { file: string; line: number; text: string }[];
+  matches: { file: string; line: number; text: string; name: string }[];
   truncated: boolean;
 }
 
 function runSearchWorker(data: {
   dirPath: string;
-  pattern: string;
+  pattern?: string;
+  patterns?: { name: string; pattern: string }[];
   caseSensitive?: boolean;
   extensions?: string[];
   maxResults: number;
@@ -253,6 +253,49 @@ async function searchHandler(task: McpTask): Promise<unknown> {
   });
 }
 
+// Curated, high-precision patterns - deliberately not exhaustive. These
+// favor patterns with a distinctive enough shape to keep false positives
+// low (a real AWS key prefix, a real PEM header) over generic ones like
+// "password=..." that would flood results with test fixtures and config
+// examples. This is a starting set for catching obvious hardcoded
+// secrets before shipping/committing something, not a replacement for a
+// maintained secret-scanning tool (gitleaks, trufflehog) for anything
+// that actually matters.
+const SECRET_PATTERNS: { name: string; pattern: string }[] = [
+  { name: "AWS Access Key", pattern: "AKIA[0-9A-Z]{16}" },
+  { name: "Google API Key", pattern: "AIza[0-9A-Za-z\\-_]{35}" },
+  { name: "Private Key Header", pattern: "-----BEGIN (RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----" },
+  { name: "Slack Token", pattern: "xox[baprs]-[0-9A-Za-z-]{10,48}" },
+  { name: "GitHub Token", pattern: "gh[pousr]_[A-Za-z0-9]{36,255}" },
+  { name: "Stripe Live Key", pattern: "sk_live_[0-9a-zA-Z]{24,}" },
+  { name: "JWT", pattern: "eyJ[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}" },
+  { name: "Firebase Cloud Messaging Key", pattern: "AAAA[A-Za-z0-9_-]{7}:[A-Za-z0-9_-]{140}" },
+];
+
+interface ScanSecretsPayload {
+  dirPath: string;
+  extensions?: string[];
+  maxResults?: number;
+}
+
+async function scanSecretsHandler(task: McpTask): Promise<unknown> {
+  const payload = task.payload as ScanSecretsPayload;
+  if (!payload.dirPath) throw new Error('scan-secrets requires "dirPath" in the task payload');
+
+  const dirPath = path.resolve(payload.dirPath);
+  if (!existsSync(dirPath)) throw new Error(`Directory not found at path: ${dirPath}`);
+
+  const maxResults = payload.maxResults && payload.maxResults > 0 ? Math.min(payload.maxResults, MAX_SEARCH_RESULTS) : MAX_SEARCH_RESULTS;
+
+  return runSearchWorker({
+    dirPath,
+    patterns: SECRET_PATTERNS,
+    caseSensitive: true, // these patterns rely on specific casing (AKIA, AIza, sk_live_) - case-insensitive would just add false positives
+    extensions: payload.extensions,
+    maxResults,
+  });
+}
+
 export async function filesystemHandler(task: McpTask): Promise<unknown> {
   switch (task.operation) {
     case "list":
@@ -267,9 +310,11 @@ export async function filesystemHandler(task: McpTask): Promise<unknown> {
       return statHandler(task);
     case "search":
       return searchHandler(task);
+    case "scan-secrets":
+      return scanSecretsHandler(task);
     default:
       throw new Error(
-        `Unsupported filesystem operation "${task.operation}". Supported: "list", "read", "write", "delete", "stat", "search"`
+        `Unsupported filesystem operation "${task.operation}". Supported: "list", "read", "write", "delete", "stat", "search", "scan-secrets"`
       );
   }
 }

@@ -4,14 +4,19 @@ import path from "node:path";
 
 /**
  * Runs the actual walk+regex-match loop for filesystem.agent.ts's
- * "search" operation, inside a worker thread rather than the main event
- * loop. A single synchronous RegExp.test() call can't be interrupted once
- * started - if `pattern` triggers catastrophic backtracking, a plain
- * `await` timeout around the call does nothing, since the event loop
- * itself is blocked and can never fire the timeout. Running it in a
- * worker means the caller (filesystem.agent.ts) can `worker.terminate()`
- * it after a deadline no matter how stuck the regex engine is - the main
+ * "search" and "scan-secrets" operations, inside a worker thread rather
+ * than the main event loop. A single synchronous RegExp.test() call
+ * can't be interrupted once started - if a pattern triggers catastrophic
+ * backtracking, a plain `await` timeout around the call does nothing,
+ * since the event loop itself is blocked and can never fire the timeout.
+ * Running it in a worker means the caller can `worker.terminate()` it
+ * after a deadline no matter how stuck the regex engine is - the main
  * process and every other request stay responsive either way.
+ *
+ * "search" passes one `pattern` (a user-supplied regex); "scan-secrets"
+ * passes several `patterns` (a curated built-in list) - both walk the
+ * same tree once and test every line against every compiled pattern, so
+ * scanning for 10 secret patterns costs one filesystem walk, not 10.
  */
 
 const MAX_SEARCH_FILE_BYTES = 2 * 1024 * 1024;
@@ -19,9 +24,16 @@ const BINARY_LIKE_EXTENSIONS = new Set([
   ".apk", ".dex", ".zip", ".jar", ".so", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".ttf", ".otf",
 ]);
 
+interface NamedPattern {
+  name: string;
+  pattern: string;
+}
+
 interface SearchWorkerData {
   dirPath: string;
-  pattern: string;
+  // Exactly one of these is set: "search" passes `pattern`, "scan-secrets" passes `patterns`.
+  pattern?: string;
+  patterns?: NamedPattern[];
   caseSensitive?: boolean;
   extensions?: string[];
   maxResults: number;
@@ -29,9 +41,13 @@ interface SearchWorkerData {
 
 async function run() {
   const data = workerData as SearchWorkerData;
-  const regex = new RegExp(data.pattern, data.caseSensitive ? "g" : "gi");
+  const flags = data.caseSensitive ? "g" : "gi";
 
-  const results: { file: string; line: number; text: string }[] = [];
+  const compiled: { name: string; regex: RegExp }[] = data.patterns
+    ? data.patterns.map((p) => ({ name: p.name, regex: new RegExp(p.pattern, flags) }))
+    : [{ name: "match", regex: new RegExp(data.pattern!, flags) }];
+
+  const results: { file: string; line: number; text: string; name: string }[] = [];
   let filesScanned = 0;
   let truncated = false;
 
@@ -65,14 +81,22 @@ async function run() {
 
       const lines = text.split("\n");
       for (let i = 0; i < lines.length; i++) {
-        regex.lastIndex = 0;
-        if (regex.test(lines[i])) {
-          results.push({ file: path.relative(data.dirPath, full), line: i + 1, text: lines[i].trim().slice(0, 300) });
-          if (results.length >= data.maxResults) {
-            truncated = true;
-            break;
+        for (const { name, regex } of compiled) {
+          regex.lastIndex = 0;
+          if (regex.test(lines[i])) {
+            results.push({
+              file: path.relative(data.dirPath, full),
+              line: i + 1,
+              text: lines[i].trim().slice(0, 300),
+              name,
+            });
+            if (results.length >= data.maxResults) {
+              truncated = true;
+              break;
+            }
           }
         }
+        if (truncated) break;
       }
     }
   }
@@ -80,7 +104,6 @@ async function run() {
   await walk(data.dirPath);
   parentPort?.postMessage({
     dirPath: data.dirPath,
-    pattern: data.pattern,
     filesScanned,
     matchCount: results.length,
     matches: results,

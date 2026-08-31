@@ -17,10 +17,26 @@ const CHAT_SYSTEM_PROMPT =
   "rather than guessing.";
 
 // How many prior turns to feed back as context. Each turn is 2 knowledge
-// entries (user + assistant), so this is *turns*, not entries. Capped
-// rather than unbounded so a long-running chat doesn't quietly grow the
-// prompt (and therefore cost/latency) on every single message.
+// entries (user + assistant), so this is *turns*, not entries. This
+// alone doesn't actually bound token cost though - 20 turns of long
+// messages can still be huge - so it's paired with the two budgets below.
 const MAX_CHAT_HISTORY_TURNS = 20;
+// Total character budget for the history resent on every chat call
+// (~4 chars/token, so this is a rough ~3000-token ceiling on context from
+// history alone). This is what actually controls cost: a chat with short
+// messages fits more turns in this budget; one with long messages fits
+// fewer. Walking newest-first and stopping once the budget's spent means
+// older turns are the ones dropped, not more recent (more relevant) ones.
+const MAX_CHAT_HISTORY_CHARS = 12_000;
+// Caps any single historical turn's content before it's resent as
+// context - without this, one huge message (someone pasting a large
+// summarize_text result, a big decompiled file, etc.) gets sent in full
+// on every subsequent chat call for as long as it stays within the turn
+// window, repeating that cost turn after turn. Only applies to *past*
+// turns being resent as context; the live message being sent right now
+// is never truncated, since silently cutting what someone just typed
+// would produce confusing "why didn't it see the rest" behavior.
+const MAX_HISTORY_MESSAGE_CHARS = 4_000;
 
 /**
  * Generates an AI summary of an existing KnowledgeEntry and stores it as a
@@ -60,6 +76,57 @@ export interface ChatTurn {
 }
 
 /**
+ * Builds the history array sent to the AI provider from a workspace's
+ * stored chat entries (newest-first, as returned by
+ * listEntriesForWorkspace). Walks newest-to-oldest, truncating any
+ * individual turn over MAX_HISTORY_MESSAGE_CHARS and stopping once
+ * MAX_CHAT_HISTORY_CHARS total is spent - so cost scales with what's
+ * actually in the conversation instead of a flat turn count that a few
+ * long messages could blow through silently.
+ *
+ * Assumes each turn's two entries (user message, then assistant reply)
+ * land adjacent in newest-first order, which holds for a single caller
+ * chatting normally - the assistant entry is always created after its
+ * user entry. Two concurrent chat() calls on the *same* workspace from
+ * different clients could theoretically interleave and break that
+ * adjacency; not handled here, since it's a narrow race in what's still
+ * a single-operator tool, not a data-loss risk (worst case is one
+ * imperfectly-paired turn near the trim boundary, not corruption).
+ */
+function buildChatHistory(recentEntriesNewestFirst: KnowledgeEntry[]): ChatMessage[] {
+  const candidates = recentEntriesNewestFirst.slice(0, MAX_CHAT_HISTORY_TURNS * 2);
+  const picked: ChatMessage[] = [];
+  let remainingBudget = MAX_CHAT_HISTORY_CHARS;
+
+  const truncate = (content: string) =>
+    content.length > MAX_HISTORY_MESSAGE_CHARS
+      ? `${content.slice(0, MAX_HISTORY_MESSAGE_CHARS)}\n[...truncated, ${
+          content.length - MAX_HISTORY_MESSAGE_CHARS
+        } more characters omitted from history]`
+      : content;
+
+  // Walk in pairs (assistant reply + its user message, newest-first),
+  // never splitting one turn across the budget boundary - a message
+  // array that starts or ends on the "wrong" role isn't just confusing,
+  // several providers (Anthropic in particular) reject it outright since
+  // they require strict user/assistant alternation.
+  for (let i = 0; i + 1 < candidates.length; i += 2) {
+    const [newer, older] = [candidates[i], candidates[i + 1]];
+    const newerContent = truncate(newer.content);
+    const olderContent = truncate(older.content);
+    const pairLength = newerContent.length + olderContent.length;
+
+    if (pairLength > remainingBudget) break;
+
+    picked.push({ role: newer.source === "user" ? "user" : "assistant", content: newerContent });
+    picked.push({ role: older.source === "user" ? "user" : "assistant", content: olderContent });
+    remainingBudget -= pairLength;
+  }
+
+  return picked.reverse(); // was newest-first for the walk, provider wants chronological
+}
+
+/**
  * Sends one message in a workspace's ongoing chat and returns the reply.
  * Uses the `"chat"` KnowledgeEntryType that's been in the schema since
  * the Knowledge Engine was built but had no writer yet - each turn
@@ -75,12 +142,7 @@ export interface ChatTurn {
  */
 export async function chat(workspaceId: string, message: string): Promise<{ reply: string; entryId: string }> {
   const recent = await knowledgeService.listEntriesForWorkspace(workspaceId, { type: "chat" });
-  // listEntriesForWorkspace returns newest-first; take the most recent
-  // turns, then reverse into chronological order for the provider.
-  const history: ChatMessage[] = recent
-    .slice(0, MAX_CHAT_HISTORY_TURNS * 2)
-    .reverse()
-    .map((entry) => ({ role: entry.source === "user" ? "user" : "assistant", content: entry.content }));
+  const history = buildChatHistory(recent);
 
   await knowledgeService.createEntry({
     workspaceId,

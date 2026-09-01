@@ -62,8 +62,8 @@ async function readCollection<T>(name: string): Promise<Record<string, T>> {
   try {
     const raw = await readFile(collectionPath(name), "utf-8");
     return JSON.parse(raw) as Record<string, T>;
-  } catch (err: any) {
-    if (err?.code === "ENOENT") return {};
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException)?.code === "ENOENT") return {};
     throw err;
   }
 }

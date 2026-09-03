@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  typecheck-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      # No committed lockfile yet (see README/Roadmap) - `npm install`
+      # rather than `npm ci`, which requires one. Builds aren't fully
+      # reproducible until that's fixed.
+      - run: npm install
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Upload dist for the smoke-test job
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  smoke-test:
+    needs: typecheck-and-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm install --omit=dev
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Start the Gateway
+        # Deliberately minimal env: local storage, no auth, no AI
+        # provider configured. smoke-test.sh already skips (not fails)
+        # anything that needs a configured AI provider, jadx/apktool/adb/
+        # frida binaries, or real hardware - see its "MANUAL TESTING"
+        # section - so this still exercises every subsystem that's
+        # actually testable in a CI runner: workspaces, the filesystem
+        # agent (including the ReDoS-timeout worker and the write-outside-
+        # workspace sandboxing check), Jobs, Workflows, the Knowledge
+        # Engine and its auto-indexer, and the Plugin System.
+        run: |
+          STORAGE_BACKEND=local PORT=8080 node dist/index.js &
+          echo $! > gateway.pid
+
+      - name: Wait for the Gateway to become healthy
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/health > /dev/null; then
+              echo "Gateway is up"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Gateway never became healthy" >&2
+          exit 1
+
+      - name: Run the automated smoke test
+        run: |
+          chmod +x scripts/smoke-test.sh
+          ./scripts/smoke-test.sh
+
+      - name: Sanity-check the MCP server frontend starts and speaks JSON-RPC
+        # Doesn't exercise a real tool call (that would need the same
+        # external binaries smoke-test.sh already skips) - just confirms
+        # the stdio server itself starts, responds correctly to
+        # "initialize", and - critically - never puts anything but a
+        # valid JSON-RPC message on stdout. A stray console.log from a
+        # dependency would break every real MCP client silently; this
+        # catches that class of regression automatically instead of
+        # relying on someone noticing by hand.
+        run: |
+          RESPONSE=$(printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}\n' | timeout 5 node dist/mcp-server/index.js)
+          echo "$RESPONSE"
+          echo "$RESPONSE" | node -e '
+            const line = require("fs").readFileSync(0, "utf8").trim();
+            const msg = JSON.parse(line); // throws if stdout carried anything but one clean JSON-RPC line
+            if (msg.jsonrpc !== "2.0" || !msg.result || msg.result.serverInfo?.name !== "hexforge-gateway") {
+              console.error("Unexpected initialize response shape:", line);
+              process.exit(1);
+            }
+            console.log("MCP server initialize handshake OK");
+          '
+
+      - name: Stop the Gateway
+        if: always()
+        run: kill "$(cat gateway.pid)" 2>/dev/null || true

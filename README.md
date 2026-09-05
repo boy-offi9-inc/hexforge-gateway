@@ -11,6 +11,11 @@ project follows (`Workspace -> Workflow -> Jobs -> Tasks -> MCP Agents`,
 modules communicating through an Event Bus) and `HexForge_Documentation.md`
 for earlier context.
 
+MIT licensed (`LICENSE`). Contributing: see `CONTRIBUTING.md` - the short
+version is `npm run typecheck && npm run build && ./scripts/smoke-test.sh`
+before opening a PR; `.github/workflows/ci.yml` runs the same checks
+automatically, plus a handshake check on the MCP server frontend.
+
 ## Stack
 
 - **Runtime**: Node.js 20+, TypeScript
@@ -63,6 +68,7 @@ CPU-hungry on large or heavily obfuscated APKs.
 - `jadx` and `apktool` on `PATH` if you'll use those agents (both need a JVM - `openjdk-17` or similar)
 - `adb` on `PATH` for the `adb` agent (Android platform-tools)
 - `frida-tools` (`pip install frida-tools`, needs Python) plus a matching `frida-server` on the target device for the `frida` agent - the version match between the two is the most common Frida failure
+- `apkid` (`pip install apkid`, needs a yara-python build with DEX support) for the `apkid` agent
 - `curl` + `jq` for `scripts/hf.sh` and `scripts/smoke-test.sh`
 
 **RAM:** No hard minimum for the Gateway process alone - it's small. The
@@ -181,17 +187,20 @@ falling back to local storage: ...`), so it's visible rather than silent.
 ## AI Provider Layer
 
 `src/providers/ai.provider.ts` exposes one function, `complete()`, backed
-by six interchangeable providers - **Anthropic**, **Groq**, **Gemini**,
-**Ollama**, **OpenAI**, and a generic **openai-compatible** option for
-anything else that speaks the same shape (LM Studio, llama.cpp's server,
-vLLM, text-generation-webui, OpenRouter, ...). Groq, OpenAI, and
-openai-compatible share one implementation internally
+by nine interchangeable providers - **Anthropic**, **Groq**, **Gemini**,
+**Ollama**, **OpenAI**, **DeepSeek**, **xAI (Grok)**, **Mistral**, and a
+generic **openai-compatible** option for anything else that speaks the
+same shape (LM Studio, llama.cpp's server, vLLM, text-generation-webui,
+OpenRouter, ...). Six of these - Groq, OpenAI, DeepSeek, xAI, Mistral,
+and openai-compatible - share one implementation internally
 (`completeWithOpenAiCompatibleShape`) since they're all the OpenAI Chat
-Completions request/response shape against a different base URL - only
-Anthropic, Gemini, and Ollama needed their own code.
+Completions request/response shape against a different base URL; only
+Anthropic, Gemini, and Ollama needed their own code. Adding a new
+provider that speaks this shape is a ~10-line addition - see
+`CONTRIBUTING.md`.
 
 ```bash
-AI_PROVIDER=anthropic   # or "groq", "gemini", "ollama", "openai", "openai-compatible"
+AI_PROVIDER=anthropic   # or "groq", "gemini", "ollama", "openai", "deepseek", "xai", "mistral", "openai-compatible"
 
 # Only the settings matching AI_PROVIDER are required - the rest can stay blank.
 ANTHROPIC_API_KEY=sk-ant-...
@@ -210,22 +219,32 @@ OLLAMA_API_KEY=                          # only needed for cloud models
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-5.4-mini                # optional, this is the default
 
+DEEPSEEK_API_KEY=sk-...
+DEEPSEEK_MODEL=deepseek-v4-flash         # optional, this is the default - note deepseek-chat/deepseek-reasoner (older docs' examples) were deprecated 2026-07-24
+
+XAI_API_KEY=xai-...
+XAI_MODEL=grok-4-6                       # optional, this is the default
+
+MISTRAL_API_KEY=...
+MISTRAL_MODEL=mistral-large-latest       # optional, this is the default - a Mistral-maintained alias, not a version that goes stale
+
 OPENAI_COMPATIBLE_BASE_URL=http://localhost:1234/v1   # optional, LM Studio's default
 OPENAI_COMPATIBLE_API_KEY=               # most local servers don't need one
 OPENAI_COMPATIBLE_MODEL=                 # required - no sensible default, depends what you're running
 ```
 
 Groq and Gemini both have usable free tiers, unlike a fresh
-Anthropic/OpenAI account which needs paid credits first - handy for
-testing without billing setup. **Ollama** and **openai-compatible** need
-zero API keys and zero external network calls - everything runs on your
-own machine. Ollama is the simpler path (install, `ollama serve`,
-`ollama pull llama3.3`) and also covers Ollama's *cloud* models through
-the same endpoint - point `OLLAMA_MODEL` at a `-cloud`-suffixed name
-(e.g. `gpt-oss:120b-cloud`) and set `OLLAMA_API_KEY`, no separate
-provider needed. See https://docs.ollama.com/cloud. `openai-compatible`
-is for anything else - LM Studio, llama.cpp's server - point
-`OPENAI_COMPATIBLE_BASE_URL` at it and set `OPENAI_COMPATIBLE_MODEL`.
+Anthropic/OpenAI/DeepSeek/xAI/Mistral account which needs paid credits
+first - handy for testing without billing setup. **Ollama** and
+**openai-compatible** need zero API keys and zero external network
+calls - everything runs on your own machine. Ollama is the simpler path
+(install, `ollama serve`, `ollama pull llama3.3`) and also covers
+Ollama's *cloud* models through the same endpoint - point `OLLAMA_MODEL`
+at a `-cloud`-suffixed name (e.g. `gpt-oss:120b-cloud`) and set
+`OLLAMA_API_KEY`, no separate provider needed. See
+https://docs.ollama.com/cloud. `openai-compatible` is for anything else -
+LM Studio, llama.cpp's server - point `OPENAI_COMPATIBLE_BASE_URL` at it
+and set `OPENAI_COMPATIBLE_MODEL`.
 
 `GET /health` reports `aiProvider` and `aiConfigured`. For Ollama,
 `aiConfigured` just means "selected" - local mode has no key to check, so
@@ -264,8 +283,30 @@ every provider builds its own multi-turn shape from it (Anthropic's
 `"assistant"` - the one real shape difference - and the OpenAI-style
 `{role, content}` array everyone else uses). History loads from that
 workspace's `"chat"`-type `KnowledgeEntries` on every call rather than
-held in memory, capped at the most recent 20 turns, so a conversation
-survives a Gateway restart without unbounded token growth.
+held in memory, so a conversation survives a Gateway restart.
+
+History size is bounded three ways, not just a flat turn count - a flat
+count alone doesn't actually control token cost, since a handful of long
+messages (someone pasting a large `summarize_text` result, a decompiled
+file) can blow past any reasonable count-based limit anyway:
+- **Turn count**: at most the most recent 20 turns are ever considered.
+- **Per-message length**: any single historical turn over ~4,000
+  characters is truncated (with a clear marker noting how much was cut)
+  before being resent - without this, one huge message gets sent in full
+  on every subsequent chat call for as long as it stays in the window,
+  repeating that cost turn after turn.
+- **Total character budget**: history is walked newest-first and capped
+  at a combined ~12,000 characters (a rough token budget), so a chat
+  full of long messages naturally includes fewer old turns than one with
+  short messages, rather than a fixed count regardless of size.
+
+The budget walk moves in complete turn-pairs (a user message with its
+paired assistant reply), never splitting one - several providers
+(Anthropic in particular) reject a message array that starts or ends on
+the "wrong" role, so trimming mid-pair isn't just messier, it can break
+the request outright. The live message you're sending right now is never
+truncated by any of this - only *past* turns being resent as context are
+affected.
 
 ```bash
 curl -X POST http://localhost:8080/workspaces/<id>/chat \
@@ -298,7 +339,7 @@ src/
       workspace.service.ts        workspace CRUD (local storage or Supabase)
     mcp/
       orchestrator.ts             task dispatch + agent handler registry
-      agents/                     jadx, apktool, apkmcp, ai, filesystem, adb, frida
+      agents/                     jadx, apktool, apkid, apkmcp, ai, filesystem, adb, frida
     jobs/
       job-engine.ts                retryable wrapper around a single MCP task dispatch
     workflow/
@@ -312,6 +353,10 @@ src/
     supabase.client.ts            provider-layer abstraction over Supabase
     ai.provider.ts                provider-layer abstraction over the AI vendor
     local-storage.provider.ts     JSON-file storage, primary in local mode / fallback in supabase mode
+  mcp-server/
+    index.ts                       stdio MCP server frontend - JSON-RPC loop, tool dispatch
+    tools.ts                       the ~19 MCP tools exposed, table-driven
+    gateway-client.ts              thin HTTP client to an already-running Gateway
   plugins/
     types.ts                       PluginContext / HexForgePlugin contract
     loader.ts                      discovers + safely loads plugins/installed/*
@@ -325,6 +370,10 @@ src/
 scripts/
   hf.sh                            CLI wrapper for manual testing
   smoke-test.sh                    automated end-to-end test
+.github/workflows/
+  ci.yml                           typecheck + build + real smoke-test.sh run + MCP handshake check, on every push/PR
+LICENSE                            MIT
+CONTRIBUTING.md
 ```
 
 Routes call into `modules/*` services directly (simple, synchronous
@@ -466,9 +515,9 @@ Endpoints:
 ## MCP agents
 
 `src/modules/mcp/orchestrator.ts` registers a handler per agent kind.
-`jadx`, `apktool`, `apkmcp`, `filesystem`, `adb`, and `frida` all have
-real implementations - `frida` has the biggest asterisk on "real" (see
-below). Dispatching a task (`POST /workspaces/:id/tasks`) is
+`jadx`, `apktool`, `apkid`, `apkmcp`, `filesystem`, `adb`, and `frida` all
+have real implementations - `frida` has the biggest asterisk on "real"
+(see below). Dispatching a task (`POST /workspaces/:id/tasks`) is
 fire-and-forget: it returns immediately with `status: "queued"`, then
 moves to `running` then `completed`/`failed` as the handler runs - poll
 `GET /workspaces/:id/tasks` or watch `/ws` for the result, same as Jobs.
@@ -493,12 +542,20 @@ Operations: `list` (`dirPath`, `recursive?`, `limit?`), `read` (`filePath`,
 `encoding?: "utf8"|"base64"`), `write` (`filePath`, `content`, `encoding?`
 - sandboxed), `delete` (`filePath` - sandboxed), `stat` (`filePath`),
 `search` (`dirPath`, `pattern` - a regex, `caseSensitive?`, `extensions?`,
-`maxResults?`).
+`maxResults?`), `scan-secrets` (`dirPath`, `extensions?`, `maxResults?`) -
+same walk-and-match machinery as `search`, but against a curated built-in
+set of high-precision patterns (AWS/Google API keys, private key headers,
+Slack/GitHub tokens, JWTs) instead of a user-supplied one. Deliberately
+not exhaustive - favors patterns distinctive enough to keep false
+positives low over generic ones like `password=...` that would flood
+results with test fixtures. Not a replacement for a maintained
+secret-scanner (gitleaks, trufflehog) on anything that actually matters.
 
-`search`'s pattern is user-supplied and regex engines can be tricked into
+`search`'s pattern is user-supplied (and `scan-secrets`' built-in
+patterns are still regexes) and regex engines can be tricked into
 catastrophic backtracking (e.g. `(a+)+` against a non-matching input can
 hang effectively forever). Since a single synchronous `RegExp.test()`
-call can't be interrupted once started, `search` runs in a worker thread
+call can't be interrupted once started, both run in a worker thread
 (`filesystem.search.worker.ts`) with a 10s timeout - hitting it kills the
 worker and returns a clear timeout error instead of a hung request.
 
@@ -609,6 +666,29 @@ signed - this project doesn't wire up signing for the apktool path. Use
 manually with `apksigner`. Only rebuild and install apps you own or are
 authorized to modify.
 
+### apkid
+
+Requires `apkid` on `PATH` (`pip install apkid` - needs a yara-python
+build with DEX support first, see
+[APKiD's install docs](https://github.com/rednaga/APKiD#installation),
+plain `pip install yara-python` isn't enough). Wraps
+[APKiD](https://github.com/rednaga/APKiD), a real, actively-maintained
+YARA-rules-based fingerprinter for compilers, packers, obfuscators, and
+anti-debug/anti-VM tricks - deliberately not reimplemented as a weaker
+heuristic here, since APKiD's rules are maintained by people who actually
+track new packers.
+
+```bash
+curl -X POST http://localhost:8080/workspaces/<id>/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"agent": "apkid", "operation": "identify", "payload": {"apkPath": "/absolute/path/to/app.apk"}}'
+```
+
+Operation: `identify` (`apkPath`, `timeoutSeconds?` - per-file YARA scan
+timeout, default 30). Output is APKiD's own JSON passed through as-is,
+not reshaped into a HexForge-specific structure - that schema belongs to
+APKiD, not duplicated and drifted out of sync here.
+
 ### apkmcp
 
 A generic Model Context Protocol client with convenience operations
@@ -646,6 +726,100 @@ unsure of the relative path.
 `mt_apk_edit_*` and `mt_apk_build` (which can modify and re-sign an APK)
 aren't wrapped in a convenience operation - use `call_tool` directly, and
 only point them at apps you own or are authorized to modify.
+
+## MCP Server Frontend
+
+Everything above this point is HexForge speaking MCP as a *client* (to
+MT Manager's APK MCP service). `src/mcp-server/` is HexForge speaking MCP
+as a *server* - a stdio-based MCP server any MCP client (Claude Desktop,
+Claude Code, Cursor, etc.) can register directly, so its agents show up
+as native tools instead of only being reachable through the REST API or
+this repo's own CLI.
+
+This matters because most comparable projects in this space *are*
+MCP servers first - a client registers them and calls their tools
+directly. HexForge wasn't originally built that way: it's an HTTP Gateway
+with its own persistent Jobs/Workflows/Knowledge Engine, which none of
+those single-purpose MCP servers have. `src/mcp-server/` doesn't replace
+that - it's a thin adapter in front of it. Every tool call becomes a real
+HTTP request to an already-running Gateway (`src/mcp-server/gateway-client.ts`)
+and reuses all of its actual logic - retries via the Job Engine, workspace
+resolution, everything. This process doesn't start a Gateway itself; one
+needs to already be running.
+
+**Setup:**
+
+```bash
+npm run build   # compiles src/mcp-server/ to dist/mcp-server/ same as everything else
+```
+
+Then point your MCP client's config at it. For Claude Desktop
+(`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "hexforge": {
+      "command": "node",
+      "args": ["/absolute/path/to/hexforge-gateway/dist/mcp-server/index.js"],
+      "env": {
+        "HEXFORGE_URL": "http://localhost:8080"
+      }
+    }
+  }
+}
+```
+
+Add `HEXFORGE_API_KEY` to `env` too if the Gateway has `AUTH_ENABLED=true`.
+The Gateway (`npm run dev` or `npm start`) needs to already be running
+separately - this config only starts the thin MCP adapter, not the
+Gateway itself.
+
+**Tools exposed** (`src/mcp-server/tools.ts`) - a curated ~19, not a 1:1
+mirror of every agent operation, picked for what's useful to drive
+directly: `list_workspaces`, `get_or_create_workspace`,
+`list_knowledge`, `chat_with_workspace`, `decompile_apk`, `decode_apk`,
+`build_apk`, `identify_packer`, `scan_secrets`, `search_code`,
+`read_file`, `list_files`, `adb_devices`, `adb_shell`, `adb_install`,
+`adb_logcat`, `frida_list_processes`, `frida_trace`, `summarize_text`.
+Every workspace-scoped tool takes an optional `workspace` name argument
+(not an id) defaulting to `"default"`, resolved through the Gateway's
+get-or-create-by-name endpoint - the calling AI never needs to know or
+track a workspace id.
+
+**Implementation notes**, since a broken stdio MCP server tends to fail
+silently and confusingly rather than with a clear error:
+
+- **Only `writeMessage()` ever touches stdout.** MCP's stdio transport is
+  newline-delimited JSON-RPC - any stray `console.log`, a dependency that
+  logs to stdout, anything at all besides a framed protocol message,
+  corrupts the stream for the client reading it. Every log line in this
+  server goes to stderr via `log()`. Verified with a grep pass that
+  `console.log` doesn't appear anywhere in `src/mcp-server/`.
+- **Chunk-boundary buffering.** Node delivers stdin in arbitrary chunks
+  that don't line up with message boundaries - a single JSON-RPC message
+  can arrive split across two `data` events. The buffering logic
+  (accumulate, split on `\n`, keep the last incomplete line for next
+  time) was stress-tested against messages deliberately split mid-JSON
+  across chunk boundaries before trusting it.
+- **Tool errors vs protocol errors.** A tool that fails (bad path, jadx
+  not installed) returns a normal MCP result with `isError: true` inside
+  it - not a JSON-RPC-level error. That distinction is deliberate: a
+  JSON-RPC error means the *call itself* was malformed (a client bug);
+  `isError: true` means the tool ran and didn't work, which the model
+  needs to see to react to (try a different path, ask the user to
+  install something) rather than have swallowed as an opaque protocol failure.
+- **Every tool call blocks until its job settles** (or a 2-minute poll
+  timeout), rather than returning `"queued"` and making the caller check
+  back - MCP tool calls are expected to behave like a normal function
+  call that returns a real result, so the waiting happens inside
+  `gateway-client.ts`'s `runJob()`, not pushed onto whoever's driving the client.
+- **Tool results are compact JSON, not pretty-printed.** This text goes
+  straight into an AI model's context on every tool call, not a terminal
+  a human reads - the indentation/newlines a pretty-print adds are pure
+  token overhead here (measured ~33% fewer characters compact vs pretty
+  on a representative result). Worth remembering before "helpfully"
+  adding `null, 2` back for readability.
 
 ## Plugin System
 
@@ -867,11 +1041,15 @@ storage is the default backend in the first place.
 ## Roadmap
 
 Everything else in this README - Event Bus, Job/Workflow Engines,
-Knowledge Engine, all six MCP agents, Auth, six AI providers, Terminal
-chat, the Plugin System, local storage, the automated smoke test - is
+Knowledge Engine, all eight MCP agents, Auth, nine AI providers, Terminal
+chat, the MCP Server Frontend, the Plugin System, local storage, CI - is
 built and documented in its own section above. What's genuinely still open:
 
 - [ ] Scope `/ws` connections per-workspace (currently broadcasts everything to every connection)
 - [ ] Job/Workflow Supabase persistence (currently in-memory only regardless of `STORAGE_BACKEND` - see the note in `supabase.schema.sql`)
 - [ ] Web interface (once this exists, `STORAGE_BACKEND=supabase` becomes worth turning back on for shared state)
 - [ ] PC-side equivalent of MT Manager's APK MCP - a watched/drop folder for APKs instead of typing full paths every time
+- [ ] Streamable HTTP transport for the MCP Server Frontend (currently stdio only - fine for Claude Desktop/Code spawning it locally, not for a remote/networked MCP client)
+- [ ] Committed lockfile (`package-lock.json`) - CI uses `npm install` rather than `npm ci` because none exists yet, so builds aren't fully reproducible
+- [ ] Real unit/integration tests. CI now runs `scripts/smoke-test.sh` against a live instance on every push/PR, which is real coverage for the happy paths it exercises - but it's still one script asserting end-to-end outcomes, not a test suite covering edge cases, error paths, or anything that needs mocking (e.g. a provider API returning malformed JSON)
+- [ ] Local storage's per-collection design means `listEntriesForWorkspace` reads and parses the *entire* `knowledge_entries.json` (every type, every workspace) on every call, even when filtering to one workspace's chat history - fine at current scale, worth indexing or splitting per-workspace before it isn't

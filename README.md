@@ -1,4 +1,8 @@
 # HexForge Gateway
+[![CI](https://github.com/boy-offi9-inc/hexforge-gateway/actions/workflows/ci.yml/badge.svg)](https://github.com/boy-offi9-inc/hexforge-gateway/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](package.json)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.5-blue)](tsconfig.json)
 
 AI-assisted APK reverse-engineering workspace API. Manages workspaces,
 dispatches tasks to MCP agents (jadx, apktool, adb, frida, filesystem,

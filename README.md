@@ -6,10 +6,9 @@ MT Manager's APK MCP, AI providers), and streams updates over WebSocket.
 Runs entirely on-device (Termux + MT Manager on Android) or on a normal
 PC - no cloud dependency required.
 
-See `HexForge_Architecture_v2.md` for the original design doc this
-project follows (`Workspace -> Workflow -> Jobs -> Tasks -> MCP Agents`,
-modules communicating through an Event Bus) and `HexForge_Documentation.md`
-for earlier context.
+Follows a `Workspace -> Workflow -> Jobs -> Tasks -> MCP Agents` flow,
+with modules communicating through an Event Bus rather than direct calls
+- see `docs/ARCHITECTURE.md` for how the engines fit together.
 
 MIT licensed (`LICENSE`). Contributing: see `CONTRIBUTING.md` - the short
 version is `npm run typecheck && npm run build && ./scripts/smoke-test.sh`

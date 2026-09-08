@@ -1,8 +1,8 @@
 # Plugin System
 
-`src/plugins/` - per `HexForge_Architecture_v2.md`'s Plugin System
-("Allows official and community extensions without changing the core").
-A plugin is a folder under `plugins/installed/<name>/index.ts` that
+`src/plugins/` - the Plugin System that allows official and community
+extensions without changing the core. A plugin is a folder under
+`plugins/installed/<name>/index.ts` that
 default-exports a `HexForgePlugin`:
 
 ```ts

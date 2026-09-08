@@ -2,15 +2,14 @@
 
 The four engines that sit between the API routes and the MCP agents -
 how HexForge composes retries, multi-step workflows, and persistent
-knowledge on top of a single task dispatch, per
-`HexForge_Architecture_v2.md`'s `Workspace -> Workflow -> Jobs -> Tasks
--> MCP Agents` flow.
+knowledge on top of a single task dispatch, following a
+`Workspace -> Workflow -> Jobs -> Tasks -> MCP Agents` flow.
 
 ## Event Bus
 
-`src/events/event-bus.ts` is a typed, in-process pub/sub singleton, per
-`HexForge_Architecture_v2.md`'s "modules communicate through events
-rather than direct calls" principle. Every event and its payload shape is
+`src/events/event-bus.ts` is a typed, in-process pub/sub singleton -
+modules communicate through events rather than direct calls. Every event
+and its payload shape is
 defined in `src/events/types.ts` (`EventMap`) - add a new event by adding
 a line there, then `eventBus.emit(...)` / `eventBus.on(...)` anywhere
 with full type safety.
@@ -42,8 +41,8 @@ interface without touching any calling code.
 ## Job Engine
 
 `src/modules/jobs/job-engine.ts` wraps a single MCP task dispatch with
-retry logic - the "Jobs" layer from `HexForge_Architecture_v2.md`'s flow
-(`Workspace -> Workflow -> Jobs -> Tasks -> MCP Agents`). The Workflow
+retry logic - the "Jobs" layer in the
+`Workspace -> Workflow -> Jobs -> Tasks -> MCP Agents` flow. The Workflow
 Engine calls `jobEngine.submit()` the same way you can directly, just
 composing several Jobs together for a multi-step run.
 

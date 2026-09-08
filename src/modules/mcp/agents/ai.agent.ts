@@ -21,9 +21,9 @@ const SUMMARIZE_SYSTEM_PROMPT =
   "what's present in the content.";
 
 /**
- * The "ai" MCP agent - matches the Job Engine example list in
- * HexForge_Architecture_v2.md ("Extract manifest, Decompile, Index source,
- * Generate embeddings, AI summary"). Registering AI calls as a regular
+ * The "ai" MCP agent - matches the Job Engine's example step list
+ * ("extract manifest, decompile, index source, generate embeddings, AI
+ * summary"). Registering AI calls as a regular
  * agent (like jadx/apktool) means "AI summary" steps get retries,
  * `job.*`/`workflow.*` events, and WebSocket broadcasts for free - no
  * separate code path needed in the Job or Workflow Engine.

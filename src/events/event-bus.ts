@@ -2,8 +2,8 @@ import { EventEmitter } from "node:events";
 import type { EventMap, EventName } from "./types.js";
 
 /**
- * Central Event Bus, per HexForge_Architecture_v2.md: "Modules communicate
- * through events rather than direct calls." Every module imports this
+ * Central Event Bus: modules communicate through events rather than
+ * direct calls. Every module imports this
  * singleton instead of reaching into another module's internals - e.g.
  * the WebSocket gateway subscribes to "mcp.task.updated" instead of
  * holding a reference to the MCP orchestrator itself.

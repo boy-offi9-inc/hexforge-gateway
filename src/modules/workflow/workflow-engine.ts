@@ -7,8 +7,8 @@ import { jobEngine } from "../jobs/job-engine.js";
 /**
  * WorkflowEngine composes several Jobs into one named operation (e.g.
  * "Analyze APK": extract manifest -> decompile -> index source -> generate
- * embeddings -> AI summary), per HexForge_Architecture_v2.md's flow
- * (Workspace -> Workflow -> Jobs -> Tasks -> MCP Agents).
+ * embeddings -> AI summary), per the
+ * Workspace -> Workflow -> Jobs -> Tasks -> MCP Agents flow.
  *
  * Steps run strictly sequentially - the next step isn't dispatched until
  * the current one reaches a terminal Job state. Retries *within* a step

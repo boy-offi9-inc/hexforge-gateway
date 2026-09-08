@@ -41,8 +41,8 @@ const MAX_HISTORY_MESSAGE_CHARS = 4_000;
 /**
  * Generates an AI summary of an existing KnowledgeEntry and stores it as a
  * new "summary" entry, linked back to the original via `relatedEntryIds`.
- * This is Data Flow step 7 in HexForge_Architecture_v2.md ("AI generates
- * insights") - it sits on top of the Knowledge Engine rather than inside
+ * This is the "AI generates insights" step of the data flow - it sits on
+ * top of the Knowledge Engine rather than inside
  * it, the same way the Knowledge Indexer sits on top of the Workflow
  * Engine: this module reaches into knowledge.service directly (a normal
  * call, not an event) because summarization is a request-driven action a

@@ -46,8 +46,8 @@ export interface TaskDispatchRequest {
 
 // --- Job Engine types ----------------------------------------------------
 // A Job wraps a single MCP task dispatch with retry logic. Per
-// HexForge_Architecture_v2.md's flow (Workspace -> Workflow -> Jobs ->
-// Tasks -> MCP Agents), a Job is the retryable unit; the Workflow Engine
+// Per the Workspace -> Workflow -> Jobs -> Tasks -> MCP Agents flow,
+// a Job is the retryable unit; the Workflow Engine
 // composes several of these together, calling JobEngine.submit() the
 // same way a caller can directly for a single-step case.
 
@@ -79,10 +79,10 @@ export interface Job {
 
 // --- Workflow Engine types ------------------------------------------------
 // A Workflow composes several Jobs into one named operation (e.g. "Analyze
-// APK": extract manifest -> decompile -> index source -> ...), per
-// HexForge_Architecture_v2.md's Workspace -> Workflow -> Jobs -> Tasks ->
-// MCP Agents flow. It runs its steps sequentially, submitting one Job at a
-// time via JobEngine.submit() - retries within a step are already handled
+// APK": extract manifest -> decompile -> index source -> ...), per the
+// Workspace -> Workflow -> Jobs -> Tasks -> MCP Agents flow. It runs its
+// steps sequentially, submitting one Job at a time via JobEngine.submit()
+// - retries within a step are already handled
 // by the Job Engine, so the Workflow Engine only needs to react to each
 // step's terminal state and either advance or stop.
 
@@ -133,7 +133,7 @@ export interface Workflow {
 }
 
 // --- Knowledge Engine types -----------------------------------------------
-// Per HexForge_Architecture_v2.md, the Knowledge Engine stores chats,
+// The Knowledge Engine stores chats,
 // reports, notes, embeddings, relationships, and summaries, and is updated
 // as step 6 of the Data Flow ("Results are indexed... Knowledge Engine
 // updates memory"). A KnowledgeEntry is the one shape all of those collapse

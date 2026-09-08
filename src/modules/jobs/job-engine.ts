@@ -5,9 +5,9 @@ import type { EventMap } from "../../events/types.js";
 import { orchestrator } from "../mcp/orchestrator.js";
 
 /**
- * JobEngine wraps a single MCP task dispatch with retry logic. Per
- * HexForge_Architecture_v2.md's flow (Workspace -> Workflow -> Jobs ->
- * Tasks -> MCP Agents), a Job is the retryable unit; the Workflow Engine
+ * JobEngine wraps a single MCP task dispatch with retry logic. Per the
+ * Workspace -> Workflow -> Jobs -> Tasks -> MCP Agents flow, a Job is
+ * the retryable unit; the Workflow Engine
  * composes several Jobs together, calling jobEngine.submit() the same
  * way a route can directly for a single-step case.
  *

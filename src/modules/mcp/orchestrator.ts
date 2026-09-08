@@ -15,8 +15,8 @@ import { apkidHandler } from "./agents/apkid.agent.js";
  * their lifecycle. Agent handlers are pluggable - each one wraps a local tool
  * (APKTool, JADX, Frida, ADB, filesystem ops) and runs in the MCP runtime.
  *
- * Per HexForge_Architecture_v2.md, this no longer emits its own events
- * directly - it publishes to the shared Event Bus instead, so other
+ * This no longer emits its own events directly - it publishes to the
+ * shared Event Bus instead, so other
  * modules (WebSocket gateway, Job Engine, Knowledge Indexer) can
  * subscribe without holding a reference to the orchestrator.
  */

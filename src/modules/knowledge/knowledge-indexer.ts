@@ -3,8 +3,8 @@ import type { EventMap } from "../../events/types.js";
 import * as knowledgeService from "./knowledge.service.js";
 
 /**
- * KnowledgeIndexer implements steps 5-6 of HexForge_Architecture_v2.md's
- * Data Flow: "Results are indexed... Knowledge Engine updates memory."
+ * KnowledgeIndexer implements the "results are indexed, Knowledge Engine
+ * updates memory" step of the data flow.
  *
  * It never gets called directly - it subscribes to the Event Bus and
  * reacts to `workflow.completed` / `workflow.failed`, turning each

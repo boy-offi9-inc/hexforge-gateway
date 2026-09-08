@@ -1,8 +1,8 @@
 import { config, isAiConfigured } from "../core/config.js";
 
 /**
- * AI Provider Layer, per HexForge_Architecture_v2.md's Provider Layer:
- * "Abstracts Supabase, AI providers, Redis, and future integrations."
+ * AI Provider Layer: abstracts Supabase, AI providers, Redis, and future
+ * integrations behind a stable interface.
  *
  * Everything above this file (the "ai" MCP agent, Knowledge Engine
  * summarization) only ever calls `complete()`. Swapping AI_PROVIDER later

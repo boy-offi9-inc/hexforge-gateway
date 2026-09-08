@@ -3,9 +3,9 @@ import type { AgentHandler } from "../modules/mcp/orchestrator.js";
 import type { EventMap } from "../events/types.js";
 
 /**
- * The full API surface a plugin gets, per HexForge_Architecture_v2.md's
- * Plugin System ("Allows official and community extensions without
- * changing the core"). A plugin never imports the orchestrator, the Event
+ * The full API surface a plugin gets, per the Plugin System's goal of
+ * allowing official and community extensions without changing the core.
+ * A plugin never imports the orchestrator, the Event
  * Bus, or the Fastify app directly - it only gets what this context hands
  * it, so the core is free to change its internals as long as this shape
  * stays stable. This is the same reason modules talk through the Event

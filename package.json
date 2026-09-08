@@ -1,6 +1,6 @@
 {
   "name": "hexforge-gateway",
-  "version": "0.1.0",
+  "version": "1.2.9",
   "description": "HexForge Gateway - core API layer for the HexForge reverse engineering workspace",
   "license": "MIT",
   "main": "dist/index.js",

@@ -212,7 +212,7 @@ function main() {
       try {
         parsed = JSON.parse(trimmed);
       } catch (err) {
-        log("failed to parse incoming line as JSON:", trimmed.slice(0, 200));
+        log("failed to parse incoming line as JSON:", err instanceof Error ? err.message : String(err), "-", trimmed.slice(0, 200));
         continue;
       }
       void handleRequest(parsed);

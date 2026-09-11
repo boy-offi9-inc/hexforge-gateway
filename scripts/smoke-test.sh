@@ -19,6 +19,18 @@
 
 set -uo pipefail  # NOT -e - a failed check should be recorded and continue, not abort the whole run
 
+# Same default as WORKSPACES_ROOT in src/core/config.ts. Only used below to
+# build an absolute path *inside* a workspace's own directory for the
+# filesystem write test - the write/delete handlers refuse anything outside
+# it (see filesystem.agent.ts), so a bare relative filename resolves against
+# the server's cwd instead and gets correctly rejected.
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+WORKSPACES_ROOT="${WORKSPACES_ROOT:-./workspaces}"
+case "$WORKSPACES_ROOT" in
+  /*) WORKSPACES_ROOT_ABS="$WORKSPACES_ROOT" ;;
+  *) WORKSPACES_ROOT_ABS="$REPO_ROOT/${WORKSPACES_ROOT#./}" ;;
+esac
+
 HEXFORGE_URL="${HEXFORGE_URL:-http://localhost:8080}"
 AUTH_ARGS=()
 if [ -n "${HEXFORGE_API_KEY:-}" ]; then
@@ -110,7 +122,7 @@ poll_task() {
 
 section "Filesystem agent (list/write/read/search/delete - no external tools needed)"
 
-TEST_FILE="smoke-test.txt"
+TEST_FILE="${WORKSPACES_ROOT_ABS}/${WORKSPACE_ID}/smoke-test.txt"
 TEST_CONTENT="android.permission.CALL_PHONE smoke-test-marker-$(date +%s)"
 
 write_task_id=$(req POST "/workspaces/${WORKSPACE_ID}/tasks" \

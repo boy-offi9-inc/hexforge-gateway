@@ -21,7 +21,7 @@ interface ExtractPayload {
 }
 
 async function extractHandler(task: McpTask): Promise<unknown> {
-  const payload = task.payload as ExtractPayload;
+  const payload = task.payload as unknown as ExtractPayload;
   if (!payload.filePath) {
     throw new Error('extract requires "filePath" in the task payload');
   }

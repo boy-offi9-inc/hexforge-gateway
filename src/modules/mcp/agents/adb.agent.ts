@@ -89,7 +89,7 @@ async function packagesHandler(task: McpTask): Promise<unknown> {
 }
 
 async function installHandler(task: McpTask): Promise<unknown> {
-  const payload = task.payload as InstallPayload;
+  const payload = task.payload as unknown as InstallPayload;
   if (!payload.apkPath) throw new Error('install requires "apkPath" in the task payload');
 
   const apkPath = path.resolve(payload.apkPath);
@@ -104,7 +104,7 @@ async function installHandler(task: McpTask): Promise<unknown> {
 }
 
 async function uninstallHandler(task: McpTask): Promise<unknown> {
-  const payload = task.payload as UninstallPayload;
+  const payload = task.payload as unknown as UninstallPayload;
   if (!payload.packageName) throw new Error('uninstall requires "packageName" in the task payload');
 
   const args = [...deviceArgs(payload), "uninstall"];
@@ -120,7 +120,7 @@ async function uninstallHandler(task: McpTask): Promise<unknown> {
 }
 
 async function shellHandler(task: McpTask): Promise<unknown> {
-  const payload = task.payload as ShellPayload;
+  const payload = task.payload as unknown as ShellPayload;
   if (!payload.command) throw new Error('shell requires "command" in the task payload');
 
   const args = [...deviceArgs(payload), "shell", payload.command];
@@ -145,7 +145,7 @@ async function logcatHandler(task: McpTask): Promise<unknown> {
 }
 
 async function pullHandler(task: McpTask): Promise<unknown> {
-  const payload = task.payload as PullPayload;
+  const payload = task.payload as unknown as PullPayload;
   if (!payload.remotePath) throw new Error('pull requires "remotePath" in the task payload');
 
   const fileName = payload.fileName?.trim() || path.basename(payload.remotePath);
@@ -168,7 +168,7 @@ async function pullHandler(task: McpTask): Promise<unknown> {
 }
 
 async function pushHandler(task: McpTask): Promise<unknown> {
-  const payload = task.payload as PushPayload;
+  const payload = task.payload as unknown as PushPayload;
   if (!payload.localPath) throw new Error('push requires "localPath" in the task payload');
   if (!payload.remotePath) throw new Error('push requires "remotePath" in the task payload');
 

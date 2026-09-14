@@ -1,5 +1,21 @@
 # HexForge Gateway
 
+<p align="center">
+  <img src="https://i.ibb.co/LD4QQ068/file-000000000c2881f499f01543e6d22f8c.png" alt="HexForge Gateway" width="360">
+</p>
+
+<p align="center">
+  <a href="https://github.com/boy-offi9-inc/hexforge-gateway/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/boy-offi9-inc/hexforge-gateway/ci.yml?branch=main&style=for-the-badge&label=CI&logo=githubactions&logoColor=white&color=0EA5E9" alt="CI status"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-7B2FF7?style=for-the-badge&logo=opensourceinitiative&logoColor=white" alt="MIT License"></a>
+  <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D20-339933?style=for-the-badge&logo=nodedotjs&logoColor=white" alt="Node >= 20"></a>
+  <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-5.5-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript"></a>
+  <a href="https://fastify.dev"><img src="https://img.shields.io/badge/Fastify-5-000000?style=for-the-badge&logo=fastify&logoColor=white" alt="Fastify"></a>
+  <br>
+  <a href="docs/SETUP.md"><img src="https://img.shields.io/badge/runs%20on-Termux%20%7C%20PC-0EA5E9?style=for-the-badge&logo=termux&logoColor=white" alt="Runs on Termux or PC"></a>
+  <img src="https://img.shields.io/badge/cloud-optional-7B2FF7?style=for-the-badge&logo=icloud&logoColor=white" alt="Cloud optional">
+  <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-FF4785?style=for-the-badge&logo=github&logoColor=white" alt="PRs welcome"></a>
+</p>
+
 AI-assisted APK reverse-engineering workspace API. Manages workspaces,
 dispatches tasks to MCP agents (jadx, apktool, adb, frida, filesystem,
 MT Manager's APK MCP, AI providers), and streams updates over WebSocket.

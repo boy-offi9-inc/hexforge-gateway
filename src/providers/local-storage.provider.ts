@@ -57,15 +57,34 @@ function collectionPath(name: string): string {
   return path.join(DATA_DIR, `${name}.json`);
 }
 
+// Collections are read far more often than they're written (every
+// getRecord/listRecords/findRecord call used to re-read the file from disk
+// and JSON.parse the whole thing, even for a single-record lookup). Cache
+// the parsed collection in memory after the first read; writeCollection
+// keeps it in sync. Safe because every caller treats records as immutable
+// (they spread into a new object on update rather than mutating the one
+// they got back) - see workspace.service.ts / knowledge.service.ts.
+const collectionCache = new Map<string, Record<string, unknown>>();
+
 async function readCollection<T>(name: string): Promise<Record<string, T>> {
+  const cached = collectionCache.get(name);
+  if (cached) return cached as Record<string, T>;
+
   await ensureDataDir();
+  let data: Record<string, T>;
   try {
     const raw = await readFile(collectionPath(name), "utf-8");
-    return JSON.parse(raw) as Record<string, T>;
+    data = JSON.parse(raw) as Record<string, T>;
   } catch (err) {
-    if ((err as NodeJS.ErrnoException)?.code === "ENOENT") return {};
-    throw err;
+    if ((err as NodeJS.ErrnoException)?.code === "ENOENT") {
+      data = {};
+    } else {
+      throw err;
+    }
   }
+
+  collectionCache.set(name, data);
+  return data;
 }
 
 async function writeCollection<T>(name: string, data: Record<string, T>): Promise<void> {
@@ -74,6 +93,7 @@ async function writeCollection<T>(name: string, data: Record<string, T>): Promis
   const tmpPath = `${finalPath}.tmp`;
   await writeFile(tmpPath, JSON.stringify(data, null, 2), "utf-8");
   await rename(tmpPath, finalPath);
+  collectionCache.set(name, data);
 }
 
 export async function getRecord<T>(collection: string, id: string): Promise<T | null> {

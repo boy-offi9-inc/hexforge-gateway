@@ -71,7 +71,7 @@ function assertWithinWorkspace(filePath: string, workspaceId: string): string {
 }
 
 async function listHandler(task: McpTask): Promise<unknown> {
-  const payload = task.payload as ListPayload;
+  const payload = task.payload as unknown as ListPayload;
   if (!payload.dirPath) throw new Error('list requires "dirPath" in the task payload');
 
   const dirPath = path.resolve(payload.dirPath);
@@ -109,7 +109,7 @@ async function listHandler(task: McpTask): Promise<unknown> {
 }
 
 async function readHandler(task: McpTask): Promise<unknown> {
-  const payload = task.payload as ReadPayload;
+  const payload = task.payload as unknown as ReadPayload;
   if (!payload.filePath) throw new Error('read requires "filePath" in the task payload');
 
   const filePath = path.resolve(payload.filePath);
@@ -133,7 +133,7 @@ async function readHandler(task: McpTask): Promise<unknown> {
 }
 
 async function writeHandler(task: McpTask): Promise<unknown> {
-  const payload = task.payload as WritePayload;
+  const payload = task.payload as unknown as WritePayload;
   if (!payload.filePath) throw new Error('write requires "filePath" in the task payload');
   if (payload.content === undefined) throw new Error('write requires "content" in the task payload');
 
@@ -148,7 +148,7 @@ async function writeHandler(task: McpTask): Promise<unknown> {
 }
 
 async function deleteHandler(task: McpTask): Promise<unknown> {
-  const payload = task.payload as DeletePayload;
+  const payload = task.payload as unknown as DeletePayload;
   if (!payload.filePath) throw new Error('delete requires "filePath" in the task payload');
 
   const filePath = assertWithinWorkspace(payload.filePath, task.workspaceId);
@@ -159,7 +159,7 @@ async function deleteHandler(task: McpTask): Promise<unknown> {
 }
 
 async function statHandler(task: McpTask): Promise<unknown> {
-  const payload = task.payload as StatPayload;
+  const payload = task.payload as unknown as StatPayload;
   if (!payload.filePath) throw new Error('stat requires "filePath" in the task payload');
 
   const filePath = path.resolve(payload.filePath);
@@ -226,7 +226,7 @@ function runSearchWorker(data: {
 }
 
 async function searchHandler(task: McpTask): Promise<unknown> {
-  const payload = task.payload as SearchPayload;
+  const payload = task.payload as unknown as SearchPayload;
   if (!payload.dirPath) throw new Error('search requires "dirPath" in the task payload');
   if (!payload.pattern) throw new Error('search requires "pattern" in the task payload');
 
@@ -279,7 +279,7 @@ interface ScanSecretsPayload {
 }
 
 async function scanSecretsHandler(task: McpTask): Promise<unknown> {
-  const payload = task.payload as ScanSecretsPayload;
+  const payload = task.payload as unknown as ScanSecretsPayload;
   if (!payload.dirPath) throw new Error('scan-secrets requires "dirPath" in the task payload');
 
   const dirPath = path.resolve(payload.dirPath);

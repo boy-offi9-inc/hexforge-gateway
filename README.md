@@ -164,10 +164,10 @@ Frontend, the Plugin System, local storage, CI - is built and documented
 in `docs/` (see the table above). What's genuinely still open:
 
 - [ ] Scope `/ws` connections per-workspace (currently broadcasts everything to every connection)
-- [ ] Job/Workflow Supabase persistence (currently in-memory only regardless of `STORAGE_BACKEND` - see the note in `supabase.schema.sql`)
+- [x] Job/Workflow Supabase persistence (write-through to `jobs`/`workflows` tables with local-storage fallback, mirroring `knowledge.service.ts`; a job/workflow left `running`/`queued` from before a restart is marked `failed` on hydrate rather than resumed, since the underlying McpTask was never persisted)
 - [ ] Web interface (once this exists, `STORAGE_BACKEND=supabase` becomes worth turning back on for shared state)
 - [ ] PC-side equivalent of MT Manager's APK MCP - a watched/drop folder for APKs instead of typing full paths every time
 - [ ] Streamable HTTP transport for the MCP Server Frontend (currently stdio only - fine for Claude Desktop/Code spawning it locally, not for a remote/networked MCP client)
-- [ ] Committed lockfile (`package-lock.json`) - CI uses `npm install` rather than `npm ci` because none exists yet, so builds aren't fully reproducible
+- [x] Committed lockfile (`package-lock.json`) - CI now uses `npm ci` against a committed lockfile for reproducible builds
 - [ ] Real unit/integration tests. CI now runs `scripts/smoke-test.sh` against a live instance on every push/PR, which is real coverage for the happy paths it exercises - but it's still one script asserting end-to-end outcomes, not a test suite covering edge cases, error paths, or anything that needs mocking (e.g. a provider API returning malformed JSON)
 - [x] Local storage's per-collection design means `listEntriesForWorkspace` reads and parses the *entire* `knowledge_entries.json` (every type, every workspace) on every call, even when filtering to one workspace's chat history - fine at current scale, worth indexing or splitting per-workspace before it isn't

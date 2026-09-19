@@ -1,6 +1,8 @@
 import { buildServer } from "./core/server.js";
 import { config, isAuthEffectivelyEnabled } from "./core/config.js";
 import * as workspaceService from "./modules/workspace/workspace.service.js";
+import { jobEngine } from "./modules/jobs/job-engine.js";
+import { workflowEngine } from "./modules/workflow/workflow-engine.js";
 
 async function printStartupBanner(baseUrl: string) {
   // Best-effort - a Supabase hiccup here should never stop the Gateway
@@ -43,6 +45,16 @@ async function printStartupBanner(baseUrl: string) {
 
 async function main() {
   const app = await buildServer();
+
+  // Reload Job/Workflow history before accepting traffic. Anything left
+  // "running"/"queued" from before this restart gets marked "failed" -
+  // there's no in-flight McpTask to resume against.
+  try {
+    await jobEngine.hydrate();
+    await workflowEngine.hydrate();
+  } catch (err) {
+    app.log.warn({ err }, "Failed to hydrate Job/Workflow history from storage - starting with empty state");
+  }
 
   try {
     await app.listen({ port: config.PORT, host: config.HOST });

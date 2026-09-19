@@ -3,6 +3,15 @@ import type { Workflow, WorkflowSpec, WorkflowStepState } from "../../core/types
 import { eventBus } from "../../events/event-bus.js";
 import type { EventMap } from "../../events/types.js";
 import { jobEngine } from "../jobs/job-engine.js";
+import * as workflowService from "./workflow.service.js";
+
+function persist(workflow: Workflow) {
+  // Fire and forget, mirroring job-engine.ts's persist() - a failed write
+  // shouldn't stall or crash the live workflow.
+  void workflowService.persistWorkflow(workflow).catch((err) => {
+    console.warn(`[workflow-engine] failed to persist workflow ${workflow.id}:`, err);
+  });
+}
 
 /**
  * WorkflowEngine composes several Jobs into one named operation (e.g.
@@ -21,6 +30,31 @@ class WorkflowEngine {
 
   getWorkflow(id: string): Workflow | undefined {
     return this.workflows.get(id);
+  }
+
+  /**
+   * Repopulates the in-memory Map from persisted storage. Call once at
+   * boot, before the server starts accepting requests. A workflow left
+   * "running" or "queued" from before the restart has no live Job behind
+   * it (JobEngine.hydrate() already fails any of those), so it's marked
+   * "failed" rather than left looking like it's still advancing.
+   */
+  async hydrate(): Promise<void> {
+    const workflows = await workflowService.listAllWorkflows();
+    for (const workflow of workflows) {
+      if (workflow.status === "running" || workflow.status === "queued") {
+        const corrected: Workflow = {
+          ...workflow,
+          status: "failed",
+          error: "Interrupted by a Gateway restart before this workflow finished; not resumed.",
+          updatedAt: new Date().toISOString(),
+        };
+        this.workflows.set(workflow.id, corrected);
+        persist(corrected);
+      } else {
+        this.workflows.set(workflow.id, workflow);
+      }
+    }
   }
 
   listWorkflowsForWorkspace(workspaceId: string): Workflow[] {
@@ -53,6 +87,7 @@ class WorkflowEngine {
       updatedAt: now,
     };
     this.workflows.set(workflow.id, workflow);
+    persist(workflow);
     eventBus.emit("workflow.created", { workflow });
     eventBus.emit("workflow.updated", { workflow });
 
@@ -68,6 +103,7 @@ class WorkflowEngine {
     if (!existing) return undefined;
     const updated = { ...existing, ...patch, updatedAt: new Date().toISOString() };
     this.workflows.set(id, updated);
+    persist(updated);
 
     eventBus.emit("workflow.updated", { workflow: updated });
     if (updated.status === "completed") eventBus.emit("workflow.completed", { workflow: updated });

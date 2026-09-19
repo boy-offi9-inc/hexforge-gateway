@@ -3,6 +3,18 @@ import type { Job, JobSpec } from "../../core/types.js";
 import { eventBus } from "../../events/event-bus.js";
 import type { EventMap } from "../../events/types.js";
 import { orchestrator } from "../mcp/orchestrator.js";
+import * as jobService from "./job.service.js";
+
+function persist(job: Job) {
+  // Fire and forget, same pattern as runAttempt() below - a failed write
+  // shouldn't stall or crash the live job, it just means this snapshot
+  // won't survive a restart. jobService already falls back to local
+  // storage internally, so this only rejects on a genuinely unexpected
+  // error (e.g. disk full).
+  void jobService.persistJob(job).catch((err) => {
+    console.warn(`[job-engine] failed to persist job ${job.id}:`, err);
+  });
+}
 
 /**
  * JobEngine wraps a single MCP task dispatch with retry logic. Per the
@@ -24,6 +36,32 @@ class JobEngine {
     return this.jobs.get(id);
   }
 
+  /**
+   * Repopulates the in-memory Map from persisted storage. Call once at
+   * boot, before the server starts accepting requests. Any job left
+   * "running" or "queued" from before the restart has no live McpTask
+   * behind it (Tasks aren't persisted), so there's nothing to resume -
+   * it's marked "failed" instead of silently pretending to still be in
+   * flight forever.
+   */
+  async hydrate(): Promise<void> {
+    const jobs = await jobService.listAllJobs();
+    for (const job of jobs) {
+      if (job.status === "running" || job.status === "queued") {
+        const corrected: Job = {
+          ...job,
+          status: "failed",
+          error: "Interrupted by a Gateway restart before this job finished; not resumed.",
+          updatedAt: new Date().toISOString(),
+        };
+        this.jobs.set(job.id, corrected);
+        persist(corrected);
+      } else {
+        this.jobs.set(job.id, job);
+      }
+    }
+  }
+
   listJobsForWorkspace(workspaceId: string): Job[] {
     return Array.from(this.jobs.values()).filter((j) => j.workspaceId === workspaceId);
   }
@@ -43,6 +81,7 @@ class JobEngine {
       updatedAt: now,
     };
     this.jobs.set(job.id, job);
+    persist(job);
     eventBus.emit("job.created", { job });
     eventBus.emit("job.updated", { job });
 
@@ -58,6 +97,7 @@ class JobEngine {
     if (!existing) return undefined;
     const updated = { ...existing, ...patch, updatedAt: new Date().toISOString() };
     this.jobs.set(id, updated);
+    persist(updated);
 
     eventBus.emit("job.updated", { job: updated });
     if (updated.status === "completed") eventBus.emit("job.completed", { job: updated });

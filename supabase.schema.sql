@@ -49,9 +49,40 @@ create table if not exists knowledge_entries (
 create index if not exists knowledge_entries_workspace_id_idx on knowledge_entries("workspaceId");
 create index if not exists knowledge_entries_type_idx on knowledge_entries(type);
 
--- Note: Jobs and Workflows (see modules/jobs, modules/workflow) are
--- currently in-memory only regardless of Supabase config - they don't
--- have a Supabase-backed table yet, so job/workflow state still resets on
--- restart even with SUPABASE_URL set. Add job/workflow tables here (and a
--- Supabase branch in job-engine.ts / workflow-engine.ts, mirroring
--- knowledge.service.ts) if you need that history to survive restarts.
+create table if not exists jobs (
+  id text primary key,
+  "workspaceId" text not null references workspaces(id) on delete cascade,
+  agent text not null,
+  operation text not null,
+  payload jsonb not null default '{}',
+  status text not null default 'queued',
+  attempts integer not null default 0,
+  "maxAttempts" integer not null default 1,
+  "currentTaskId" text,
+  result jsonb,
+  error text,
+  "createdAt" timestamptz not null default now(),
+  "updatedAt" timestamptz not null default now()
+);
+
+create index if not exists jobs_workspace_id_idx on jobs("workspaceId");
+
+create table if not exists workflows (
+  id text primary key,
+  "workspaceId" text not null references workspaces(id) on delete cascade,
+  name text not null,
+  status text not null default 'queued',
+  "currentStepIndex" integer not null default 0,
+  steps jsonb not null default '[]',
+  error text,
+  "createdAt" timestamptz not null default now(),
+  "updatedAt" timestamptz not null default now()
+);
+
+create index if not exists workflows_workspace_id_idx on workflows("workspaceId");
+
+-- Note: the underlying McpTasks that back each Job attempt are still
+-- in-memory only (see modules/mcp/orchestrator.ts) - only the Job/Workflow
+-- snapshots above persist. A Job left "running"/"queued" when the process
+-- restarts has no Task to resume, so JobEngine.hydrate() / WorkflowEngine
+-- .hydrate() mark those "failed" rather than resuming them.

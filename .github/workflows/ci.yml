@@ -13,10 +13,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      # No committed lockfile yet (see README/Roadmap) - `npm install`
-      # rather than `npm ci`, which requires one. Builds aren't fully
-      # reproducible until that's fixed.
-      - run: npm install
+      - run: npm ci
       - run: npm run typecheck
       - run: npm run build
       - name: Upload dist for the smoke-test job
@@ -33,7 +30,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      - run: npm install --omit=dev
+      - run: npm ci --omit=dev
       - uses: actions/download-artifact@v4
         with:
           name: dist

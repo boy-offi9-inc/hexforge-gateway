@@ -57,7 +57,7 @@ async function listFilesCapped(dir: string, limit = 200): Promise<string[]> {
 }
 
 async function decodeHandler(task: McpTask): Promise<unknown> {
-  const payload = task.payload as DecodePayload;
+  const payload = task.payload as unknown as DecodePayload;
   if (!payload.apkPath) {
     throw new Error('decode requires "apkPath" in the task payload');
   }
@@ -90,7 +90,7 @@ async function decodeHandler(task: McpTask): Promise<unknown> {
 }
 
 async function buildHandler(task: McpTask): Promise<unknown> {
-  const payload = task.payload as BuildPayload;
+  const payload = task.payload as unknown as BuildPayload;
   if (!payload.inputDir) {
     throw new Error('build requires "inputDir" (a decoded apktool project directory) in the task payload');
   }

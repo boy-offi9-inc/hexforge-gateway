@@ -112,7 +112,7 @@ async function listProcessesHandler(task: McpTask): Promise<unknown> {
 }
 
 async function pushServerHandler(task: McpTask): Promise<unknown> {
-  const payload = task.payload as PushServerPayload;
+  const payload = task.payload as unknown as PushServerPayload;
   if (!payload.localServerPath) throw new Error('push-server requires "localServerPath" in the task payload');
 
   const localPath = path.resolve(payload.localServerPath);
@@ -156,7 +156,7 @@ async function stopServerHandler(task: McpTask): Promise<unknown> {
 }
 
 async function traceHandler(task: McpTask): Promise<unknown> {
-  const payload = task.payload as TracePayload;
+  const payload = task.payload as unknown as TracePayload;
   if (!payload.target) throw new Error('trace requires "target" in the task payload');
   if (!payload.script) throw new Error('trace requires "script" (raw Frida JS) in the task payload');
 

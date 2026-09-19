@@ -30,7 +30,7 @@ interface IdentifyPayload {
 const DEFAULT_TIMEOUT_SECONDS = 30;
 
 async function identifyHandler(task: McpTask): Promise<unknown> {
-  const payload = task.payload as IdentifyPayload;
+  const payload = task.payload as unknown as IdentifyPayload;
   if (!payload.apkPath) throw new Error('identify requires "apkPath" in the task payload');
 
   const apkPath = path.resolve(payload.apkPath);

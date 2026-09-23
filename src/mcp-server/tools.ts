@@ -35,12 +35,13 @@ const workspaceProp = {
 export const AGENT_TOOLS: AgentToolSpec[] = [
   {
     name: "decompile_apk",
-    description: "Decompile an APK to readable Java-like source with jadx. Requires jadx on PATH.",
+    description:
+      "Decompile an APK to readable Java-like source with jadx, for reading and searching - unlike decode_apk, the output is read-only and cannot be rebuilt into an APK. Output lands under the workspace's jadx output directory. Requires jadx on PATH.",
     agent: "jadx",
     operation: "decompile",
     inputSchema: {
       type: "object",
-      properties: { workspace: workspaceProp, apkPath: { type: "string", description: "Absolute path to the .apk file" } },
+      properties: { workspace: workspaceProp, apkPath: { type: "string", description: "Absolute path to the .apk file to decompile" } },
       required: ["apkPath"],
     },
   },
@@ -130,14 +131,15 @@ export const AGENT_TOOLS: AgentToolSpec[] = [
   },
   {
     name: "read_file",
-    description: "Read a file's contents.",
+    description:
+      "Read a single file's contents by absolute path - e.g. a decompiled source file from decompile_apk's output, or a manifest from decode_apk's. Fails if the path is a directory (use list_files first) or doesn't exist.",
     agent: "filesystem",
     operation: "read",
     inputSchema: {
       type: "object",
       properties: {
         workspace: workspaceProp,
-        filePath: { type: "string" },
+        filePath: { type: "string", description: "Absolute path to the file to read" },
         encoding: { type: "string", enum: ["utf8", "base64"], description: "Default utf8; use base64 for binary files." },
       },
       required: ["filePath"],
@@ -145,15 +147,16 @@ export const AGENT_TOOLS: AgentToolSpec[] = [
   },
   {
     name: "list_files",
-    description: "List a directory's contents.",
+    description:
+      "List a directory's immediate contents (or every file beneath it, with recursive) - e.g. to see what decompile_apk or decode_apk produced before reading individual files.",
     agent: "filesystem",
     operation: "list",
     inputSchema: {
       type: "object",
       properties: {
         workspace: workspaceProp,
-        dirPath: { type: "string" },
-        recursive: { type: "boolean" },
+        dirPath: { type: "string", description: "Absolute path to the directory to list" },
+        recursive: { type: "boolean", description: "List every file under dirPath, not just its immediate children. Default false." },
         limit: { type: "number", description: "Default/max 500 entries" },
       },
       required: ["dirPath"],

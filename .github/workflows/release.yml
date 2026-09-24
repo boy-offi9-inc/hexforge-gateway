@@ -1,11 +1,23 @@
 name: Release
 
-# Releases only when package.json's version is bumped to one that has no tag yet.
-# Bumping the version (and merging it to main) is the approval; nothing else ships.
+# Hybrid: releases automatically when package.json's version is bumped to one
+# with no tag yet, and can also be run by hand from the Actions tab
+# (Run workflow) - to retry after a failed run, or with dry_run to preview
+# the notes. Either way it only ever releases an untagged version from main.
 on:
   push:
     branches: [main]
     paths: [package.json]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Preview the release notes without tagging or publishing"
+        type: boolean
+        default: false
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -45,11 +57,12 @@ jobs:
 
   ci:
     needs: detect
-    if: needs.detect.outputs.is_new == 'true'
+    if: needs.detect.outputs.is_new == 'true' && github.ref == 'refs/heads/main'
     uses: ./.github/workflows/ci.yml
 
   release:
     needs: [detect, ci]
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -59,6 +72,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.detect.outputs.version }}
+          DRY_RUN: ${{ inputs.dry_run }}
         run: |
           PREV=$(git describe --tags --abbrev=0 2>/dev/null || true)
           RANGE=${PREV:+$PREV..HEAD}
@@ -73,6 +87,16 @@ jobs:
               echo "**Full changelog:** https://github.com/${GITHUB_REPOSITORY}/compare/${PREV}...v${VERSION}"
             fi
           } > notes.md
+
+          if [ "$DRY_RUN" = "true" ]; then
+            {
+              echo "### Dry run: v$VERSION (nothing tagged or published)"
+              echo
+              cat notes.md
+            } >> "$GITHUB_STEP_SUMMARY"
+            cat notes.md
+            exit 0
+          fi
 
           case "$VERSION" in
             *-*) KIND="--prerelease" ;;

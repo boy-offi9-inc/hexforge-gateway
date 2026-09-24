@@ -60,7 +60,7 @@ docs/
   images/                          screenshots used by MT_MANAGER.md
 .github/workflows/
   ci.yml                           typecheck + build + real smoke-test.sh run + MCP handshake check, on every push/PR
-  release.yml                      tags + publishes a GitHub Release when package.json's version is bumped
+  release.yml                      tags + publishes a GitHub Release on a package.json version bump, or on manual run
 .github/ISSUE_TEMPLATE/
   bug-report.md                    bug / integration issue template
 LICENSE                            MIT

@@ -2,10 +2,10 @@
 
 ## Before you start
 
-Read the README, specifically: [Getting started](README.md#getting-started),
-[Project layout](README.md#project-layout), and whichever feature area
-you're touching - each engine/agent/provider has its own section with the
-design rationale, not just usage docs.
+Read the README's [Getting started](README.md#getting-started), the
+[project structure](docs/PROJECT_STRUCTURE.md), and the `docs/` page for
+whichever feature area you're touching - each engine/agent/provider has
+its own page with the design rationale, not just usage docs.
 
 ## Setup
 
@@ -36,12 +36,12 @@ with a minimal local setup.
 ## The two most common ways to extend this
 
 **Adding a new tool integration (a new MCP agent):** see
-[MCP agents](README.md#mcp-agents) for the pattern every existing one
+[`docs/AGENTS.md`](docs/AGENTS.md) for the pattern every existing one
 follows (`execFileAsync` + `friendlyExecError` from
 `modules/mcp/agents/shared/exec-error.ts` for anything that shells out to
 a CLI tool), then register it in `modules/mcp/orchestrator.ts`. If it's
 something you don't want in core (a niche tool, something with unusual
-dependencies), the [Plugin System](README.md#plugin-system) is very
+dependencies), the [Plugin System](docs/PLUGINS.md) is very
 likely the better fit - `plugins/installed/example-strings/` is a
 complete, working template.
 
@@ -57,7 +57,7 @@ double-checking rather than assuming from memory.
 
 ## Code style
 
-No linter/formatter configured yet (see Roadmap) - match the existing
+No linter/formatter is configured yet - match the existing
 style in whichever file you're editing. Comments should explain *why*,
 not restate *what* the code already says - and if you're changing
 behavior a comment describes, update or remove that comment in the same

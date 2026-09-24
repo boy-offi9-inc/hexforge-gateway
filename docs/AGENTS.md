@@ -178,8 +178,8 @@ APKiD, not duplicated and drifted out of sync here.
 ### apkmcp
 
 A generic Model Context Protocol client with convenience operations
-built for MT Manager's built-in "APK MCP" service (Android only - see
-`docs/SETUP.md` and `MT_MANAGER_MCP_SETUP.md` for setup). Default target
+built for MT Manager's built-in "APK MCP" service (Android only - setup
+in [`MT_MANAGER.md`](MT_MANAGER.md)). Default target
 `http://127.0.0.1:8787/mcp`; override with `baseUrl` in the payload.
 
 | operation | payload fields | maps to |

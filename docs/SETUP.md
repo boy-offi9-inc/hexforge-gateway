@@ -126,9 +126,11 @@ Worth knowing either way:
   per collection so two requests racing on the same collection can't
   silently drop one's write) but that doesn't extend across multiple
   processes sharing one `DATA_DIR`, which isn't a supported setup.
-- **Jobs and Workflows are still in-memory only**, regardless of
-  `STORAGE_BACKEND` - no local-storage or Supabase branch yet for those
-  (see the note in `supabase.schema.sql`).
+- **Jobs and Workflows persist like everything else** (local files, or
+  Supabase write-through with local fallback), but the McpTasks behind
+  each Job attempt are in-memory only. A job or workflow still
+  `running`/`queued` when the Gateway restarts is marked `failed` on
+  startup rather than resumed.
 
 Falling back is logged (`[workspace.service] Supabase ... failed,
 falling back to local storage: ...`), so it's visible rather than silent.
@@ -186,26 +188,13 @@ put the executables on `PATH` (e.g. symlink into `$PREFIX/bin`). Confirm
 both work standalone (`jadx --version`, `apktool --version`) before
 pointing the Gateway at them.
 
-**3. MT Manager's APK MCP** - full setup with screenshots in
-[`MT_MANAGER_MCP_SETUP.md`](../MT_MANAGER_MCP_SETUP.md); short version:
-open MT Manager's tools menu → **APK MCP** (between Terminal Simulator
-and Activity Record) → **SETTINGS** → set **MCP operation directory** to
-wherever your APKs live (e.g. `/storage/emulated/0/MT2/apks` - MT only
-accepts paths relative to this directory) → **enable the floating ball**
-(off by default; Android backgrounding MT Manager without it is the most
-common reason `apkmcp` calls fail intermittently) → **OK** → **START**.
-Defaults to `http://127.0.0.1:8787/mcp`, matching this project's
-default. Since Termux and MT Manager run on the same device, loopback is
-directly reachable with no extra network setup.
-
-Verify:
-```bash
-curl -X POST http://localhost:8080/workspaces/<id>/tasks \
-  -H "Content-Type: application/json" \
-  -d '{"agent": "apkmcp", "operation": "list_available_apks", "payload": {}}'
-```
-If that fails and APK MCP shows as running on the phone, the floating
-ball setting is the first thing to check, not the Gateway config.
+**3. MT Manager's APK MCP** - in MT Manager, open the tools menu →
+**APK MCP** → **SETTINGS**, point **MCP operation directory** at the folder
+holding your APKs, **enable the floating ball**, then **START**. It listens
+on `http://127.0.0.1:8787/mcp`, matching this project's default, so
+Termux and MT Manager on the same device need no extra network setup.
+Full walkthrough with screenshots, a verify command, and troubleshooting:
+[`MT_MANAGER.md`](MT_MANAGER.md).
 
 **4. Keeping the Gateway running** - Android kills backgrounded Termux
 sessions to save battery. Run `termux-wake-lock` before long sessions. A

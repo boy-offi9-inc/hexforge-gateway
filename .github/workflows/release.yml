@@ -1,0 +1,86 @@
+name: Release
+
+# Releases only when package.json's version is bumped to one that has no tag yet.
+# Bumping the version (and merging it to main) is the approval; nothing else ships.
+on:
+  push:
+    branches: [main]
+    paths: [package.json]
+
+permissions:
+  contents: write
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      is_new: ${{ steps.v.outputs.is_new }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: v
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          LOCK_VERSION=$(node -p "require('./package-lock.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "package.json version '$VERSION' is not valid semver" >&2
+            exit 1
+          fi
+          if [ "$VERSION" != "$LOCK_VERSION" ]; then
+            echo "package.json ($VERSION) and package-lock.json ($LOCK_VERSION) disagree - bump both" >&2
+            exit 1
+          fi
+
+          if git rev-parse -q --verify "refs/tags/v$VERSION" > /dev/null; then
+            echo "is_new=false" >> "$GITHUB_OUTPUT"
+            echo "v$VERSION already released - nothing to do."
+          else
+            echo "is_new=true" >> "$GITHUB_OUTPUT"
+            echo "v$VERSION is new - releasing."
+          fi
+
+  ci:
+    needs: detect
+    if: needs.detect.outputs.is_new == 'true'
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    needs: [detect, ci]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Create tag and GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.detect.outputs.version }}
+        run: |
+          PREV=$(git describe --tags --abbrev=0 2>/dev/null || true)
+          RANGE=${PREV:+$PREV..HEAD}
+
+          {
+            echo "## What's changed"
+            echo
+            git log $RANGE --no-merges --pretty='- %s (%h)' \
+              | grep -viE '^- (chore: )?bump version' || true
+            if [ -n "$PREV" ]; then
+              echo
+              echo "**Full changelog:** https://github.com/${GITHUB_REPOSITORY}/compare/${PREV}...v${VERSION}"
+            fi
+          } > notes.md
+
+          case "$VERSION" in
+            *-*) KIND="--prerelease" ;;
+            *)   KIND="--latest" ;;
+          esac
+
+          gh release create "v$VERSION" \
+            --target "$GITHUB_SHA" \
+            --title "v$VERSION" \
+            --notes-file notes.md \
+            $KIND

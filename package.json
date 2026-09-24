@@ -1,7 +1,27 @@
 {
   "name": "hexforge-gateway",
   "version": "1.3.2",
-  "description": "HexForge Gateway - core API layer for the HexForge reverse engineering workspace",
+  "description": "Self-hosted reverse-engineering workspace API - orchestrates jadx, apktool, adb, frida and APKiD through a job and workflow engine, exposed as native MCP tools for Claude. No cloud required.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/boy-offi9-inc/hexforge-gateway.git"
+  },
+  "homepage": "https://github.com/boy-offi9-inc/hexforge-gateway#readme",
+  "bugs": {
+    "url": "https://github.com/boy-offi9-inc/hexforge-gateway/issues"
+  },
+  "keywords": [
+    "mcp",
+    "android",
+    "apk",
+    "reverse-engineering",
+    "jadx",
+    "apktool",
+    "frida",
+    "adb",
+    "claude",
+    "termux"
+  ],
   "license": "MIT",
   "main": "dist/index.js",
   "type": "module",

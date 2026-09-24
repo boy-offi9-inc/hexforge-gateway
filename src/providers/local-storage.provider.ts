@@ -24,8 +24,8 @@ import { config } from "../core/config.js";
  * Supabase is unreachable, not to replace it as a real database. There is
  * no reconciliation between the two - anything written to local storage
  * while Supabase was unreachable stays local-only until Supabase comes
- * back and you have to decide what to do with it (see README's Local
- * storage fallback section).
+ * back and you have to decide what to do with it (see docs/SETUP.md,
+ * "Storage: local (default) or Supabase").
  */
 
 const DATA_DIR = path.resolve(config.DATA_DIR);

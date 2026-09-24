@@ -18,7 +18,7 @@ export async function rootRoutes(app: FastifyInstance) {
     return {
       name: "HexForge Gateway",
       description: "AI-assisted APK reverse-engineering workspace API.",
-      docs: "See README.md in the repo for the full API reference.",
+      docs: "See README.md and the docs/ folder in the repo for the full API reference.",
       workspaces: {
         count: workspaces.length,
         recent: workspaces.slice(0, 10).map((w) => ({ id: w.id, name: w.name, status: w.status })),

@@ -39,7 +39,7 @@ async function printStartupBanner(baseUrl: string) {
   console.log(`  curl -X PUT ${baseUrl}/workspaces/by-name/my-project -d '{"targetLabel":"com.example.app"}' -H "Content-Type: application/json"`);
   console.log("  ./scripts/hf.sh ws my-project");
   console.log(`  curl ${baseUrl}/          # full cheat sheet with live data`);
-  console.log("  See README.md for the full API.");
+  console.log("  Full API and guides: README.md and docs/.");
   console.log("");
 }
 

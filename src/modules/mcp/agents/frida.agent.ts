@@ -59,6 +59,26 @@ const DEFAULT_REMOTE_SERVER_PATH = "/data/local/tmp/frida-server";
 const DEFAULT_TIMEOUT_SECONDS = 15;
 const MAX_TIMEOUT_SECONDS = 60;
 
+// startServerHandler embeds remotePath inside a single-quoted `su -c '...'`
+// string that's executed by the *device's* shell (adb ships it as one argv
+// element, but the remote shell still parses it) - unlike pushServerHandler's
+// use of remotePath as a plain adb argument, that interpolation is unsafe
+// for arbitrary input. A remotePath containing a `'` (or `;`, `$`, etc.)
+// could break out of the quoted string and run arbitrary commands as root
+// on the device. Reject anything that isn't a plain absolute path before it
+// ever reaches that string, mirroring the fileName checks adb.agent.ts's
+// pull/push already do for the same reason.
+function assertSafeRemotePath(remotePath: string): void {
+  if (!remotePath.startsWith("/")) {
+    throw new Error(`"remotePath" must be an absolute path on the device, got: ${remotePath}`);
+  }
+  if (/['"$`\\;&|(){}<>\n]/.test(remotePath)) {
+    throw new Error(
+      `"remotePath" contains characters that aren't safe to embed in a remote shell command: ${remotePath}`
+    );
+  }
+}
+
 function deviceArgs(payload: DeviceScopedPayload): string[] {
   // "-U" (default USB device) is the common case for this project (an
   // Android phone/emulator); "-D <id>" targets a specific device from
@@ -130,6 +150,7 @@ async function pushServerHandler(task: McpTask): Promise<unknown> {
 async function startServerHandler(task: McpTask): Promise<unknown> {
   const payload = task.payload as ServerControlPayload;
   const remotePath = payload.remotePath ?? DEFAULT_REMOTE_SERVER_PATH;
+  assertSafeRemotePath(remotePath);
   const args = payload.deviceSerial ? ["-s", payload.deviceSerial] : [];
 
   // Requires root. Backgrounding a process over a single adb shell

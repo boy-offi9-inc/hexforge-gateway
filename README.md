@@ -46,7 +46,8 @@ Core endpoints (request/response shapes are in the linked docs):
 - `POST /workspaces/:id/jobs` / `/workflows` / `/knowledge` ([ARCHITECTURE](docs/ARCHITECTURE.md))
 - `POST|GET /workspaces/:id/chat` ([AI](docs/AI.md))
 - `GET /plugins` ([PLUGINS](docs/PLUGINS.md))
-- `WS /ws` - real-time `task:update`, `job:update`, `workflow:update`, `knowledge:entry_created`, `workspace:status_changed`
+- `WS /ws` - real-time `task:update`, `job:update`, `workflow:update`, `knowledge:entry_created`, `workspace:status_changed` for every workspace
+- `WS /ws/workspaces/:id` - same events, filtered to one workspace
 
 ## Stack
 

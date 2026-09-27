@@ -31,6 +31,15 @@ Knowledge Indexer subscribing to `workflow.*`. This is the seam anything
 new should plug into: subscribe to the events you care about, no direct
 coupling to where they originate.
 
+It exposes two routes over the same subscription logic: `GET /ws` is an
+unscoped firehose (every workspace's events, to every connection - the
+original behavior); `GET /ws/workspaces/:id` filters to one workspace by
+reading each event's `workspaceId` (or, for `workspace.status_changed`,
+the workspace's own `id`) before forwarding. Prefer the scoped route for
+anything workspace-specific (a per-workspace UI panel, a script watching
+one analysis run) so it isn't handed every other workspace's traffic to
+filter out itself.
+
 Implementation is deliberately a thin wrapper around Node's
 `EventEmitter` (in-process, in-memory). If HexForge ever needs
 cross-process delivery (multiple Gateway instances), a Redis-backed

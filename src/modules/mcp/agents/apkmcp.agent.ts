@@ -29,6 +29,18 @@ import type { McpTask } from "../../../core/types.js";
 const DEFAULT_BASE_URL = "http://127.0.0.1:8787/mcp";
 const PROTOCOL_VERSION = "2025-03-26";
 
+// initSession always uses id 1 for "initialize". Every request after that
+// - list_tools, and each callTool() - needs its own unique id so the SSE
+// reader in sendMcpMessage() matches the right response back to the right
+// request; a shared hardcoded id only "worked" because today's handler
+// makes exactly one such call per task. A monotonically increasing counter
+// keeps that true even if a future operation ever needs to chain more than
+// one call within a single apkMcpHandler invocation.
+let nextRequestId = 2;
+function newRequestId(): number {
+  return nextRequestId++;
+}
+
 interface JsonRpcMessage {
   jsonrpc: "2.0";
   id?: number;
@@ -172,7 +184,7 @@ async function callTool(
 ): Promise<unknown> {
   const { result, error } = await sendMcpMessage(
     baseUrl,
-    { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: toolName, arguments: args } },
+    { jsonrpc: "2.0", id: newRequestId(), method: "tools/call", params: { name: toolName, arguments: args } },
     sessionId
   );
   if (error) throw new Error(`${toolName} failed: ${JSON.stringify(error)}`);
@@ -231,7 +243,7 @@ export async function apkMcpHandler(task: McpTask): Promise<unknown> {
     case "list_tools": {
       const { result, error } = await sendMcpMessage(
         baseUrl,
-        { jsonrpc: "2.0", id: 2, method: "tools/list" },
+        { jsonrpc: "2.0", id: newRequestId(), method: "tools/list" },
         sessionId
       );
       if (error) throw new Error(`tools/list failed: ${JSON.stringify(error)}`);

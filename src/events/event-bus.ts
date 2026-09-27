@@ -17,6 +17,18 @@ import type { EventMap, EventName } from "./types.js";
 class EventBus {
   private emitter = new EventEmitter();
 
+  constructor() {
+    // Every /ws connection subscribes to each event exactly once (and
+    // unsubscribes on close - see core/websocket.ts), so "many listeners
+    // on one event" is the normal, intended shape of this broadcast
+    // design, not a leak. Node's default cap of 10 exists to catch actual
+    // leaks elsewhere; here it would just print a false-positive
+    // MaxListenersExceededWarning once an 11th client connects. Uncapped
+    // is safe specifically because every subscriber is paired with a
+    // corresponding .off() on disconnect.
+    this.emitter.setMaxListeners(0);
+  }
+
   emit<K extends EventName>(event: K, payload: EventMap[K]): void {
     this.emitter.emit(event, payload);
   }

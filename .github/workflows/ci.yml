@@ -16,6 +16,7 @@ jobs:
           node-version: "20"
       - run: npm ci
       - run: npm run typecheck
+      - run: npm test
       - run: npm run build
       - name: Upload dist for the smoke-test job
         uses: actions/upload-artifact@v4

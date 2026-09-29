@@ -10,10 +10,11 @@ System, local storage, and CI. This page tracks what's still open.
 - [ ] Web interface (once this exists, `STORAGE_BACKEND=supabase` becomes worth turning back on for shared state)
 - [ ] PC-side equivalent of MT Manager's APK MCP - a watched/drop folder for APKs instead of typing full paths every time
 - [ ] Streamable HTTP transport for the MCP Server Frontend (currently stdio only - fine for Claude Desktop/Code spawning it locally, not for a remote/networked MCP client)
-- [ ] Real unit/integration tests. CI runs `scripts/smoke-test.sh` against a live instance on every push/PR, which is real coverage for the happy paths it exercises - but it's one script asserting end-to-end outcomes, not a suite covering edge cases, error paths, or anything that needs mocking (e.g. a provider API returning malformed JSON)
+- [ ] Wider unit test coverage: the AI provider layer's per-provider request/response handling (mock `fetch`, assert request shape and malformed-response handling) and the API routes' request validation are still untested - see `tests/README.md`'s "not covered yet"
 
 ## Done
 
+- [x] Job/Workflow Engine retry-and-failure-path unit tests, plus local-storage.provider's upsert/delete/list/concurrency correctness (`npm test`, Vitest) - CI runs this alongside `scripts/smoke-test.sh` now. See `tests/README.md` for what's covered and what still isn't
 - [x] Scoped `/ws/workspaces/:id` alongside the original unscoped `/ws` firehose - filters by each event's `workspaceId` before forwarding, so a per-workspace client isn't handed every other workspace's traffic
 - [x] Job/Workflow persistence (write-through to `jobs`/`workflows` tables with local-storage fallback, mirroring `knowledge.service.ts`). A job/workflow left `running`/`queued` across a restart is marked `failed` on hydrate rather than resumed, since the underlying McpTask was never persisted
 - [x] Committed lockfile (`package-lock.json`) - CI uses `npm ci` for reproducible builds

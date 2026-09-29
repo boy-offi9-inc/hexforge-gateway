@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { McpTask } from "../src/core/types.js";
 
 // JobEngine talks to the orchestrator and to job.service (persistence)
@@ -60,9 +60,15 @@ beforeEach(() => {
   getTask.mockReset().mockReturnValue(undefined);
 });
 
-afterEach(() => {
-  vi.restoreAllMocks();
-});
+// Deliberately no afterEach(() => vi.restoreAllMocks()) here: these are
+// plain vi.fn()s from a vi.mock() factory, not vi.spyOn() spies on a real
+// module, so there's no "original" implementation to restore - restoring
+// just strips persistJob/listAllJobs back to a bare vi.fn() with no
+// implementation, which crashes the *next* test the moment JobEngine
+// calls jobService.persistJob(job).catch(...) on a mock that now returns
+// undefined instead of a promise. dispatch/getTask already get fresh
+// per-test behavior above; persistJob/listAllJobs don't need resetting -
+// they should keep working the same way for every test in this file.
 
 describe("JobEngine", () => {
   it("completes the job when its task succeeds on the first attempt", async () => {

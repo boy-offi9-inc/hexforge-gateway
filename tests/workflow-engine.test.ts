@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Job } from "../src/core/types.js";
 
 // WorkflowEngine only ever talks to the Job Engine through jobEngine.submit()
@@ -44,9 +44,11 @@ beforeEach(() => {
   getJob.mockReset().mockReturnValue(undefined);
 });
 
-afterEach(() => {
-  vi.restoreAllMocks();
-});
+// See job-engine.test.ts for why there's deliberately no
+// afterEach(() => vi.restoreAllMocks()) here - it would strip
+// persistWorkflow/listAllWorkflows back to a no-op vi.fn() after the
+// first test, crashing every test after it the moment WorkflowEngine
+// calls workflowService.persistWorkflow(workflow).catch(...).
 
 describe("WorkflowEngine", () => {
   it("runs every step to completion, merging the previous step's result into the next payload", async () => {

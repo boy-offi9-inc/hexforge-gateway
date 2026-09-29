@@ -11,7 +11,7 @@ process, but jadx/apktool are JVM tools that can get memory- and
 CPU-hungry on large or heavily obfuscated APKs.
 
 **Software (either platform):**
-- Node.js 20+
+- Node.js 22+
 - `jadx` and `apktool` on `PATH` if you'll use those agents (both need a JVM - `openjdk-17` or similar)
 - `adb` on `PATH` for the `adb` agent (Android platform-tools)
 - `frida-tools` (`pip install frida-tools`, needs Python) plus a matching `frida-server` on the target device for the `frida` agent - the version match between the two is the most common Frida failure

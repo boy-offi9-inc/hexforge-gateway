@@ -53,7 +53,10 @@ Core endpoints (request/response shapes are in the linked docs):
 
 Node.js 20+ / TypeScript, Fastify (+ `@fastify/websocket`), Zod. Storage is
 local files by default; Supabase is opt-in (`STORAGE_BACKEND=supabase`). Auth
-is an opt-in API key check, off by default (`AUTH_ENABLED=false`).
+is an opt-in API key check, off by default (`AUTH_ENABLED=false`). `npm test`
+runs the Vitest unit suite (retry/failure-path logic, no live instance
+needed); `scripts/smoke-test.sh` covers end-to-end happy paths against a
+running Gateway - see `tests/README.md` for the split.
 
 ## Documentation
 

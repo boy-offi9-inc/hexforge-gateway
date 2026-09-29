@@ -36,11 +36,27 @@ Run with `npm test` (single run) or `npm run test:watch`. These are plain
   producing a clear error rather than returning garbage. Groq and Ollama
   also cover a network-level `fetch` rejection getting wrapped in a
   friendlier reachability message.
+- **`protocol.test.ts`** - the MCP server's shared JSON-RPC dispatch
+  (`src/mcp-server/protocol.ts`, used by both the stdio and Streamable
+  HTTP transports): `initialize`/`tools/list`/unknown-method handling,
+  notifications correctly producing no response, an unknown tool name
+  and a missing `tools/call` "name" param each erroring the *right* way
+  (tool result vs. JSON-RPC error - see `docs/MCP_SERVER.md`), a meta
+  tool dispatching straight to its `gateway-client.ts` function, an
+  agent-mapped tool resolving its workspace by name and forwarding the
+  rest of its arguments as the job payload, a failed job surfacing as
+  `isError: true` rather than a protocol error, and a thrown/rejected
+  gateway call getting caught the same way rather than crashing the
+  request.
 
 **Not covered yet**, and still relying on `scripts/smoke-test.sh` or manual
 testing: the MCP agents themselves (jadx/apktool/adb/frida/apkid/apkmcp -
-all shell out to real binaries or a real device), and the API routes'
-request validation (a good next target - build the app via
+all shell out to real binaries or a real device), the two MCP server
+*transports*' own framing (`index.ts`'s stdin buffering, `http.ts`'s
+routing/auth/Origin-checking - `protocol.test.ts` covers the dispatch
+logic underneath both, verified manually end-to-end for each transport
+when they were built, but not yet as an automated test), and the API
+routes' request validation (a good next target - build the app via
 `core/server.ts`'s `buildServer()`, point `DATA_DIR`/`WORKSPACES_ROOT` at a
 temp dir the same way `local-storage.provider.test.ts` does, and drive
 requests through Fastify's `app.inject()` rather than a real listening
@@ -68,3 +84,8 @@ port).
   `dotenv/config` (which only fills in keys *absent* from `process.env`)
   repopulate it from a developer's real local `.env`, silently breaking
   the test on their machine.
+- **`protocol.test.ts`** `vi.mock()`s `gateway-client.js` - the one
+  module `protocol.ts` actually talks to the Gateway through - the same
+  one-layer-down approach as the Job/Workflow Engine tests. No env/module
+  reset dance needed here: unlike the modules above, nothing in
+  `protocol.ts` reads config at import time.

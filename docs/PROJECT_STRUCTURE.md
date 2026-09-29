@@ -38,7 +38,9 @@ src/
     ai.provider.ts                provider-layer abstraction over the AI vendor
     local-storage.provider.ts     JSON-file storage, primary in local mode / fallback in supabase mode
   mcp-server/
-    index.ts                       stdio MCP server frontend - JSON-RPC loop, tool dispatch
+    protocol.ts                    transport-agnostic JSON-RPC dispatch + tool execution, shared by both transports below
+    index.ts                       stdio MCP server frontend - newline-delimited JSON-RPC framing around protocol.ts
+    http.ts                        Streamable HTTP MCP server frontend - POST /mcp framing around protocol.ts, for a remote/networked client
     tools.ts                       the ~19 MCP tools exposed, table-driven
     gateway-client.ts              thin HTTP client to an already-running Gateway
   plugins/

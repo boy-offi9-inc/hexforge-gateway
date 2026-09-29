@@ -9,11 +9,11 @@ System, local storage, and CI. This page tracks what's still open.
 
 - [ ] Web interface (once this exists, `STORAGE_BACKEND=supabase` becomes worth turning back on for shared state)
 - [ ] PC-side equivalent of MT Manager's APK MCP - a watched/drop folder for APKs instead of typing full paths every time
-- [ ] Streamable HTTP transport for the MCP Server Frontend (currently stdio only - fine for Claude Desktop/Code spawning it locally, not for a remote/networked MCP client)
 - [ ] Wider unit test coverage: the API routes' request validation is still untested (the MCP agents remain out of scope for unit tests - they shell out to real binaries/hardware) - see `tests/README.md`'s "not covered yet"
 
 ## Done
 
+- [x] Streamable HTTP transport for the MCP Server Frontend (`src/mcp-server/http.ts`) alongside the original stdio one (`index.ts`) - both now sit on top of a shared, transport-agnostic `protocol.ts` rather than duplicating JSON-RPC dispatch. `POST /mcp` returns a single JSON response (HexForge's tools never need SSE - see `docs/MCP_SERVER.md`), plus optional shared-key auth and Origin checking since this one is actually reachable over a network
 - [x] AI provider layer unit tests (`ai-provider.test.ts`, mocked `fetch`): Anthropic, the shared OpenAI-compatible shape (Groq/OpenAI/DeepSeek/xAI/Mistral/openai-compatible), Gemini, and Ollama - each provider's not-configured error, exact request shape, response parsing, non-ok HTTP errors, malformed/empty responses, and (Groq/Ollama) a network-level `fetch` rejection
 - [x] Job/Workflow Engine retry-and-failure-path unit tests, plus local-storage.provider's upsert/delete/list/concurrency correctness (`npm test`, Vitest) - CI runs this alongside `scripts/smoke-test.sh` now. See `tests/README.md` for what's covered and what still isn't
 - [x] Scoped `/ws/workspaces/:id` alongside the original unscoped `/ws` firehose - filters by each event's `workspaceId` before forwarding, so a per-workspace client isn't handed every other workspace's traffic

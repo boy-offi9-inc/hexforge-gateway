@@ -44,6 +44,7 @@ Core endpoints (request/response shapes are in the linked docs):
 - `POST /workspaces` / `GET /workspaces[/:id]` / `PUT /workspaces/by-name/:name` (idempotent get-or-create)
 - `POST /workspaces/:id/tasks` - dispatch to an MCP agent, fire-and-forget; poll or watch `/ws` ([AGENTS](docs/AGENTS.md))
 - `POST /workspaces/:id/jobs` / `/workflows` / `/knowledge` ([ARCHITECTURE](docs/ARCHITECTURE.md))
+- `GET /workspaces/:id/inbox` - APKs dropped into `APK_INBOX_DIR`, if configured, and auto-claimed into this workspace ([INBOX](docs/INBOX.md))
 - `POST|GET /workspaces/:id/chat` ([AI](docs/AI.md))
 - `GET /plugins` ([PLUGINS](docs/PLUGINS.md))
 - `WS /ws` - real-time `task:update`, `job:update`, `workflow:update`, `knowledge:entry_created`, `workspace:status_changed` for every workspace
@@ -51,7 +52,7 @@ Core endpoints (request/response shapes are in the linked docs):
 
 ## Stack
 
-Node.js 20+ / TypeScript, Fastify (+ `@fastify/websocket`), Zod. Storage is
+Node.js 22+ / TypeScript, Fastify (+ `@fastify/websocket`), Zod. Storage is
 local files by default; Supabase is opt-in (`STORAGE_BACKEND=supabase`). Auth
 is an opt-in API key check, off by default (`AUTH_ENABLED=false`). `npm test`
 runs the Vitest unit suite (retry/failure-path logic, no live instance

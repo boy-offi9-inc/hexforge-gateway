@@ -9,9 +9,9 @@
 import { ALL_TOOL_DEFINITIONS, AGENT_TOOLS } from "./tools.js";
 import * as gateway from "./gateway-client.js";
 
-export const PROTOCOL_VERSION = "2025-03-26";
+export const PROTOCOL_VERSION = "2026-09-30";
 export const SERVER_NAME = "hexforge-gateway";
-export const SERVER_VERSION = "0.1.0";
+export const SERVER_VERSION = "1.0.6";
 const DEFAULT_WORKSPACE = "default";
 
 export function log(...args: unknown[]) {
@@ -80,6 +80,11 @@ async function callTool(name: string, args: Record<string, unknown>): Promise<{ 
         const ws = await gateway.getOrCreateWorkspace(workspaceName);
         const entries = await gateway.listKnowledge(ws.id, args.type as string | undefined);
         return toolTextResult(JSON.stringify(entries));
+      }
+      case "get_inbox_apks": {
+        const ws = await gateway.getOrCreateWorkspace(workspaceName);
+        const apks = await gateway.listInboxApks(ws.id);
+        return toolTextResult(JSON.stringify(apks));
       }
       case "chat_with_workspace": {
         const message = args.message as string;

@@ -76,6 +76,19 @@ export async function listKnowledge(workspaceId: string, type?: string): Promise
   return request<unknown[]>("GET", `/workspaces/${workspaceId}/knowledge${qs}`);
 }
 
+export interface InboxApk {
+  fileName: string;
+  path: string;
+  sizeBytes: number;
+  detectedAt: string;
+}
+
+/** The "PC-side APK MCP" lookup - see docs/INBOX.md. Whatever's actually in this workspace's inbox/ directory, newest first. */
+export async function listInboxApks(workspaceId: string): Promise<InboxApk[]> {
+  const { apks } = await request<{ apks: InboxApk[] }>("GET", `/workspaces/${workspaceId}/inbox`);
+  return apks;
+}
+
 export async function chat(workspaceId: string, message: string): Promise<{ reply: string; entryId: string }> {
   return request("POST", `/workspaces/${workspaceId}/chat`, { message });
 }

@@ -279,6 +279,15 @@ export const META_TOOL_DEFINITIONS: ToolDefinition[] = [
     },
   },
   {
+    name: "get_inbox_apks",
+    description:
+      "List .apk files already claimed into this workspace's inbox (dropped into the server's APK_INBOX_DIR, if configured, and auto-moved here) - use this to get a real apkPath for decompile_apk/decode_apk/etc. without the user needing to type or paste one. Returns an empty list if nothing's been dropped for this workspace, or if APK_INBOX_DIR isn't configured on the server.",
+    inputSchema: {
+      type: "object",
+      properties: { workspace: workspaceProp },
+    },
+  },
+  {
     name: "chat_with_workspace",
     description:
       "Send a message in a workspace's ongoing chat and get a reply, with real multi-turn history (not a one-shot completion) - useful for asking questions about accumulated findings without re-explaining context every time.",

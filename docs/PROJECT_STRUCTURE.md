@@ -33,6 +33,8 @@ src/
       knowledge-indexer.ts         auto-creates a report entry when a workflow finishes
     ai/
       ai.service.ts                summarizeEntry() and chat() - ties the AI provider to the Knowledge Engine
+    inbox/
+      inbox-watcher.ts             "PC-side APK MCP" - poll-based watched-folder that claims dropped .apk files into their own workspace
   providers/
     supabase.client.ts            provider-layer abstraction over Supabase
     ai.provider.ts                provider-layer abstraction over the AI vendor

@@ -48,6 +48,18 @@ Run with `npm test` (single run) or `npm run test:watch`. These are plain
   `isError: true` rather than a protocol error, and a thrown/rejected
   gateway call getting caught the same way rather than crashing the
   request.
+- **`inbox-watcher.test.ts`** - the inbox watcher (`docs/INBOX.md`)
+  against real temp directories: a file isn't claimed on its first
+  sighting, only once a later poll sees it byte-for-byte unchanged; it
+  then gets moved into `<WORKSPACES_ROOT>/<workspaceId>/inbox/` (and is
+  gone from the inbox dir) with exactly one `source: "inbox"` knowledge
+  entry written; a file that's still growing between polls (still being
+  written/copied) is correctly left unclaimed until it actually
+  stabilizes; a file removed before it ever stabilizes is cleaned up
+  without being claimed or throwing; a missing inbox directory is
+  created rather than erroring; non-`.apk` files are ignored entirely;
+  and `listInboxApks()` reflects real directory contents rather than any
+  separately-tracked state.
 
 **Not covered yet**, and still relying on `scripts/smoke-test.sh` or manual
 testing: the MCP agents themselves (jadx/apktool/adb/frida/apkid/apkmcp -
@@ -89,3 +101,10 @@ port).
   one-layer-down approach as the Job/Workflow Engine tests. No env/module
   reset dance needed here: unlike the modules above, nothing in
   `protocol.ts` reads config at import time.
+- **`inbox-watcher.test.ts`** combines both patterns above: `vi.mock()`s
+  `workspace.service.js`/`knowledge.service.js` one layer down (same as
+  `protocol.test.ts`), *and* sets `APK_INBOX_DIR`/`WORKSPACES_ROOT` via
+  `vi.stubEnv()` + `vi.resetModules()` per test against real temp
+  directories (same as `local-storage.provider.test.ts`) - the watcher
+  reads both config vars at import time and does real filesystem moves,
+  so it needed the isolation both existing patterns handle separately.

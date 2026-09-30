@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import * as workspaceService from "../../modules/workspace/workspace.service.js";
 import { orchestrator } from "../../modules/mcp/orchestrator.js";
+import { listInboxApks } from "../../modules/inbox/inbox-watcher.js";
 import type { McpAgentKind } from "../../core/types.js";
 
 const createWorkspaceSchema = z.object({
@@ -41,7 +42,7 @@ export async function workspaceRoutes(app: FastifyInstance) {
   });
 
   // Idempotent get-or-create: lets a caller always refer to a stable name
-  // (e.g. "clite-analysis") instead of copying a generated id out of a
+  // (e.g. "myapp-analysis") instead of copying a generated id out of a
   // previous response. Safe to call every time you start a session - the
   // first call creates it, every call after just returns the same one.
   app.put("/workspaces/by-name/:name", async (req, reply) => {
@@ -79,5 +80,17 @@ export async function workspaceRoutes(app: FastifyInstance) {
   app.get("/workspaces/:id/tasks", async (req) => {
     const { id } = req.params as { id: string };
     return orchestrator.listTasksForWorkspace(id);
+  });
+
+  // "PC-side APK MCP" - see modules/inbox/inbox-watcher.ts. Lists
+  // whatever .apk files have actually landed in this workspace's own
+  // inbox/ directory (from a drop into APK_INBOX_DIR, if configured),
+  // so a caller can get a real apkPath without ever typing one.
+  app.get("/workspaces/:id/inbox", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const workspace = await workspaceService.getWorkspace(id);
+    if (!workspace) return reply.code(404).send({ error: "Workspace not found" });
+    const apks = await listInboxApks(id);
+    return { apks };
   });
 }

@@ -34,6 +34,15 @@ let watcher: InstanceType<InboxWatcherModule["InboxWatcher"]>;
 beforeEach(async () => {
   inboxDir = await mkdtemp(path.join(tmpdir(), "hexforge-inbox-"));
   workspacesRoot = await mkdtemp(path.join(tmpdir(), "hexforge-workspaces-"));
+  // vi.resetModules() clears the *module* cache (so config and the
+  // watcher re-read the env below) but NOT the vi.mock() factories'
+  // results - the same vi.fn() instances are handed back every time, so
+  // call history from earlier tests in this file would leak into later
+  // assertions ("called once" becomes "called 3 times"). clearAllMocks()
+  // wipes just the call history. It has to be clear, not reset/restore:
+  // those strip the async implementations the factories above define,
+  // which crashes the next claim (same trap as job-engine.test.ts).
+  vi.clearAllMocks();
   vi.resetModules();
   vi.stubEnv("APK_INBOX_DIR", inboxDir);
   vi.stubEnv("WORKSPACES_ROOT", workspacesRoot);

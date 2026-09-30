@@ -3,6 +3,7 @@ import { config, isAuthEffectivelyEnabled } from "./core/config.js";
 import * as workspaceService from "./modules/workspace/workspace.service.js";
 import { jobEngine } from "./modules/jobs/job-engine.js";
 import { workflowEngine } from "./modules/workflow/workflow-engine.js";
+import { inboxWatcher } from "./modules/inbox/inbox-watcher.js";
 
 async function printStartupBanner(baseUrl: string) {
   // Best-effort - a Supabase hiccup here should never stop the Gateway
@@ -55,6 +56,8 @@ async function main() {
   } catch (err) {
     app.log.warn({ err }, "Failed to hydrate Job/Workflow history from storage - starting with empty state");
   }
+
+  inboxWatcher.start();
 
   try {
     await app.listen({ port: config.PORT, host: config.HOST });

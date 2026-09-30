@@ -145,8 +145,12 @@ export type KnowledgeEntryType = "chat" | "note" | "report" | "summary";
 // API or typed by a person in chat, "workflow"/"job" for entries the
 // Knowledge Indexer auto-generates from completed/failed runs, "system"
 // for AI-generated content (a summarizeEntry() result, or the assistant's
-// side of a chat turn).
-export type KnowledgeSource = "user" | "workflow" | "job" | "system";
+// side of a chat turn), "inbox" for entries the inbox watcher creates
+// when it claims a dropped APK - genuinely the user's own action (they
+// placed the file), but not something they typed via the API, so it gets
+// its own value rather than overloading "user" or "system" with a
+// meaning neither quite has.
+export type KnowledgeSource = "user" | "workflow" | "job" | "system" | "inbox";
 
 export interface KnowledgeEntry {
   id: string;

@@ -74,6 +74,18 @@ const envSchema = z.object({
   // logs, etc.) gets written. Created automatically if missing.
   WORKSPACES_ROOT: z.string().default("./workspaces"),
 
+  // Opt-in "PC-side APK MCP": a folder you can drop an .apk into instead
+  // of typing its full path for every tool call. Unset (the default)
+  // disables the watcher entirely - it moves whatever you drop here into
+  // a workspace's own directory, which is enough of an active side effect
+  // that it shouldn't happen unless asked for. See docs/INBOX.md.
+  APK_INBOX_DIR: z.string().optional(),
+  // Poll-based, not fs.watch() - see inbox-watcher.ts's file comment for
+  // why (fs.watch's inotify backing is genuinely unreliable on Android's
+  // filesystem, which is this project's own primary environment, and
+  // this only ever needs to notice a new file within a second or two).
+  APK_INBOX_POLL_MS: z.coerce.number().default(1000),
+
   // Local file-backed persistence - used as the storage backend when
   // Supabase isn't configured at all, and as a fallback when Supabase
   // *is* configured but a call fails at runtime (offline, DNS failure,

@@ -61,18 +61,35 @@ Run with `npm test` (single run) or `npm run test:watch`. These are plain
   and `listInboxApks()` reflects real directory contents rather than any
   separately-tracked state.
 
+- **`api-routes.test.ts`** - the REST routes' request validation, on a
+  bare Fastify instance driven through `app.inject()` (no real port):
+  every zod schema's rejection paths return 400 *without* touching the
+  service (empty/missing fields, `maxAttempts` at 0 / above 10 /
+  non-integer / a string, empty workflow `steps`, a bad `?type=` filter,
+  the PATCH "at least one field" refinement), unknown workspace/job/
+  workflow/entry ids return 404, valid requests reach the right service
+  with the right arguments and the right status (201/202/204), the
+  chat/summarize endpoints return 503 when the AI provider isn't
+  configured (checked *before* body validation, so even an invalid body
+  gets 503) and 502 with the provider's message when it throws, and the
+  chat transcript comes back oldest-first with `source` mapped to
+  `role`.
+- **`auth.test.ts`** - `registerAuth()`: a no-op when disabled; when
+  enabled, 401 with no key or a wrong key, accepted via `Authorization:
+  Bearer` or `X-API-Key`, any one of several configured keys works, the
+  Bearer key takes precedence over `X-API-Key` (same as
+  `mcp-server/http.ts`), `GET /health` is exempt but other methods and
+  routes aren't.
+
 **Not covered yet**, and still relying on `scripts/smoke-test.sh` or manual
 testing: the MCP agents themselves (jadx/apktool/adb/frida/apkid/apkmcp -
-all shell out to real binaries or a real device), the two MCP server
+all shell out to real binaries or a real device), and the two MCP server
 *transports*' own framing (`index.ts`'s stdin buffering, `http.ts`'s
 routing/auth/Origin-checking - `protocol.test.ts` covers the dispatch
 logic underneath both, verified manually end-to-end for each transport
-when they were built, but not yet as an automated test), and the API
-routes' request validation (a good next target - build the app via
-`core/server.ts`'s `buildServer()`, point `DATA_DIR`/`WORKSPACES_ROOT` at a
-temp dir the same way `local-storage.provider.test.ts` does, and drive
-requests through Fastify's `app.inject()` rather than a real listening
-port).
+when they were built, but not yet as an automated test). `root.routes.ts`
+and `plugin.routes.ts` (a cheat-sheet and a one-line introspection route)
+also have no dedicated test.
 
 ## Why the mocking looks the way it does
 
@@ -108,3 +125,15 @@ port).
   directories (same as `local-storage.provider.test.ts`) - the watcher
   reads both config vars at import time and does real filesystem moves,
   so it needed the isolation both existing patterns handle separately.
+- **`api-routes.test.ts`** / **`auth.test.ts`** build a bare Fastify
+  instance rather than calling `buildServer()` - that wires up the
+  websocket plugin, auth, the plugin loader, and the knowledge indexer,
+  none of which is what a route-validation test is about. Services are
+  mocked one layer down with `vi.doMock()` inside a helper (rather than a
+  hoisted `vi.mock()`) so each test can get a fresh module graph with
+  the value it needs - `ai.service`'s `isAiConfigured` is a plain exported
+  constant, so covering both its 200 and 503 paths means building the app
+  twice with different values, and `auth.ts` reads `apiKeys` /
+  `isAuthEffectivelyEnabled` from config at import time. `config.js` is
+  mocked too, rather than driven via env vars, since the routes only need
+  three or four of its exports.

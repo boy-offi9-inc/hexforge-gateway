@@ -119,17 +119,19 @@ stdio's "reachable by whoever can spawn this process":
 
 ## Tools exposed
 
-(`src/mcp-server/tools.ts`, shared by both transports) - a curated ~19,
+(`src/mcp-server/tools.ts`, shared by both transports) - a curated ~20,
 not a 1:1 mirror of every agent operation, picked for what's useful to
 drive directly: `list_workspaces`, `get_or_create_workspace`,
-`list_knowledge`, `chat_with_workspace`, `decompile_apk`, `decode_apk`,
+`list_knowledge`, `get_inbox_apks`, `chat_with_workspace`, `decompile_apk`, `decode_apk`,
 `build_apk`, `identify_packer`, `scan_secrets`, `search_code`,
 `read_file`, `list_files`, `adb_devices`, `adb_shell`, `adb_install`,
 `adb_logcat`, `frida_list_processes`, `frida_trace`, `summarize_text`.
 Every workspace-scoped tool takes an optional `workspace` name argument
 (not an id) defaulting to `"default"`, resolved through the Gateway's
 get-or-create-by-name endpoint - the calling AI never needs to know or
-track a workspace id.
+track a workspace id. `get_inbox_apks` is the direct payoff of that
+combined with `docs/INBOX.md`'s watched folder: drop an APK, then the AI
+can resolve a real `apkPath` for it by name without anyone typing one.
 
 ## Implementation notes
 
@@ -174,3 +176,4 @@ than with a clear error:
   token overhead here (measured ~33% fewer characters compact vs pretty
   on a representative result). Worth remembering before "helpfully"
   adding `null, 2` back for readability.
+

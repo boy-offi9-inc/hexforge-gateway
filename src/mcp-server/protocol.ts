@@ -9,7 +9,22 @@
 import { ALL_TOOL_DEFINITIONS, AGENT_TOOLS } from "./tools.js";
 import * as gateway from "./gateway-client.js";
 
-export const PROTOCOL_VERSION = "2025-03-26";
+// Protocol versions this server actually implements, newest first. A tools-only
+// server behaves identically across these two: tools/list, tools/call, ping and
+// the initialize handshake didn't change between them.
+export const SUPPORTED_PROTOCOL_VERSIONS = ["2025-03-26", "2024-11-05"];
+export const PROTOCOL_VERSION = SUPPORTED_PROTOCOL_VERSIONS[0];
+
+// Per the MCP spec's version negotiation: if the client asks for a version we
+// support, answer with that same version; otherwise answer with the newest one
+// we do support and let the client decide whether it can work with it. Never
+// echo back a version we don't implement - a client that checks the reply
+// against its own supported list (mcp-proxy does) will refuse the connection.
+export function negotiateProtocolVersion(requested: unknown): string {
+  return typeof requested === "string" && SUPPORTED_PROTOCOL_VERSIONS.includes(requested)
+    ? requested
+    : PROTOCOL_VERSION;
+}
 export const SERVER_NAME = "hexforge-gateway";
 export const SERVER_VERSION = "0.1.0";
 const DEFAULT_WORKSPACE = "default";
@@ -131,7 +146,7 @@ export async function handleRequest(req: JsonRpcRequest): Promise<JsonRpcRespons
       case "initialize": {
         if (isNotification) return undefined;
         return resultMessage(id, {
-          protocolVersion: PROTOCOL_VERSION,
+          protocolVersion: negotiateProtocolVersion(params?.protocolVersion),
           capabilities: { tools: {} },
           serverInfo: { name: SERVER_NAME, version: SERVER_VERSION },
         });

@@ -9,9 +9,9 @@
 import { ALL_TOOL_DEFINITIONS, AGENT_TOOLS } from "./tools.js";
 import * as gateway from "./gateway-client.js";
 
-export const PROTOCOL_VERSION = "2026-09-30";
+export const PROTOCOL_VERSION = "2025-03-26";
 export const SERVER_NAME = "hexforge-gateway";
-export const SERVER_VERSION = "1.0.6";
+export const SERVER_VERSION = "0.1.0";
 const DEFAULT_WORKSPACE = "default";
 
 export function log(...args: unknown[]) {

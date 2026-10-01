@@ -16,7 +16,7 @@ vi.mock("../src/mcp-server/gateway-client.js", () => ({
 }));
 
 import * as gateway from "../src/mcp-server/gateway-client.js";
-import { handleRequest, PROTOCOL_VERSION } from "../src/mcp-server/protocol.js";
+import { handleRequest, negotiateProtocolVersion, PROTOCOL_VERSION } from "../src/mcp-server/protocol.js";
 
 const getOrCreateWorkspace = gateway.getOrCreateWorkspace as ReturnType<typeof vi.fn>;
 const listWorkspaces = gateway.listWorkspaces as ReturnType<typeof vi.fn>;
@@ -36,6 +36,19 @@ describe("protocol - non-tool methods", () => {
       id: 1,
       result: { protocolVersion: PROTOCOL_VERSION, capabilities: { tools: {} } },
     });
+  });
+
+  it.each([
+    ["a version it supports, echoed back", "2024-11-05", "2024-11-05"],
+    ["the newest version it supports, echoed back", "2025-03-26", "2025-03-26"],
+    ["a version it doesn't know (a newer client), answered with its own newest", "2026-09-30", PROTOCOL_VERSION],
+    ["a missing version, answered with its own newest", undefined, PROTOCOL_VERSION],
+    ["a non-string version, answered with its own newest", 20250326, PROTOCOL_VERSION],
+  ])("negotiates the protocol version when the client requests %s", async (_label, requested, expected) => {
+    expect(negotiateProtocolVersion(requested)).toBe(expected);
+
+    const response = await handleRequest({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: requested } });
+    expect((response?.result as { protocolVersion: string }).protocolVersion).toBe(expected);
   });
 
   it("returns undefined (no response sent) for a notification, even a recognized one", async () => {

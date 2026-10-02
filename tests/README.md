@@ -81,6 +81,16 @@ Run with `npm test` (single run) or `npm run test:watch`. These are plain
   `mcp-server/http.ts`), `GET /health` is exempt but other methods and
   routes aren't.
 
+- **`tools.test.ts`** - the MCP tool definitions (`src/mcp-server/tools.ts`),
+  which are pure data so nothing is mocked: no duplicate names, every
+  description long enough to say what a tool returns, every parameter
+  documented, `required` only naming real parameters, every tool
+  annotated (write tools also declare `destructiveHint`/`idempotentHint`,
+  read-only ones don't), and the set of destructive tools pinned to
+  exactly the four that can change the device or prior work. Guards the
+  things Glama's quality score marks down; it can't check that the prose
+  is still *true*, only that it's present.
+
 **Not covered yet**, and still relying on `scripts/smoke-test.sh` or manual
 testing: the MCP agents themselves (jadx/apktool/adb/frida/apkid/apkmcp -
 all shell out to real binaries or a real device), and the two MCP server

@@ -133,6 +133,33 @@ track a workspace id. `get_inbox_apks` is the direct payoff of that
 combined with `docs/INBOX.md`'s watched folder: drop an APK, then the AI
 can resolve a real `apkPath` for it by name without anyone typing one.
 
+### Tool annotations and descriptions
+
+Every tool declares MCP annotations (`title`, `readOnlyHint`, `destructiveHint`,
+`idempotentHint`, `openWorldHint`) and documents every parameter, and each
+description says what the tool returns and when to reach for a sibling
+instead - an AI client chooses and calls tools from nothing but these
+definitions, and directories like Glama score them on exactly this. Two
+things worth knowing before editing them:
+
+- **`readOnlyHint` describes the analysis target, not the Gateway's own
+  bookkeeping.** Every workspace-scoped call also creates its workspace if
+  missing and records a job in the workspace's history; the `workspace`
+  parameter says so. `readOnlyHint: true` means "doesn't modify the files
+  or device being analyzed". Four tools are flagged `destructiveHint`:
+  `adb_shell` (arbitrary commands), `adb_install` (can replace an installed
+  app), `frida_trace` (injects code into a running app), and `decode_apk`
+  (replaces the workspace's previous decode, including any edits to it).
+- **Return shapes are written from the agents' actual output**, including
+  their limits (jadx/apktool list at most 200 files, `read_file` cuts at
+  512 KB, `adb_shell` keeps the last 4000 characters of stdout). If an
+  agent's result shape changes, update its tool's description with it.
+  `tests/tools.test.ts` checks that annotations and parameter descriptions
+  stay complete; it can't check that the prose is still true.
+
+The full tool list is about 25 KB of JSON, which a client loads into context
+once per session - worth keeping in mind before making descriptions longer.
+
 ## Implementation notes
 
 Since a broken MCP server tends to fail silently and confusingly rather

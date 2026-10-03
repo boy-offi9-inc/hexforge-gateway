@@ -91,13 +91,31 @@ Run with `npm test` (single run) or `npm run test:watch`. These are plain
   things Glama's quality score marks down; it can't check that the prose
   is still *true*, only that it's present.
 
+- **`cli.test.ts`** - the `hf` CLI's pure parts (`scripts/hf/*.mjs`, plain
+  ESM with no build step): measuring/truncating/wrapping that ignores ANSI
+  codes and counts CJK as two cells; box rows all exactly the terminal
+  width; cards and markdown never overflowing, down to 24 columns;
+  **ASCII mode never emitting a non-ASCII byte** across every component;
+  color-off dropping color but keeping layout; `detectCaps` (TTY vs pipe,
+  `--json`/`--plain`/`HF_PLAIN`, `NO_COLOR`, `FORCE_COLOR`, `TERM=dumb`,
+  locale and `HF_ASCII`); argument and payload parsing (`key=value` is
+  never type-guessed, `key:=json` is); the state file (round trip, other
+  keys preserved, bash-sourceable, escaping); and the HTTP client mapping
+  statuses and failures to error kinds, including zod validation bodies.
+  Needs no mocks - the modules take their inputs as parameters.
+
 **Not covered yet**, and still relying on `scripts/smoke-test.sh` or manual
 testing: the MCP agents themselves (jadx/apktool/adb/frida/apkid/apkmcp -
 all shell out to real binaries or a real device), and the two MCP server
 *transports*' own framing (`index.ts`'s stdin buffering, `http.ts`'s
 routing/auth/Origin-checking - `protocol.test.ts` covers the dispatch
 logic underneath both, verified manually end-to-end for each transport
-when they were built, but not yet as an automated test). `root.routes.ts`
+when they were built, but not yet as an automated test), and the `hf` CLI's
+interactive parts - the live job spinner, the in-place workflow redraw, the
+readline chat REPL, and Ctrl+C handling - which need a real terminal; those
+were exercised by hand against a fake Gateway inside a pseudo-terminal at
+several widths (50 / 40 / 30 columns, ASCII and `NO_COLOR` modes) rather
+than as an automated test. `root.routes.ts`
 and `plugin.routes.ts` (a cheat-sheet and a one-line introspection route)
 also have no dedicated test.
 

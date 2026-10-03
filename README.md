@@ -69,7 +69,7 @@ running Gateway - see `tests/README.md` for the split.
 | [`docs/AI.md`](docs/AI.md) | The AI provider layer (9 providers), the `ai` agent, Terminal chat |
 | [`docs/MCP_SERVER.md`](docs/MCP_SERVER.md) | Registering HexForge's agents as native tools in Claude Desktop/Code/Cursor |
 | [`docs/PLUGINS.md`](docs/PLUGINS.md) | The Plugin System - contract, loader, reference plugins |
-| [`docs/CLI.md`](docs/CLI.md) | `scripts/hf.sh` and `scripts/smoke-test.sh` |
+| [`docs/CLI.md`](docs/CLI.md) | the `hf` CLI (`scripts/hf.sh`) and `scripts/smoke-test.sh` |
 | [`docs/MT_MANAGER.md`](docs/MT_MANAGER.md) | MT Manager's APK MCP setup, with screenshots and troubleshooting |
 | [`docs/PROJECT_STRUCTURE.md`](docs/PROJECT_STRUCTURE.md) | Repo layout and how the pieces talk |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | What's done and what's still open |

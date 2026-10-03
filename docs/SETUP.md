@@ -16,7 +16,7 @@ CPU-hungry on large or heavily obfuscated APKs.
 - `adb` on `PATH` for the `adb` agent (Android platform-tools)
 - `frida-tools` (`pip install frida-tools`, needs Python) plus a matching `frida-server` on the target device for the `frida` agent - the version match between the two is the most common Frida failure
 - `apkid` (`pip install apkid`, needs a yara-python build with DEX support) for the `apkid` agent
-- `curl` + `jq` for `scripts/hf.sh` and `scripts/smoke-test.sh`
+- Nothing extra for the `hf` CLI (it's Node). `curl` + `jq` only for `scripts/smoke-test.sh`
 
 **RAM:** No hard minimum for the Gateway process alone - it's small. The
 real constraint is jadx/apktool decompiling a specific APK: small/simple

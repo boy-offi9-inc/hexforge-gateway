@@ -55,7 +55,11 @@ src/
     event-bus.ts                  typed pub/sub singleton
     types.ts                      EventMap - every event + payload shape
 scripts/
-  hf.sh                            CLI wrapper for manual testing
+  hf.sh                            launcher for the hf CLI (finds Node, runs hf/cli.mjs)
+  hf/
+    cli.mjs                        hf commands, live job/workflow follow views, chat REPL
+    ui.mjs                         pure terminal styling - colors, boxes, cards, wrapping, markdown
+    client.mjs                     fetch wrapper with typed errors, ~/.hexforge state file
   smoke-test.sh                    automated end-to-end test
 docs/
   SETUP.md / ARCHITECTURE.md / AGENTS.md / AI.md / MCP_SERVER.md / PLUGINS.md / CLI.md

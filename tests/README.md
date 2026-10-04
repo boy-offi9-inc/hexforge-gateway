@@ -36,6 +36,7 @@ Run with `npm test` (single run) or `npm run test:watch`. These are plain
   producing a clear error rather than returning garbage. Groq and Ollama
   also cover a network-level `fetch` rejection getting wrapped in a
   friendlier reachability message.
+- **`capability-registry.test.ts`** - the capability registry: providers ordered by priority, all of an adapter's operations grouped per capability, fallback when a backend's availability probe says no (or throws), malformed capability ids and duplicate operation names rejected, and replace/unregister. Pure unit test, no mocks - the registry has no dependencies.
 - **`protocol.test.ts`** - the MCP server's shared JSON-RPC dispatch
   (`src/mcp-server/protocol.ts`, used by both the stdio and Streamable
   HTTP transports): `initialize`/`tools/list`/unknown-method handling,

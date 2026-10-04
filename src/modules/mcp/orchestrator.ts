@@ -1,6 +1,8 @@
 import { nanoid } from "nanoid";
 import type { McpTask, TaskDispatchRequest, McpAgentKind } from "../../core/types.js";
 import { eventBus } from "../../events/event-bus.js";
+import { capabilityRegistry } from "../../capabilities/registry.js";
+import type { AdapterDescriptor } from "../../capabilities/types.js";
 import { jadxHandler } from "./agents/jadx.agent.js";
 import { apkMcpHandler } from "./agents/apkmcp.agent.js";
 import { apktoolHandler } from "./agents/apktool.agent.js";
@@ -26,7 +28,17 @@ class McpOrchestrator {
   private tasks = new Map<string, McpTask>();
   private handlers = new Map<McpAgentKind, AgentHandler>();
 
-  registerAgent(kind: McpAgentKind, handler: AgentHandler) {
+  /**
+   * `descriptor` is optional so existing agents and plugins keep working
+   * unchanged; pass it to also join the capability registry. It is validated
+   * first, so an invalid descriptor registers nothing.
+   */
+  registerAgent(
+    kind: McpAgentKind,
+    handler: AgentHandler,
+    descriptor?: Omit<AdapterDescriptor, "kind">,
+  ) {
+    if (descriptor) capabilityRegistry.register({ ...descriptor, kind });
     this.handlers.set(kind, handler);
   }
 

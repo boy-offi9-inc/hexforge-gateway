@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import type { AgentHandler } from "../modules/mcp/orchestrator.js";
 import type { EventMap } from "../events/types.js";
+import type { AdapterDescriptor } from "../capabilities/types.js";
 
 /**
  * The full API surface a plugin gets, per the Plugin System's goal of
@@ -14,8 +15,15 @@ import type { EventMap } from "../events/types.js";
 export interface PluginContext {
   /** Register routes on the Gateway's Fastify instance, e.g. `ctx.app.get(...)`. */
   app: FastifyInstance;
-  /** Register a new MCP agent kind - usable in Tasks/Jobs/Workflows exactly like the built-in agents (jadx, apktool, ai, ...). */
-  registerAgent(kind: string, handler: AgentHandler): void;
+  /**
+   * Register a new MCP agent kind - usable in Tasks/Jobs/Workflows exactly like the built-in agents (jadx, apktool, ai, ...).
+   * The optional descriptor declares what the agent can do (capabilities, outputs, permissions) so it shows up in the capability registry.
+   */
+  registerAgent(
+    kind: string,
+    handler: AgentHandler,
+    descriptor?: Omit<AdapterDescriptor, "kind">,
+  ): void;
   /** Subscribe to any Event Bus event without importing the Event Bus module. */
   on<K extends keyof EventMap>(event: K, listener: (payload: EventMap[K]) => void): void;
   log: {

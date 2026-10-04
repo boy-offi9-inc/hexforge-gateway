@@ -27,7 +27,8 @@ function buildContext(app: FastifyInstance, pluginName: string): PluginContext {
   const tag = `plugin:${pluginName}`;
   return {
     app,
-    registerAgent: (kind, handler) => orchestrator.registerAgent(kind, handler),
+    registerAgent: (kind, handler, descriptor) =>
+      orchestrator.registerAgent(kind, handler, descriptor),
     on: (event, listener) => eventBus.on(event, listener),
     log: {
       info: (msg) => notice(tag, "info", msg),

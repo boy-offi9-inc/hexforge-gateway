@@ -25,10 +25,40 @@ export default plugin;
 plugin gets - it never imports the orchestrator, Event Bus, or Fastify
 app directly:
 
-- `ctx.registerAgent(kind, handler)` — adds a new MCP agent kind, usable in Tasks/Jobs/Workflows exactly like the built-ins
+- `ctx.registerAgent(kind, handler, descriptor?)` — adds a new MCP agent kind, usable in Tasks/Jobs/Workflows exactly like the built-ins. The optional descriptor declares what it can do (see below)
 - `ctx.on(event, listener)` — subscribes to any Event Bus event
 - `ctx.app` — the live Fastify instance, for plugin-owned routes
 - `ctx.log` — prefixed console logger (`[plugin:<name>] ...`)
+
+### Declaring capabilities (optional)
+
+An agent can describe itself so the Gateway knows what it provides,
+independent of which tool does the work. Pass a descriptor as the third
+argument; leave it out and the agent works exactly as before.
+
+```ts
+ctx.registerAgent("strings", handler, {
+  description: "Extract printable strings from a file",
+  backends: [{ tool: "strings" }],
+  permissions: ["fs:workspace"],
+  operations: [
+    {
+      name: "extract",
+      capability: "binary.strings",
+      inputs: { required: ["filePath"] },
+      outputs: ["strings"],
+    },
+  ],
+});
+```
+
+Capability ids are dotted and lowercase (`java.decompile`,
+`android.rebuild`). Several adapters can offer the same capability; the
+one with the higher `priority` (default 0) wins, and an adapter's optional
+`isAvailable()` probe lets the registry skip a backend that isn't
+usable. An invalid descriptor makes `registerAgent` throw before anything
+is registered, which the plugin loader logs and skips like any other load
+failure. The registry itself lives in `src/capabilities/`.
 
 Because a plugin's agent kind isn't known ahead of time, the `agent`
 field on Task/Job/Workflow-step request schemas is an open string, not a

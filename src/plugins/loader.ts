@@ -6,6 +6,7 @@ import { config } from "../core/config.js";
 import { eventBus } from "../events/event-bus.js";
 import { orchestrator } from "../modules/mcp/orchestrator.js";
 import type { HexForgePlugin, PluginContext } from "./types.js";
+import { detectConsoleCaps, notice } from "../core/console-ui.js";
 
 const INSTALLED_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "installed");
 
@@ -23,15 +24,15 @@ export function getLoadedPlugins(): LoadedPluginInfo[] {
 }
 
 function buildContext(app: FastifyInstance, pluginName: string): PluginContext {
-  const prefix = `[plugin:${pluginName}]`;
+  const tag = `plugin:${pluginName}`;
   return {
     app,
     registerAgent: (kind, handler) => orchestrator.registerAgent(kind, handler),
     on: (event, listener) => eventBus.on(event, listener),
     log: {
-      info: (msg) => console.log(`${prefix} ${msg}`),
-      warn: (msg) => console.warn(`${prefix} ${msg}`),
-      error: (msg) => console.error(`${prefix} ${msg}`),
+      info: (msg) => notice(tag, "info", msg),
+      warn: (msg) => notice(tag, "warn", msg),
+      error: (msg) => notice(tag, "error", msg),
     },
   };
 }
@@ -85,11 +86,12 @@ export async function loadPlugins(app: FastifyInstance): Promise<void> {
 
       await plugin.register(buildContext(app, plugin.name));
       loadedPlugins.push({ name: plugin.name, version: plugin.version, description: plugin.description });
-      console.log(`[plugins] loaded "${plugin.name}"${plugin.version ? ` v${plugin.version}` : ""}`);
+      // The startup banner lists loaded plugins on a terminal, so a line per plugin would just repeat it there.
+      if (!detectConsoleCaps().pretty) console.log(`[plugins] loaded "${plugin.name}"${plugin.version ? ` v${plugin.version}` : ""}`);
       eventBus.emit("plugin.loaded", { name: plugin.name });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      console.error(`[plugins] failed to load "${dirName}": ${message}`);
+      notice("plugins", "error", `failed to load "${dirName}": ${message}`);
       eventBus.emit("plugin.failed", { name: dirName, error: message });
     }
   }

@@ -39,9 +39,10 @@ import path from "node:path";
 import { config } from "../../core/config.js";
 import * as workspaceService from "../workspace/workspace.service.js";
 import * as knowledgeService from "../knowledge/knowledge.service.js";
+import { detectConsoleCaps, notice } from "../../core/console-ui.js";
 
 function log(...args: unknown[]) {
-  console.log("[inbox-watcher]", ...args);
+  notice("inbox-watcher", "info", args.map(String).join(" "));
 }
 
 /**
@@ -68,6 +69,7 @@ interface Seen {
 
 export class InboxWatcher {
   private timer: NodeJS.Timeout | undefined;
+  private dir: string | undefined;
   private seen = new Map<string, Seen>();
   // Guards against a claim still being awaited (a slow move across
   // filesystems, a slow knowledge-entry write) when the next tick fires -
@@ -75,13 +77,22 @@ export class InboxWatcher {
   // the same already-stable file.
   private claiming = new Set<string>();
 
+  /** The folder being polled, or undefined while the watcher is off - what the startup banner shows. */
+  get watching(): string | undefined {
+    return this.dir;
+  }
+
   start(): void {
+    // On a terminal the startup banner already says whether the inbox is on
+    // and where, so the two status lines below would only repeat it.
+    const quiet = detectConsoleCaps().pretty;
     if (!config.APK_INBOX_DIR) {
-      log("APK_INBOX_DIR not set - disabled. Set it to a folder to enable dropping APKs instead of typing full paths.");
+      if (!quiet) log("APK_INBOX_DIR not set - disabled. Set it to a folder to enable dropping APKs instead of typing full paths.");
       return;
     }
     const resolved = path.resolve(config.APK_INBOX_DIR);
-    log(`watching ${resolved} every ${config.APK_INBOX_POLL_MS}ms for dropped .apk files`);
+    this.dir = resolved;
+    if (!quiet) log(`watching ${resolved} every ${config.APK_INBOX_POLL_MS}ms for dropped .apk files`);
     this.timer = setInterval(() => {
       void this.runOnce().catch((err) => log("poll tick failed:", err instanceof Error ? err.message : String(err)));
     }, config.APK_INBOX_POLL_MS);
@@ -90,6 +101,7 @@ export class InboxWatcher {
   stop(): void {
     if (this.timer) clearInterval(this.timer);
     this.timer = undefined;
+    this.dir = undefined;
   }
 
   /** One poll tick, exposed separately from start() so a test can drive it deterministically without real timers. */

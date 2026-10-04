@@ -12,13 +12,20 @@ import { loadPlugins } from "../plugins/loader.js";
 import { registerWebsocketGateway } from "./websocket.js";
 import { registerAuth } from "./auth.js";
 import { config } from "./config.js";
+import { createConsoleUi, createPrettyLogStream, detectConsoleCaps } from "./console-ui.js";
 
 export async function buildServer() {
-  const app = Fastify({
-    logger: {
-      level: config.NODE_ENV === "development" ? "info" : "warn",
-    },
-  });
+  // On an interactive terminal, give pino a destination that renders its
+  // JSON lines as readable one-liners (see core/console-ui.ts) - every
+  // existing log call, plugins' included, goes through it unchanged. Under
+  // systemd/Docker/a pipe, or LOG_FORMAT=json, `stream` is left out and
+  // Fastify logs structured JSON to stdout exactly as before.
+  const consoleCaps = detectConsoleCaps();
+  const loggerOptions = {
+    level: config.NODE_ENV === "development" ? "info" : "warn",
+    ...(consoleCaps.pretty ? { stream: createPrettyLogStream(createConsoleUi(consoleCaps)).stream } : {}),
+  };
+  const app = Fastify({ logger: loggerOptions });
 
   await app.register(websocketPlugin);
   await registerAuth(app);

@@ -300,9 +300,11 @@ export function createTheme({ color = false, depth = 8, unicode = true, columns 
   t.box = (lines, { title = "", border = t.mute } = {}) => {
     const inner = width - 4;
     const out = [];
-    const tw = visibleWidth(title);
+    // A title wider than the box would push the top border past the terminal.
+    const shownTitle = title ? t.truncate(title, width - 6) : "";
+    const tw = visibleWidth(shownTitle);
     if (title) {
-      out.push(border(g.tl + g.dash + " ") + title + border(" " + g.dash.repeat(Math.max(1, width - tw - 5)) + g.tr));
+      out.push(border(g.tl + g.dash + " ") + shownTitle + border(" " + g.dash.repeat(Math.max(1, width - tw - 5)) + g.tr));
     } else {
       out.push(border(g.tl + g.dash.repeat(width - 2) + g.tr));
     }

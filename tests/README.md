@@ -104,6 +104,21 @@ Run with `npm test` (single run) or `npm run test:watch`. These are plain
   statuses and failures to error kinds, including zod validation bodies.
   Needs no mocks - the modules take their inputs as parameters.
 
+- **`console-ui.test.ts`** - the Gateway's own terminal output
+  (`src/core/console-ui.ts`), all pure functions fed inputs directly: when it
+  goes pretty (`LOG_FORMAT`, TTY vs pipe, `TERM=dumb`, `NO_COLOR`/`FORCE_COLOR`,
+  locale/`HF_ASCII`); the listen addresses for a wildcard vs specific bind,
+  including the numeric address family older Node 18 builds report; the banner
+  fitting every width from 24 to 100 columns, each warning firing only in its
+  situation (auth requested but no keys, open port reachable from the network,
+  unconfigured AI) and staying quiet otherwise, ASCII mode emitting no
+  non-ASCII; and the pino stream - a request pair becoming one line, Fastify's
+  per-interface "Server listening" lines dropped, a polling burst collapsing
+  to one line plus a summary, the summary flushing *before* the next
+  unrelated line, lines split across writes reassembling, non-JSON passing
+  through, and every output fitting its width. The plain-mode `notice()`
+  format is pinned to exactly `[tag] message`, since logs may be grepped.
+
 **Not covered yet**, and still relying on `scripts/smoke-test.sh` or manual
 testing: the MCP agents themselves (jadx/apktool/adb/frida/apkid/apkmcp -
 all shell out to real binaries or a real device), and the two MCP server

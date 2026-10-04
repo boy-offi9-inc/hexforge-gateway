@@ -136,6 +136,51 @@ Falling back is logged (`[workspace.service] Supabase ... failed,
 falling back to local storage: ...`), so it's visible rather than silent.
 
 
+## Console output
+
+On an interactive terminal the Gateway prints a startup box (every address it's
+reachable on, storage, AI provider, auth, plugins, inbox, workspaces),
+warnings that matter, and one readable line per request:
+
+```
+╭─ ⬢ HexForge Gateway v1.3.7 ────────────────╮
+│ listening  http://127.0.0.1:8080 local     │
+│            http://10.245.38.1:8080         │
+│ auth       OPEN                            │
+╰────────────────────────────────────────────╯
+
+ ▲ Auth is off and this port is reachable from your network - anyone on it
+   has full access. Set AUTH_ENABLED=true and API_KEYS in .env.
+
+ GET    /health                     200  26ms
+ POST   /workspaces/ws_V1St…/jobs   202  12ms
+ GET    /jobs/job_0a1b2c3d4e5f      200  2.5ms
+   → same request ×11 (avg 3.1ms)
+```
+
+- **Polling is collapsed.** `hf` following a job hits `GET /jobs/:id` every
+  700 ms; identical consecutive requests within 2 s print once, then a
+  `same request ×N` summary when the burst ends.
+- **Warnings are specific:** `AUTH_ENABLED=true` with an empty `API_KEYS`
+  ("auth is NOT active"), auth off while the port is reachable from the
+  network, and an unconfigured AI provider (chat/summarize would return 503).
+  Auth off on a localhost-only bind stays quiet.
+- **Only on a terminal.** Under systemd, Docker, a pipe, or a file, the Gateway
+  logs exactly what it always did - structured JSON from pino and plain
+  `[tag] message` startup lines - so log aggregators and `grep` are unaffected.
+
+| Env var | Effect |
+|---|---|
+| `LOG_FORMAT` | `auto` (default: pretty only on a terminal), `pretty` (force it, e.g. `npm run dev \| tee log`), `json` (never) |
+| `NO_COLOR` | keep the layout, drop the color |
+| `FORCE_COLOR` | color even when `LOG_FORMAT=pretty` is writing to a pipe |
+| `HF_ASCII` | ASCII-only glyphs (also automatic for a non-UTF-8 locale or `TERM=linux`) |
+
+It works by giving Fastify's pino logger a custom destination (`logger.stream`,
+see `src/core/console-ui.ts`), so every existing log call - plugins' included -
+is rendered without changing. `LOG_FORMAT` is read straight from the environment
+rather than `config.ts`, so nothing `config.ts` imports can create a cycle.
+
 ## Running on PC (Windows/Mac/Linux)
 
 Nothing about the Gateway itself is Android/Termux-specific except the

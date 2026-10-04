@@ -10,6 +10,7 @@ src/
     auth.ts                       opt-in API key check (off by default)
     server.ts                     fastify app assembly, route registration
     websocket.ts                  real-time update broadcasting
+    console-ui.ts                 the Gateway's own terminal output: startup banner, one-line request logs, styled notices
     types.ts                      shared TypeScript types
   api/v1/
     health.routes.ts / root.routes.ts

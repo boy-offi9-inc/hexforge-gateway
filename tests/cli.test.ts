@@ -64,6 +64,13 @@ describe("ui: theme layout", () => {
     expect(ui.visibleWidth(box[0])).toBe(50);
   });
 
+  it("truncates a box title that's wider than the terminal instead of overflowing the top border", () => {
+    const tiny = ui.createTheme({ color: false, unicode: true, columns: 24 });
+    const box = tiny.box(["x"], { title: "a title that is far too long for this box" });
+    expect(widest(box)).toBeLessThanOrEqual(24);
+    expect(new Set(box.map(ui.visibleWidth)).size).toBe(1);
+  });
+
   it("fits a result card to the width, wraps spaced values under their key, and keeps the tail of long paths", () => {
     const card = plain.card({
       icon: "✔",

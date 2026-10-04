@@ -213,3 +213,33 @@ unsure of the relative path.
 aren't wrapped in a convenience operation - use `call_tool` directly, and
 only point them at apps you own or are authorized to modify.
 
+
+## Capabilities
+
+Every built-in agent describes what it can do, independent of which tool does
+it, and `GET /capabilities` lists the result. A capability is a dotted id such
+as `java.decompile`, `android.rebuild` or `instrument.server`; each lists the
+agents that provide it, the operations they offer for it, and a priority
+(higher wins when several agents provide the same capability).
+
+```bash
+curl http://localhost:8080/capabilities
+```
+
+```json
+{
+  "capabilities": [
+    {
+      "id": "java.decompile",
+      "providers": [{ "agent": "jadx", "operations": ["decompile"], "priority": 0 }]
+    }
+  ],
+  "adapters": [{ "kind": "jadx", "backends": [{ "tool": "jadx" }], "operations": ["..."] }]
+}
+```
+
+`adapters` carries each agent's full descriptor: backend tools, permissions,
+and each operation's required/optional payload keys and declared outputs. It
+is read-only introspection - dispatching still goes through
+`POST /workspaces/:id/tasks`. Plugins join the same list by passing a
+descriptor to `ctx.registerAgent` (see [PLUGINS](PLUGINS.md)).

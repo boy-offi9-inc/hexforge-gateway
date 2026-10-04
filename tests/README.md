@@ -37,6 +37,8 @@ Run with `npm test` (single run) or `npm run test:watch`. These are plain
   also cover a network-level `fetch` rejection getting wrapped in a
   friendlier reachability message.
 - **`capability-registry.test.ts`** - the capability registry: providers ordered by priority, all of an adapter's operations grouped per capability, fallback when a backend's availability probe says no (or throws), malformed capability ids and duplicate operation names rejected, and replace/unregister. Pure unit test, no mocks - the registry has no dependencies.
+- **`builtin-capabilities.test.ts`** - the built-in descriptors are plain data, so this needs no mocks: all eight agents are described and pass registry validation, frida's push/start/stop-server operations group under one capability, and `outputs` is only declared for the operations whose result is a tracked path (`jadx.decompile`, `apktool.decode`, `apktool.build`).
+- **`capability-routes.test.ts`** - `GET /capabilities` on a bare Fastify instance (same approach as `api-routes.test.ts`, without its mocking, since the route only reads the registry singleton): providers come back ordered by priority with their operation names, and the `isAvailable` probe never reaches the JSON.
 - **`protocol.test.ts`** - the MCP server's shared JSON-RPC dispatch
   (`src/mcp-server/protocol.ts`, used by both the stdio and Streamable
   HTTP transports): `initialize`/`tools/list`/unknown-method handling,

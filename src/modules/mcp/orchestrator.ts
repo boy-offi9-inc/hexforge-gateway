@@ -3,6 +3,7 @@ import type { McpTask, TaskDispatchRequest, McpAgentKind } from "../../core/type
 import { eventBus } from "../../events/event-bus.js";
 import { capabilityRegistry } from "../../capabilities/registry.js";
 import type { AdapterDescriptor } from "../../capabilities/types.js";
+import { builtinDescriptors as d } from "../../capabilities/builtin.js";
 import { jadxHandler } from "./agents/jadx.agent.js";
 import { apkMcpHandler } from "./agents/apkmcp.agent.js";
 import { apktoolHandler } from "./agents/apktool.agent.js";
@@ -114,11 +115,11 @@ class McpOrchestrator {
 export const orchestrator = new McpOrchestrator();
 
 // --- Real agent handlers -------------------------------------------------
-orchestrator.registerAgent("jadx", jadxHandler);
-orchestrator.registerAgent("apkmcp", apkMcpHandler);
-orchestrator.registerAgent("apktool", apktoolHandler);
-orchestrator.registerAgent("ai", aiHandler);
-orchestrator.registerAgent("filesystem", filesystemHandler);
-orchestrator.registerAgent("adb", adbHandler);
-orchestrator.registerAgent("frida", fridaHandler);
-orchestrator.registerAgent("apkid", apkidHandler);
+orchestrator.registerAgent("jadx", jadxHandler, d.jadx);
+orchestrator.registerAgent("apkmcp", apkMcpHandler, d.apkmcp);
+orchestrator.registerAgent("apktool", apktoolHandler, d.apktool);
+orchestrator.registerAgent("ai", aiHandler, d.ai);
+orchestrator.registerAgent("filesystem", filesystemHandler, d.filesystem);
+orchestrator.registerAgent("adb", adbHandler, d.adb);
+orchestrator.registerAgent("frida", fridaHandler, d.frida);
+orchestrator.registerAgent("apkid", apkidHandler, d.apkid);

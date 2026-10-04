@@ -83,13 +83,7 @@ export function describeErrorBody(body) {
   if (typeof err === "string") return err;
   if (err && typeof err === "object") {
     const parts = [...(err.formErrors ?? [])];
-    for (const [field, msgs] of Object.entries(err.fieldErrors ?? {})) parts.push(`
-        $ {
-            field
-        }: $ {
-            [].concat(msgs).join(", ")
-        }
-        `);
+    for (const [field, msgs] of Object.entries(err.fieldErrors ?? {})) parts.push(`${field}: ${[].concat(msgs).join(", ")}`);
     if (parts.length) return parts.join("; ");
   }
   return JSON.stringify(err).slice(0, 300);
@@ -103,11 +97,7 @@ export function createClient({ baseUrl, apiKey, fetchImpl = globalThis.fetch, ti
   async function request(method, urlPath, body, { timeout = timeoutMs } = {}) {
     const url = root + urlPath;
     const headers = {};
-    if (apiKey) headers.Authorization = `
-        Bearer $ {
-            apiKey
-        }
-        `;
+    if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
     if (body !== undefined) headers["Content-Type"] = "application/json";
 
     let res;
@@ -120,18 +110,10 @@ export function createClient({ baseUrl, apiKey, fetchImpl = globalThis.fetch, ti
       });
     } catch (err) {
       if (err?.name === "TimeoutError" || err?.name === "AbortError") {
-        throw new GatewayError(`
-        No response from $ {
-            root
-        }
-        within $ {
-            Math.round(timeout / 1000)
-        }
-        s`, { kind: "timeout", url });
+        throw new GatewayError(`No response from ${root} within ${Math.round(timeout / 1000)}s`, { kind: "timeout", url });
       }
       const reason = err?.cause?.code ?? err?.cause?.message ?? err?.message ?? String(err);
-      throw new GatewayError(`
-        Couldn 't reach the Gateway at ${root} (${reason})`, { kind: "network", url });
+      throw new GatewayError(`Couldn't reach the Gateway at ${root} (${reason})`, { kind: "network", url });
     }
 
     const text = await res.text();

@@ -1,12 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  mkdtemp,
-  rm,
-  writeFile,
-  appendFile,
-  unlink,
-  stat,
-} from "node:fs/promises";
+import { mkdtemp, rm, writeFile, appendFile, unlink, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -31,8 +24,7 @@ vi.mock("../src/modules/knowledge/knowledge.service.js", () => ({
   createEntry: vi.fn(async (input: unknown) => input),
 }));
 
-type InboxWatcherModule =
-  typeof import("../src/modules/inbox/inbox-watcher.js");
+type InboxWatcherModule = typeof import("../src/modules/inbox/inbox-watcher.js");
 
 let inboxDir: string;
 let workspacesRoot: string;
@@ -67,9 +59,7 @@ afterEach(async () => {
 
 describe("deriveWorkspaceNameFromFilename", () => {
   it("slugifies a filename and strips the .apk extension", async () => {
-    expect(mod.deriveWorkspaceNameFromFilename("MyApp-v2 (1).apk")).toBe(
-      "myapp-v2-1",
-    );
+    expect(mod.deriveWorkspaceNameFromFilename("MyApp-v2 (1).apk")).toBe("myapp-v2-1");
   });
 
   it("falls back to a fixed name when sanitizing leaves nothing usable", async () => {
@@ -86,8 +76,7 @@ describe("InboxWatcher.runOnce", () => {
     await writeFile(path.join(inboxDir, "app.apk"), "fake apk bytes");
 
     await watcher.runOnce();
-    const { getOrCreateWorkspace } =
-      await import("../src/modules/workspace/workspace.service.js");
+    const { getOrCreateWorkspace } = await import("../src/modules/workspace/workspace.service.js");
     expect(getOrCreateWorkspace).not.toHaveBeenCalled();
 
     await watcher.runOnce();
@@ -111,8 +100,7 @@ describe("InboxWatcher.runOnce", () => {
     await watcher.runOnce();
     await watcher.runOnce();
 
-    const { createEntry } =
-      await import("../src/modules/knowledge/knowledge.service.js");
+    const { createEntry } = await import("../src/modules/knowledge/knowledge.service.js");
     expect(createEntry).toHaveBeenCalledOnce();
     expect(createEntry).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -131,8 +119,7 @@ describe("InboxWatcher.runOnce", () => {
     await appendFile(growingPath, "-more-bytes-written-later");
     await watcher.runOnce(); // size changed since last tick - must not claim yet
 
-    const { getOrCreateWorkspace } =
-      await import("../src/modules/workspace/workspace.service.js");
+    const { getOrCreateWorkspace } = await import("../src/modules/workspace/workspace.service.js");
     expect(getOrCreateWorkspace).not.toHaveBeenCalled();
 
     await watcher.runOnce(); // now unchanged since the previous tick - claim
@@ -147,8 +134,7 @@ describe("InboxWatcher.runOnce", () => {
 
     await expect(watcher.runOnce()).resolves.toBeUndefined();
 
-    const { getOrCreateWorkspace } =
-      await import("../src/modules/workspace/workspace.service.js");
+    const { getOrCreateWorkspace } = await import("../src/modules/workspace/workspace.service.js");
     expect(getOrCreateWorkspace).not.toHaveBeenCalled();
   });
 
@@ -164,8 +150,7 @@ describe("InboxWatcher.runOnce", () => {
     await watcher.runOnce();
     await watcher.runOnce();
 
-    const { getOrCreateWorkspace } =
-      await import("../src/modules/workspace/workspace.service.js");
+    const { getOrCreateWorkspace } = await import("../src/modules/workspace/workspace.service.js");
     expect(getOrCreateWorkspace).not.toHaveBeenCalled();
   });
 });

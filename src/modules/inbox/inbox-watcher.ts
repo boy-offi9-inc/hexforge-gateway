@@ -34,14 +34,7 @@
  * out of sync with what's actually on disk.
  */
 
-import {
-  mkdir,
-  readdir,
-  rename,
-  copyFile,
-  unlink,
-  stat,
-} from "node:fs/promises";
+import { mkdir, readdir, rename, copyFile, unlink, stat } from "node:fs/promises";
 import path from "node:path";
 import { config } from "../../core/config.js";
 import * as workspaceService from "../workspace/workspace.service.js";
@@ -103,15 +96,10 @@ export class InboxWatcher {
     const resolved = path.resolve(config.APK_INBOX_DIR);
     this.dir = resolved;
     if (!quiet)
-      log(
-        `watching ${resolved} every ${config.APK_INBOX_POLL_MS}ms for dropped .apk files`,
-      );
+      log(`watching ${resolved} every ${config.APK_INBOX_POLL_MS}ms for dropped .apk files`);
     this.timer = setInterval(() => {
       void this.runOnce().catch((err) =>
-        log(
-          "poll tick failed:",
-          err instanceof Error ? err.message : String(err),
-        ),
+        log("poll tick failed:", err instanceof Error ? err.message : String(err)),
       );
     }, config.APK_INBOX_POLL_MS);
   }
@@ -138,9 +126,7 @@ export class InboxWatcher {
       throw err;
     }
 
-    const apkFiles = new Set(
-      entries.filter((f) => f.toLowerCase().endsWith(".apk")),
-    );
+    const apkFiles = new Set(entries.filter((f) => f.toLowerCase().endsWith(".apk")));
 
     // Stop tracking anything that's no longer there (removed externally
     // before it ever stabilized) so `seen` doesn't grow unbounded.
@@ -162,20 +148,13 @@ export class InboxWatcher {
       }
 
       const previous = this.seen.get(fileName);
-      if (
-        previous &&
-        previous.size === info.size &&
-        previous.mtimeMs === info.mtimeMs
-      ) {
+      if (previous && previous.size === info.size && previous.mtimeMs === info.mtimeMs) {
         this.seen.delete(fileName);
         this.claiming.add(fileName);
         try {
           await this.claim(fileName, fullPath);
         } catch (err) {
-          log(
-            `failed to claim ${fileName}:`,
-            err instanceof Error ? err.message : String(err),
-          );
+          log(`failed to claim ${fileName}:`, err instanceof Error ? err.message : String(err));
         } finally {
           this.claiming.delete(fileName);
         }
@@ -187,10 +166,7 @@ export class InboxWatcher {
 
   private async claim(fileName: string, sourcePath: string): Promise<void> {
     const workspaceName = deriveWorkspaceNameFromFilename(fileName);
-    const workspace = await workspaceService.getOrCreateWorkspace(
-      workspaceName,
-      workspaceName,
-    );
+    const workspace = await workspaceService.getOrCreateWorkspace(workspaceName, workspaceName);
 
     const destDir = path.resolve(config.WORKSPACES_ROOT, workspace.id, "inbox");
     await mkdir(destDir, { recursive: true });

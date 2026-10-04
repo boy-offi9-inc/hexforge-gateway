@@ -27,8 +27,7 @@ const caps = (columns, extra = {}) => ({
   ...extra,
 });
 const nonAscii = (s) => [...s].some((c) => c.charCodeAt(0) > 127);
-const widest = (lines) =>
-  Math.max(...lines.flatMap((l) => l.split("\n")).map(visibleWidth));
+const widest = (lines) => Math.max(...lines.flatMap((l) => l.split("\n")).map(visibleWidth));
 
 const tty = { isTTY: true, columns: 60, getColorDepth: () => 24 };
 
@@ -40,48 +39,35 @@ describe("detectConsoleCaps", () => {
 
   it("LOG_FORMAT=json never goes pretty, even on a terminal; LOG_FORMAT=pretty forces it on a pipe", () => {
     expect(detectConsoleCaps({ LOG_FORMAT: "json" }, tty).pretty).toBe(false);
-    expect(
-      detectConsoleCaps({ LOG_FORMAT: "pretty" }, { isTTY: false }).pretty,
-    ).toBe(true);
+    expect(detectConsoleCaps({ LOG_FORMAT: "pretty" }, { isTTY: false }).pretty).toBe(true);
     expect(detectConsoleCaps({ LOG_FORMAT: "JSON" }, tty).pretty).toBe(false);
   });
 
   it("TERM=dumb is never pretty, not even when forced", () => {
     expect(detectConsoleCaps({ TERM: "dumb" }, tty).pretty).toBe(false);
-    expect(
-      detectConsoleCaps({ TERM: "dumb", LOG_FORMAT: "pretty" }, tty).pretty,
-    ).toBe(false);
+    expect(detectConsoleCaps({ TERM: "dumb", LOG_FORMAT: "pretty" }, tty).pretty).toBe(false);
   });
 
   it("NO_COLOR drops color but keeps the pretty layout; FORCE_COLOR adds color to a forced-pretty pipe", () => {
     const noColor = detectConsoleCaps({ NO_COLOR: "1" }, tty);
     expect(noColor.color).toBe(false);
     expect(noColor.pretty).toBe(true);
+    expect(detectConsoleCaps({ LOG_FORMAT: "pretty" }, { isTTY: false }).color).toBe(false);
     expect(
-      detectConsoleCaps({ LOG_FORMAT: "pretty" }, { isTTY: false }).color,
-    ).toBe(false);
-    expect(
-      detectConsoleCaps(
-        { LOG_FORMAT: "pretty", FORCE_COLOR: "1" },
-        { isTTY: false },
-      ).color,
+      detectConsoleCaps({ LOG_FORMAT: "pretty", FORCE_COLOR: "1" }, { isTTY: false }).color,
     ).toBe(true);
   });
 
   it("falls back to ASCII for HF_ASCII, TERM=linux, or a non-UTF-8 locale", () => {
     expect(detectConsoleCaps({ HF_ASCII: "1" }, tty).unicode).toBe(false);
     expect(detectConsoleCaps({ TERM: "linux" }, tty).unicode).toBe(false);
-    expect(detectConsoleCaps({ LANG: "en_US.ISO-8859-1" }, tty).unicode).toBe(
-      false,
-    );
+    expect(detectConsoleCaps({ LANG: "en_US.ISO-8859-1" }, tty).unicode).toBe(false);
     expect(detectConsoleCaps({ LANG: "en_US.UTF-8" }, tty).unicode).toBe(true);
   });
 
   it("reads the width from the stream, then COLUMNS, then defaults to 80", () => {
     expect(detectConsoleCaps({}, tty).columns).toBe(60);
-    expect(detectConsoleCaps({ COLUMNS: "44" }, { isTTY: true }).columns).toBe(
-      44,
-    );
+    expect(detectConsoleCaps({ COLUMNS: "44" }, { isTTY: true }).columns).toBe(44);
     expect(detectConsoleCaps({}, { isTTY: true }).columns).toBe(80);
   });
 });
@@ -151,14 +137,9 @@ describe("renderBanner", () => {
     workspaces: [],
   };
 
-  it.each([24, 30, 45, 64, 100])(
-    "never exceeds a %s-column terminal",
-    (columns) => {
-      expect(
-        widest(renderBanner(base, createConsoleUi(caps(columns)))),
-      ).toBeLessThanOrEqual(columns);
-    },
-  );
+  it.each([24, 30, 45, 64, 100])("never exceeds a %s-column terminal", (columns) => {
+    expect(widest(renderBanner(base, createConsoleUi(caps(columns))))).toBeLessThanOrEqual(columns);
+  });
 
   it("warns specifically when AUTH_ENABLED is set but there are no API_KEYS (auth is NOT active)", () => {
     const text = renderBanner(base, createConsoleUi(caps(100))).join("\n");
@@ -221,13 +202,7 @@ describe("renderBanner", () => {
       {
         ...base,
         inbox: "/data/inbox",
-        workspaces: [
-          { name: "a" },
-          { name: "b" },
-          { name: "c" },
-          { name: "d" },
-          { name: "e" },
-        ],
+        workspaces: [{ name: "a" }, { name: "b" }, { name: "c" }, { name: "d" }, { name: "e" }],
       },
       createConsoleUi(caps(100)),
     ).join("\n");
@@ -242,10 +217,7 @@ describe("renderBanner", () => {
   });
 
   it("ASCII mode emits no non-ASCII character anywhere in the banner", () => {
-    for (const line of renderBanner(
-      base,
-      createConsoleUi(caps(45, { unicode: false })),
-    ))
+    for (const line of renderBanner(base, createConsoleUi(caps(45, { unicode: false }))))
       expect(nonAscii(line)).toBe(false);
   });
 });
@@ -269,25 +241,11 @@ describe("formatRequestLine", () => {
 
   it("only shows the clock on terminals wide enough for it", () => {
     expect(
-      formatRequestLine(
-        createConsoleUi(caps(100)),
-        Date.now(),
-        "GET",
-        "/health",
-        200,
-        3,
-      ),
+      formatRequestLine(createConsoleUi(caps(100)), Date.now(), "GET", "/health", 200, 3),
     ).toMatch(/\d\d:\d\d:\d\d/);
     expect(
       /\d\d:\d\d:\d\d/.test(
-        formatRequestLine(
-          createConsoleUi(caps(45)),
-          Date.now(),
-          "GET",
-          "/health",
-          200,
-          3,
-        ),
+        formatRequestLine(createConsoleUi(caps(45)), Date.now(), "GET", "/health", 200, 3),
       ),
     ).toBe(false);
   });
@@ -332,9 +290,8 @@ describe("createPrettyLogStream", () => {
     });
   const make = (columns = 100, extra = {}) => {
     const out = [];
-    const { stream, flush } = createPrettyLogStream(
-      createConsoleUi(caps(columns, extra)),
-      (t) => out.push(t),
+    const { stream, flush } = createPrettyLogStream(createConsoleUi(caps(columns, extra)), (t) =>
+      out.push(t),
     );
     return { stream, flush, text: () => out.join("") };
   };
@@ -355,9 +312,7 @@ describe("createPrettyLogStream", () => {
     const s = make();
     for (const a of ["127.0.0.1", "10.0.0.2"])
       s.stream.write(pino({ msg: `Server listening at http://${a}:8080` }));
-    s.stream.write(
-      pino({ msg: "HexForge Gateway listening on http://0.0.0.0:8080" }),
-    );
+    s.stream.write(pino({ msg: "HexForge Gateway listening on http://0.0.0.0:8080" }));
     expect(s.text()).toBe("");
   });
 
@@ -365,8 +320,7 @@ describe("createPrettyLogStream", () => {
     const s = make();
     for (let i = 0; i < 12; i++)
       s.stream.write(
-        req(`p${i}`, "GET", "/jobs/job_1", T + i * 700) +
-          done(`p${i}`, 200, 3, T + i * 700 + 3),
+        req(`p${i}`, "GET", "/jobs/job_1", T + i * 700) + done(`p${i}`, 200, 3, T + i * 700 + 3),
       );
     s.flush();
     expect((s.text().match(/\/jobs\/job_1/g) || []).length).toBe(1);
@@ -377,9 +331,7 @@ describe("createPrettyLogStream", () => {
     const s = make();
     s.stream.write(req("a", "GET", "/x", T) + done("a", 200, 1, T));
     s.stream.write(req("b", "GET", "/y", T + 100) + done("b", 200, 1, T + 100));
-    s.stream.write(
-      req("c", "GET", "/y", T + 5000) + done("c", 200, 1, T + 5000),
-    );
+    s.stream.write(req("c", "GET", "/y", T + 5000) + done("c", 200, 1, T + 5000));
     expect((s.text().match(/GET/g) || []).length).toBe(3);
     expect(s.text()).not.toContain("same request");
   });
@@ -388,14 +340,11 @@ describe("createPrettyLogStream", () => {
     const s = make();
     for (let i = 0; i < 3; i++)
       s.stream.write(
-        req(`p${i}`, "GET", "/jobs/j", T + i * 100) +
-          done(`p${i}`, 200, 2, T + i * 100),
+        req(`p${i}`, "GET", "/jobs/j", T + i * 100) + done(`p${i}`, 200, 2, T + i * 100),
       );
     s.stream.write(pino({ level: 40, time: T + 500, msg: "disk almost full" }));
     const text = s.text();
-    expect(text.indexOf("same request")).toBeLessThan(
-      text.indexOf("disk almost full"),
-    );
+    expect(text.indexOf("same request")).toBeLessThan(text.indexOf("disk almost full"));
   });
 
   it("renders warnings and errors with a badge, the error message, and a muted stack", () => {
@@ -458,8 +407,7 @@ describe("createPrettyLogStream", () => {
     (columns) => {
       const s = make(columns);
       s.stream.write(
-        req("r1", "POST", "/workspaces/ws_V1StGXR8_Z5jdHi6B-myT/jobs") +
-          done("r1", 502, 1850),
+        req("r1", "POST", "/workspaces/ws_V1StGXR8_Z5jdHi6B-myT/jobs") + done("r1", 502, 1850),
       );
       s.stream.write(
         pino({
@@ -488,8 +436,7 @@ describe("createPrettyLogStream", () => {
     const s = make(45, { unicode: false });
     for (let i = 0; i < 3; i++)
       s.stream.write(
-        req(`p${i}`, "GET", "/jobs/j", T + i * 100) +
-          done(`p${i}`, 200, 2, T + i * 100),
+        req(`p${i}`, "GET", "/jobs/j", T + i * 100) + done(`p${i}`, 200, 2, T + i * 100),
       );
     s.stream.write(pino({ level: 40, msg: "warning" }));
     s.stream.write(pino({ level: 50, msg: "error", err: { message: "e" } }));

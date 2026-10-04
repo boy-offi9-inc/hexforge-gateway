@@ -32,18 +32,12 @@ async function extractHandler(task: McpTask): Promise<unknown> {
   }
 
   const minLength =
-    payload.minLength && payload.minLength > 0
-      ? payload.minLength
-      : DEFAULT_MIN_LENGTH;
+    payload.minLength && payload.minLength > 0 ? payload.minLength : DEFAULT_MIN_LENGTH;
 
   try {
-    const { stdout } = await execFileAsync(
-      "strings",
-      ["-n", String(minLength), filePath],
-      {
-        maxBuffer: 1024 * 1024 * 20,
-      },
-    );
+    const { stdout } = await execFileAsync("strings", ["-n", String(minLength), filePath], {
+      maxBuffer: 1024 * 1024 * 20,
+    });
     const lines = stdout.split("\n").filter(Boolean);
 
     return {
@@ -58,9 +52,7 @@ async function extractHandler(task: McpTask): Promise<unknown> {
         '"strings" executable not found on PATH (part of binutils on most Linux/macOS installs).',
       );
     }
-    throw new Error(
-      `strings failed: ${err instanceof Error ? err.message : String(err)}`,
-    );
+    throw new Error(`strings failed: ${err instanceof Error ? err.message : String(err)}`);
   }
 }
 
@@ -69,9 +61,7 @@ async function stringsAgent(task: McpTask): Promise<unknown> {
     case "extract":
       return extractHandler(task);
     default:
-      throw new Error(
-        `Unsupported strings operation "${task.operation}". Supported: "extract"`,
-      );
+      throw new Error(`Unsupported strings operation "${task.operation}". Supported: "extract"`);
   }
 }
 
@@ -90,8 +80,7 @@ const plugin: HexForgePlugin = {
     //    importing the Event Bus or Job Engine.
     ctx.on("job.completed", (payload) => {
       if (payload.job.agent !== "strings") return;
-      const result = payload.job.result as
-        { filePath?: string; count?: number } | undefined;
+      const result = payload.job.result as { filePath?: string; count?: number } | undefined;
       ctx.log.info(
         `job ${payload.job.id} extracted ${result?.count ?? "?"} strings from ${result?.filePath}`,
       );

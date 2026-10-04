@@ -32,8 +32,7 @@ interface NotifyBody {
 const plugin: HexForgePlugin = {
   name: "webhook-notifier",
   version: "0.1.0",
-  description:
-    "POSTs to WEBHOOK_NOTIFIER_URL when a Job or Workflow completes or fails.",
+  description: "POSTs to WEBHOOK_NOTIFIER_URL when a Job or Workflow completes or fails.",
 
   register(ctx) {
     const url = process.env.WEBHOOK_NOTIFIER_URL;
@@ -52,9 +51,7 @@ const plugin: HexForgePlugin = {
           body: JSON.stringify(body),
         });
         if (!res.ok)
-          ctx.log.warn(
-            `webhook POST returned ${res.status} for ${body.kind} ${body.id}`,
-          );
+          ctx.log.warn(`webhook POST returned ${res.status} for ${body.kind} ${body.id}`);
       } catch (err) {
         ctx.log.warn(
           `webhook POST failed for ${body.kind} ${body.id}: ${err instanceof Error ? err.message : String(err)}`,

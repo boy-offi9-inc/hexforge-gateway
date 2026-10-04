@@ -82,17 +82,13 @@ describe("JobEngine", () => {
       maxAttempts: 1,
     });
 
-    await vi.waitFor(() =>
-      expect(jobEngine.getJob(job.id)?.currentTaskId).toBe("t-ok"),
-    );
+    await vi.waitFor(() => expect(jobEngine.getJob(job.id)?.currentTaskId).toBe("t-ok"));
 
     eventBus.emit("mcp.task.updated", {
       task: { ...task, status: "completed", result: { ok: true } },
     });
 
-    await vi.waitFor(() =>
-      expect(jobEngine.getJob(job.id)?.status).toBe("completed"),
-    );
+    await vi.waitFor(() => expect(jobEngine.getJob(job.id)?.status).toBe("completed"));
 
     const finished = jobEngine.getJob(job.id)!;
     expect(finished.result).toEqual({ ok: true });
@@ -112,23 +108,17 @@ describe("JobEngine", () => {
       maxAttempts: 2,
     });
 
-    await vi.waitFor(() =>
-      expect(jobEngine.getJob(job.id)?.currentTaskId).toBe("t-attempt-1"),
-    );
+    await vi.waitFor(() => expect(jobEngine.getJob(job.id)?.currentTaskId).toBe("t-attempt-1"));
     eventBus.emit("mcp.task.updated", {
       task: { ...taskA, status: "failed", error: "first try failed" },
     });
 
-    await vi.waitFor(() =>
-      expect(jobEngine.getJob(job.id)?.currentTaskId).toBe("t-attempt-2"),
-    );
+    await vi.waitFor(() => expect(jobEngine.getJob(job.id)?.currentTaskId).toBe("t-attempt-2"));
     eventBus.emit("mcp.task.updated", {
       task: { ...taskB, status: "completed", result: { ok: true } },
     });
 
-    await vi.waitFor(() =>
-      expect(jobEngine.getJob(job.id)?.status).toBe("completed"),
-    );
+    await vi.waitFor(() => expect(jobEngine.getJob(job.id)?.status).toBe("completed"));
 
     const finished = jobEngine.getJob(job.id)!;
     expect(finished.attempts).toBe(2);
@@ -138,9 +128,7 @@ describe("JobEngine", () => {
 
   it("fails once maxAttempts is exhausted, without retrying further", async () => {
     let callIndex = 0;
-    dispatch.mockImplementation(async () =>
-      makeTask({ id: `t-${++callIndex}` }),
-    );
+    dispatch.mockImplementation(async () => makeTask({ id: `t-${++callIndex}` }));
 
     const job = jobEngine.submit({
       workspaceId: "ws1",
@@ -150,9 +138,7 @@ describe("JobEngine", () => {
     });
 
     for (let attempt = 1; attempt <= 3; attempt++) {
-      await vi.waitFor(() =>
-        expect(jobEngine.getJob(job.id)?.currentTaskId).toBe(`t-${attempt}`),
-      );
+      await vi.waitFor(() => expect(jobEngine.getJob(job.id)?.currentTaskId).toBe(`t-${attempt}`));
       eventBus.emit("mcp.task.updated", {
         task: makeTask({
           id: `t-${attempt}`,
@@ -162,9 +148,7 @@ describe("JobEngine", () => {
       });
     }
 
-    await vi.waitFor(() =>
-      expect(jobEngine.getJob(job.id)?.status).toBe("failed"),
-    );
+    await vi.waitFor(() => expect(jobEngine.getJob(job.id)?.status).toBe("failed"));
 
     const finished = jobEngine.getJob(job.id)!;
     expect(finished.attempts).toBe(3);
@@ -193,9 +177,7 @@ describe("JobEngine", () => {
       maxAttempts: 1,
     });
 
-    await vi.waitFor(() =>
-      expect(jobEngine.getJob(job.id)?.status).toBe("failed"),
-    );
+    await vi.waitFor(() => expect(jobEngine.getJob(job.id)?.status).toBe("failed"));
     expect(jobEngine.getJob(job.id)?.error).toBe("blew up immediately");
     expect(dispatch).toHaveBeenCalledTimes(1);
 

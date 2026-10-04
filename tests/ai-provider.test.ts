@@ -15,9 +15,7 @@ import type { CompletionRequest } from "../src/providers/ai.provider.js";
 // configured" checks actually test for (`!config.SOME_API_KEY`).
 type AiProviderModule = typeof import("../src/providers/ai.provider.js");
 
-async function loadWithEnv(
-  env: Record<string, string>,
-): Promise<AiProviderModule> {
+async function loadWithEnv(env: Record<string, string>): Promise<AiProviderModule> {
   vi.resetModules();
   for (const [key, value] of Object.entries(env)) {
     vi.stubEnv(key, value);
@@ -65,9 +63,7 @@ describe("ai.provider - Anthropic", () => {
       AI_PROVIDER: "anthropic",
       ANTHROPIC_API_KEY: "",
     });
-    await expect(mod.complete(req)).rejects.toThrow(
-      /ANTHROPIC_API_KEY is not set/,
-    );
+    await expect(mod.complete(req)).rejects.toThrow(/ANTHROPIC_API_KEY is not set/);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -119,9 +115,7 @@ describe("ai.provider - Anthropic", () => {
     });
     fetchMock.mockResolvedValueOnce(textErrorResponse(500, "internal error"));
 
-    await expect(mod.complete(req)).rejects.toThrow(
-      /Anthropic API error \(500\).*internal error/s,
-    );
+    await expect(mod.complete(req)).rejects.toThrow(/Anthropic API error \(500\).*internal error/s);
   });
 
   it("throws a clear error when the response has no text content (malformed/empty)", async () => {
@@ -131,9 +125,7 @@ describe("ai.provider - Anthropic", () => {
     });
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { content: [] }));
 
-    await expect(mod.complete(req)).rejects.toThrow(
-      /Anthropic API returned no text content/,
-    );
+    await expect(mod.complete(req)).rejects.toThrow(/Anthropic API returned no text content/);
   });
 });
 
@@ -188,9 +180,7 @@ describe("ai.provider - OpenAI-compatible shape (via Groq)", () => {
     });
     fetchMock.mockResolvedValueOnce(textErrorResponse(429, "rate limited"));
 
-    await expect(mod.complete(req)).rejects.toThrow(
-      /Groq API error \(429\).*rate limited/s,
-    );
+    await expect(mod.complete(req)).rejects.toThrow(/Groq API error \(429\).*rate limited/s);
   });
 
   it("throws a clear error when the response has no message content (malformed/empty)", async () => {
@@ -200,9 +190,7 @@ describe("ai.provider - OpenAI-compatible shape (via Groq)", () => {
     });
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { choices: [] }));
 
-    await expect(mod.complete(req)).rejects.toThrow(
-      /Groq API returned no text content/,
-    );
+    await expect(mod.complete(req)).rejects.toThrow(/Groq API returned no text content/);
   });
 
   it("wraps a network-level fetch failure in a friendlier reachability error", async () => {
@@ -224,9 +212,7 @@ describe("ai.provider - openai-compatible (generic escape hatch)", () => {
       AI_PROVIDER: "openai-compatible",
       OPENAI_COMPATIBLE_MODEL: "",
     });
-    await expect(mod.complete(req)).rejects.toThrow(
-      /OPENAI_COMPATIBLE_MODEL is not set/,
-    );
+    await expect(mod.complete(req)).rejects.toThrow(/OPENAI_COMPATIBLE_MODEL is not set/);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -254,9 +240,7 @@ describe("ai.provider - Gemini", () => {
       AI_PROVIDER: "gemini",
       GEMINI_API_KEY: "",
     });
-    await expect(mod.complete(req)).rejects.toThrow(
-      /GEMINI_API_KEY is not set/,
-    );
+    await expect(mod.complete(req)).rejects.toThrow(/GEMINI_API_KEY is not set/);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -268,9 +252,7 @@ describe("ai.provider - Gemini", () => {
     });
     fetchMock.mockResolvedValueOnce(
       jsonResponse(200, {
-        candidates: [
-          { content: { parts: [{ text: "Hello" }, { text: " world" }] } },
-        ],
+        candidates: [{ content: { parts: [{ text: "Hello" }, { text: " world" }] } }],
       }),
     );
 
@@ -300,9 +282,7 @@ describe("ai.provider - Gemini", () => {
     });
     fetchMock.mockResolvedValueOnce(textErrorResponse(400, "bad request"));
 
-    await expect(mod.complete(req)).rejects.toThrow(
-      /Gemini API error \(400\).*bad request/s,
-    );
+    await expect(mod.complete(req)).rejects.toThrow(/Gemini API error \(400\).*bad request/s);
   });
 
   it("throws a clear error when the response has no text content (malformed/empty)", async () => {
@@ -312,9 +292,7 @@ describe("ai.provider - Gemini", () => {
     });
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { candidates: [] }));
 
-    await expect(mod.complete(req)).rejects.toThrow(
-      /Gemini API returned no text content/,
-    );
+    await expect(mod.complete(req)).rejects.toThrow(/Gemini API returned no text content/);
   });
 });
 
@@ -325,9 +303,7 @@ describe("ai.provider - Ollama", () => {
       OLLAMA_API_KEY: "",
       OLLAMA_MODEL: "llama3.3",
     });
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse(200, { message: { content: "ok" } }),
-    );
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { message: { content: "ok" } }));
 
     await mod.complete(req);
 
@@ -341,26 +317,20 @@ describe("ai.provider - Ollama", () => {
     const mod = await loadWithEnv({ AI_PROVIDER: "ollama" });
     fetchMock.mockRejectedValueOnce(new TypeError("fetch failed"));
 
-    await expect(mod.complete(req)).rejects.toThrow(
-      /Is "ollama serve" running.*fetch failed/s,
-    );
+    await expect(mod.complete(req)).rejects.toThrow(/Is "ollama serve" running.*fetch failed/s);
   });
 
   it("surfaces a non-ok response as an error with status and truncated body", async () => {
     const mod = await loadWithEnv({ AI_PROVIDER: "ollama" });
     fetchMock.mockResolvedValueOnce(textErrorResponse(500, "model not found"));
 
-    await expect(mod.complete(req)).rejects.toThrow(
-      /Ollama API error \(500\).*model not found/s,
-    );
+    await expect(mod.complete(req)).rejects.toThrow(/Ollama API error \(500\).*model not found/s);
   });
 
   it("throws a clear error when the response has no message content (malformed/empty)", async () => {
     const mod = await loadWithEnv({ AI_PROVIDER: "ollama" });
     fetchMock.mockResolvedValueOnce(jsonResponse(200, {}));
 
-    await expect(mod.complete(req)).rejects.toThrow(
-      /Ollama API returned no message content/,
-    );
+    await expect(mod.complete(req)).rejects.toThrow(/Ollama API returned no message content/);
   });
 });

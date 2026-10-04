@@ -27,12 +27,7 @@ export function stripAnsi(s) {
 /** Terminal cell width of one code point: 0 for combining/zero-width, 2 for East Asian wide + emoji, else 1. */
 export function charWidth(cp) {
   if (cp === 0 || cp < 32 || (cp >= 0x7f && cp < 0xa0)) return 0;
-  if (
-    (cp >= 0x300 && cp <= 0x36f) ||
-    (cp >= 0x200b && cp <= 0x200f) ||
-    cp === 0xfe0f
-  )
-    return 0;
+  if ((cp >= 0x300 && cp <= 0x36f) || (cp >= 0x200b && cp <= 0x200f) || cp === 0xfe0f) return 0;
   if (
     cp >= 0x1100 &&
     (cp <= 0x115f ||
@@ -109,10 +104,7 @@ export function truncate(s, max, ell = "…") {
 export function truncateStart(s, max, ell = "…") {
   const chars = [...String(s)];
   if (chars.length <= max) return String(s);
-  return (
-    ell +
-    chars.slice(chars.length - Math.max(0, max - [...ell].length)).join("")
-  );
+  return ell + chars.slice(chars.length - Math.max(0, max - [...ell].length)).join("");
 }
 
 export function padEnd(s, width) {
@@ -307,23 +299,13 @@ const PALETTE = {
  * @param {{ color?: boolean, depth?: number, unicode?: boolean, columns?: number }} caps
  * depth is the terminal's color depth in bits: 24 truecolor, 8 = 256 colors, 4 = 16 colors.
  */
-export function createTheme({
-  color = false,
-  depth = 8,
-  unicode = true,
-  columns = 80,
-} = {}) {
+export function createTheme({ color = false, depth = 8, unicode = true, columns = 80 } = {}) {
   const g = unicode ? UNICODE : ASCII;
   const width = Math.max(24, Math.min(100, columns));
 
   const fg = ([r, gr, b, c256, c16]) =>
-    depth >= 24
-      ? `\x1b[38;2;${r};${gr};${b}m`
-      : depth >= 8
-        ? `\x1b[38;5;${c256}m`
-        : `\x1b[${c16}m`;
-  const styler = (open, close) => (s) =>
-    color ? `${open}${s}${close}` : String(s);
+    depth >= 24 ? `\x1b[38;2;${r};${gr};${b}m` : depth >= 8 ? `\x1b[38;5;${c256}m` : `\x1b[${c16}m`;
+  const styler = (open, close) => (s) => (color ? `${open}${s}${close}` : String(s));
   const paint = (name) => styler(fg(PALETTE[name]), "\x1b[39m");
 
   const t = {
@@ -407,9 +389,7 @@ export function createTheme({
     }
     for (const raw of lines) {
       const line = t.truncate(raw, inner);
-      out.push(
-        border(g.vbar) + " " + padEnd(line, inner) + " " + border(g.vbar),
-      );
+      out.push(border(g.vbar) + " " + padEnd(line, inner) + " " + border(g.vbar));
     }
     out.push(border(g.bl + g.dash.repeat(width - 2) + g.br));
     return out;
@@ -420,23 +400,14 @@ export function createTheme({
    * then indented `key  value` rows and an optional hint. Values with spaces
    * wrap under their key; long unbroken values (paths, ids) keep their tail.
    */
-  t.card = ({
-    icon,
-    title,
-    right = "",
-    rows = [],
-    hint = "",
-    indent = 3,
-  } = {}) => {
+  t.card = ({ icon, title, right = "", rows = [], hint = "", indent = 3 } = {}) => {
     const out = [];
     const lead = ` ${icon ?? " "} `;
     const leadW = 3;
     const rightW = visibleWidth(right);
     const room = width - leadW - (rightW ? rightW + 2 : 0);
     const head = t.truncate(title ?? "", Math.max(8, room));
-    const gap = rightW
-      ? Math.max(1, width - leadW - visibleWidth(head) - rightW)
-      : 0;
+    const gap = rightW ? Math.max(1, width - leadW - visibleWidth(head) - rightW) : 0;
     out.push(lead + head + " ".repeat(gap) + right);
 
     const keyW = rows.reduce((m, [k]) => Math.max(m, visibleWidth(k)), 0);
@@ -570,8 +541,7 @@ export function renderMarkdown(src, t, { indent = "  " } = {}) {
     const fence = raw.match(/^\s*```(.*)$/);
     if (fence) {
       inFence = !inFence;
-      if (inFence && fence[1].trim())
-        push([indent + t.mute(t.g.vbar + " " + fence[1].trim())]);
+      if (inFence && fence[1].trim()) push([indent + t.mute(t.g.vbar + " " + fence[1].trim())]);
       if (!inFence) {
         // Closing fence: a blank line, so a code block never runs straight
         // into the next block (a blockquote shares the same gutter glyph).
@@ -585,11 +555,7 @@ export function renderMarkdown(src, t, { indent = "  " } = {}) {
       const chunks = [...raw.replace(/\t/g, "  ")];
       if (chunks.length === 0) push([indent + t.mute(t.g.vbar)]);
       for (let i = 0; i < chunks.length; i += room) {
-        push([
-          indent +
-            t.mute(t.g.vbar + " ") +
-            t.info(chunks.slice(i, i + room).join("")),
-        ]);
+        push([indent + t.mute(t.g.vbar + " ") + t.info(chunks.slice(i, i + room).join(""))]);
       }
       continue;
     }
@@ -604,19 +570,13 @@ export function renderMarkdown(src, t, { indent = "  " } = {}) {
     if ((m = raw.match(/^(#{1,6})\s+(.*)$/))) {
       const text = inline(m[2]);
       push(
-        wrapAnsi(
-          m[1].length <= 2 ? t.bold(t.accent(stripAnsi(text))) : t.bold(text),
-          width,
-          {
-            indent,
-            hang: indent,
-          },
-        ),
+        wrapAnsi(m[1].length <= 2 ? t.bold(t.accent(stripAnsi(text))) : t.bold(text), width, {
+          indent,
+          hang: indent,
+        }),
       );
     } else if (/^\s*([-*_])\1{2,}\s*$/.test(raw)) {
-      push([
-        indent + t.mute(t.g.dash.repeat(Math.min(24, width - indent.length))),
-      ]);
+      push([indent + t.mute(t.g.dash.repeat(Math.min(24, width - indent.length)))]);
     } else if ((m = raw.match(/^>\s?(.*)$/))) {
       push(
         wrapAnsi(t.mute(stripAnsi(inline(m[1]))), width, {
@@ -665,36 +625,23 @@ export function renderMarkdown(src, t, { indent = "  " } = {}) {
  * so the rules - NO_COLOR, FORCE_COLOR, TERM=dumb, non-UTF-8 locales - are
  * testable with plain objects instead of a real TTY.
  */
-export function detectCaps({
-  env = {},
-  stdout = {},
-  stderr = {},
-  flags = {},
-} = {}) {
+export function detectCaps({ env = {}, stdout = {}, stderr = {}, flags = {} } = {}) {
   const outTty = Boolean(stdout.isTTY);
   const errTty = Boolean(stderr.isTTY);
   const dumb = env.TERM === "dumb";
 
   const forced = env.FORCE_COLOR && env.FORCE_COLOR !== "0";
-  const noColor =
-    "NO_COLOR" in env && env.NO_COLOR !== "" ? true : Boolean(flags.noColor);
+  const noColor = "NO_COLOR" in env && env.NO_COLOR !== "" ? true : Boolean(flags.noColor);
   const color = !noColor && !dumb && (forced || outTty);
 
   let depth = 4;
-  if (typeof stdout.getColorDepth === "function")
-    depth = stdout.getColorDepth();
+  if (typeof stdout.getColorDepth === "function") depth = stdout.getColorDepth();
   else if (/^(truecolor|24bit)$/i.test(env.COLORTERM ?? "")) depth = 24;
   else if (/256/.test(env.TERM ?? "")) depth = 8;
 
   const locale = env.LC_ALL || env.LC_CTYPE || env.LANG || "";
-  const nonUtf8Locale =
-    locale !== "" && !/utf-?8/i.test(locale) && locale !== "C.UTF-8";
-  const unicode =
-    !flags.ascii &&
-    !env.HF_ASCII &&
-    !dumb &&
-    env.TERM !== "linux" &&
-    !nonUtf8Locale;
+  const nonUtf8Locale = locale !== "" && !/utf-?8/i.test(locale) && locale !== "C.UTF-8";
+  const unicode = !flags.ascii && !env.HF_ASCII && !dumb && env.TERM !== "linux" && !nonUtf8Locale;
 
   const plain = Boolean(flags.plain || flags.json || env.HF_PLAIN);
   const pretty = outTty && !plain && !dumb;

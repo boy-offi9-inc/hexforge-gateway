@@ -93,13 +93,8 @@ export interface ChatTurn {
  * a single-operator tool, not a data-loss risk (worst case is one
  * imperfectly-paired turn near the trim boundary, not corruption).
  */
-function buildChatHistory(
-  recentEntriesNewestFirst: KnowledgeEntry[],
-): ChatMessage[] {
-  const candidates = recentEntriesNewestFirst.slice(
-    0,
-    MAX_CHAT_HISTORY_TURNS * 2,
-  );
+function buildChatHistory(recentEntriesNewestFirst: KnowledgeEntry[]): ChatMessage[] {
+  const candidates = recentEntriesNewestFirst.slice(0, MAX_CHAT_HISTORY_TURNS * 2);
   const picked: ChatMessage[] = [];
   let remainingBudget = MAX_CHAT_HISTORY_CHARS;
 

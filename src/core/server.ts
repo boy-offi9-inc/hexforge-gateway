@@ -12,11 +12,7 @@ import { loadPlugins } from "../plugins/loader.js";
 import { registerWebsocketGateway } from "./websocket.js";
 import { registerAuth } from "./auth.js";
 import { config } from "./config.js";
-import {
-  createConsoleUi,
-  createPrettyLogStream,
-  detectConsoleCaps,
-} from "./console-ui.js";
+import { createConsoleUi, createPrettyLogStream, detectConsoleCaps } from "./console-ui.js";
 
 export async function buildServer() {
   // On an interactive terminal, give pino a destination that renders its

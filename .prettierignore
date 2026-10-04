@@ -1,0 +1,6 @@
+node_modules/
+dist/
+data/
+package-lock.json
+*.md
+*.sql

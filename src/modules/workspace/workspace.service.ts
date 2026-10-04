@@ -12,10 +12,7 @@ function warnFallback(op: string, message: string) {
   );
 }
 
-export async function createWorkspace(
-  name: string,
-  targetLabel: string,
-): Promise<Workspace> {
+export async function createWorkspace(name: string, targetLabel: string): Promise<Workspace> {
   const now = new Date().toISOString();
   const workspace: Workspace = {
     id: nanoid(12),
@@ -44,11 +41,7 @@ export async function createWorkspace(
 export async function getWorkspace(id: string): Promise<Workspace | null> {
   const supabase = getSupabase();
   if (supabase) {
-    const { data, error } = await supabase
-      .from("workspaces")
-      .select("*")
-      .eq("id", id)
-      .single();
+    const { data, error } = await supabase.from("workspaces").select("*").eq("id", id).single();
     if (!error) return data as Workspace;
     warnFallback("select", error.message);
   }
@@ -69,9 +62,7 @@ export async function listWorkspaces(): Promise<Workspace[]> {
   return local.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
-export async function getWorkspaceByName(
-  name: string,
-): Promise<Workspace | null> {
+export async function getWorkspaceByName(name: string): Promise<Workspace | null> {
   const supabase = getSupabase();
   if (supabase) {
     const { data, error } = await supabase
@@ -92,10 +83,7 @@ export async function getWorkspaceByName(
  * response. `targetLabel` is only used if a new workspace is actually
  * created; it's ignored on an existing match.
  */
-export async function getOrCreateWorkspace(
-  name: string,
-  targetLabel: string,
-): Promise<Workspace> {
+export async function getOrCreateWorkspace(name: string, targetLabel: string): Promise<Workspace> {
   const existing = await getWorkspaceByName(name);
   if (existing) return existing;
   return createWorkspace(name, targetLabel);

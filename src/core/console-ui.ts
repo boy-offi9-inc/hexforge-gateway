@@ -54,14 +54,10 @@ export function detectConsoleCaps(
   const tty = Boolean(out.isTTY);
   const dumb = env.TERM === "dumb";
   const format = (env.LOG_FORMAT ?? "auto").toLowerCase();
-  const pretty =
-    format === "json" ? false : format === "pretty" ? !dumb : tty && !dumb;
+  const pretty = format === "json" ? false : format === "pretty" ? !dumb : tty && !dumb;
 
   const noColor = env.NO_COLOR !== undefined && env.NO_COLOR !== "";
-  const forced =
-    env.FORCE_COLOR !== undefined &&
-    env.FORCE_COLOR !== "" &&
-    env.FORCE_COLOR !== "0";
+  const forced = env.FORCE_COLOR !== undefined && env.FORCE_COLOR !== "" && env.FORCE_COLOR !== "0";
   const color = pretty && !noColor && (tty || forced);
 
   let depth = 4;
@@ -121,10 +117,7 @@ const ASCII: typeof UNICODE = {
 
 // [r, g, b, 256-color, 16-color] - same brand palette as scripts/hf/ui.mjs.
 type Swatch = readonly [number, number, number, number, number];
-const PALETTE: Record<
-  "accent" | "ok" | "err" | "warn" | "info" | "mute",
-  Swatch
-> = {
+const PALETTE: Record<"accent" | "ok" | "err" | "warn" | "info" | "mute", Swatch> = {
   accent: [255, 167, 38, 214, 33],
   ok: [74, 222, 128, 78, 32],
   err: [248, 113, 113, 203, 31],
@@ -141,12 +134,7 @@ export function stripAnsi(s: string): string {
 
 function charWidth(cp: number): number {
   if (cp === 0 || cp < 32 || (cp >= 0x7f && cp < 0xa0)) return 0;
-  if (
-    (cp >= 0x300 && cp <= 0x36f) ||
-    (cp >= 0x200b && cp <= 0x200f) ||
-    cp === 0xfe0f
-  )
-    return 0;
+  if ((cp >= 0x300 && cp <= 0x36f) || (cp >= 0x200b && cp <= 0x200f) || cp === 0xfe0f) return 0;
   if (
     cp >= 0x1100 &&
     (cp <= 0x115f ||
@@ -185,17 +173,8 @@ export interface ConsoleUi {
   /** Cuts plain-or-styled text to a visible width, ending with the theme's ellipsis. */
   truncate: (s: string, max: number) => string;
   /** Word-wraps *plain* text (style the result per line) with a hanging indent. */
-  wrap: (
-    text: string,
-    width: number,
-    indent?: string,
-    hang?: string,
-  ) => string[];
-  box: (
-    lines: string[],
-    title: string,
-    border?: (s: string) => string,
-  ) => string[];
+  wrap: (text: string, width: number, indent?: string, hang?: string) => string[];
+  box: (lines: string[], title: string, border?: (s: string) => string) => string[];
 }
 
 export function createConsoleUi(caps: ConsoleCaps): ConsoleUi {
@@ -212,8 +191,7 @@ export function createConsoleUi(caps: ConsoleCaps): ConsoleUi {
     (open: string, close: string) =>
     (s: string): string =>
       caps.color ? `${open}${s}${close}` : s;
-  const paint = (name: keyof typeof PALETTE) =>
-    styler(fg(PALETTE[name]), "\x1b[39m");
+  const paint = (name: keyof typeof PALETTE) => styler(fg(PALETTE[name]), "\x1b[39m");
 
   const truncate = (s: string, max: number): string => {
     if (visibleWidth(s) <= max) return s;
@@ -232,8 +210,7 @@ export function createConsoleUi(caps: ConsoleCaps): ConsoleUi {
       return true;
     };
     for (const m of s.matchAll(ANSI_RE)) {
-      if (!take(s.slice(last, m.index)))
-        return out + (sawAnsi ? "\x1b[0m" : "") + g.ellipsis;
+      if (!take(s.slice(last, m.index))) return out + (sawAnsi ? "\x1b[0m" : "") + g.ellipsis;
       out += m[0];
       sawAnsi = true;
       last = (m.index ?? 0) + m[0].length;
@@ -242,12 +219,7 @@ export function createConsoleUi(caps: ConsoleCaps): ConsoleUi {
     return out + (sawAnsi ? "\x1b[0m" : "") + g.ellipsis;
   };
 
-  const wrap = (
-    text: string,
-    max: number,
-    indent = "",
-    hang = indent,
-  ): string[] => {
+  const wrap = (text: string, max: number, indent = "", hang = indent): string[] => {
     const lines: string[] = [];
     let line = indent;
     let lineW = visibleWidth(indent);
@@ -286,11 +258,7 @@ export function createConsoleUi(caps: ConsoleCaps): ConsoleUi {
   };
 
   const mute = paint("mute");
-  const box = (
-    lines: string[],
-    title: string,
-    border: (s: string) => string = mute,
-  ): string[] => {
+  const box = (lines: string[], title: string, border: (s: string) => string = mute): string[] => {
     const inner = width - 4;
     // A title wider than the box would push the top border past the terminal.
     const shownTitle = truncate(title, width - 6);
@@ -357,33 +325,19 @@ export type NoticeLevel = "info" | "warn" | "error";
  * mode gives it an icon and wraps it to the terminal.
  */
 export function notice(tag: string, level: NoticeLevel, message: string): void {
-  const sink =
-    level === "error"
-      ? console.error
-      : level === "warn"
-        ? console.warn
-        : console.log;
+  const sink = level === "error" ? console.error : level === "warn" ? console.warn : console.log;
   const u = ui();
   if (!u.caps.pretty) {
     sink(`[${tag}] ${message}`);
     return;
   }
   const icon =
-    level === "error"
-      ? u.err(u.g.err)
-      : level === "warn"
-        ? u.warn(u.g.warn)
-        : u.accent(u.g.hex);
+    level === "error" ? u.err(u.g.err) : level === "warn" ? u.warn(u.g.warn) : u.accent(u.g.hex);
   const lead = ` ${icon} ${u.mute(tag)}  `;
   if (visibleWidth(lead) > u.width * 0.45) {
     // A long tag ("plugin:webhook-notifier") beside the message would leave
     // it a sliver of the line and break words mid-token - stack them instead.
-    sink(
-      [
-        ` ${icon} ${u.mute(tag)}`,
-        ...u.wrap(message, u.width, "   ", "   "),
-      ].join("\n"),
-    );
+    sink([` ${icon} ${u.mute(tag)}`, ...u.wrap(message, u.width, "   ", "   ")].join("\n"));
     return;
   }
   sink(leadWrap(u, lead, message).join("\n"));
@@ -418,9 +372,7 @@ export function listenAddresses(
       },
     ];
   }
-  const out: ListenAddress[] = [
-    { label: "local", url: `http://127.0.0.1:${port}` },
-  ];
+  const out: ListenAddress[] = [{ label: "local", url: `http://127.0.0.1:${port}` }];
   for (const addrs of Object.values(nets)) {
     for (const a of addrs ?? []) {
       const family = String(a.family);
@@ -456,8 +408,7 @@ export function packageVersion(): string {
 
 export function renderBanner(info: BannerInfo, u: ConsoleUi): string[] {
   const LABEL = 11; // wide enough for "workspaces" plus a gap
-  const row = (label: string, value: string): string =>
-    `${u.mute(label.padEnd(LABEL))}${value}`;
+  const row = (label: string, value: string): string => `${u.mute(label.padEnd(LABEL))}${value}`;
   const rows: string[] = [];
 
   // The local/network tag is a nicety: on a narrow terminal it's dropped
@@ -466,12 +417,7 @@ export function renderBanner(info: BannerInfo, u: ConsoleUi): string[] {
   const shown = info.addresses.slice(0, 4);
   shown.forEach((a, i) => {
     const tagged = `${a.url} ${u.mute(a.label)}`;
-    rows.push(
-      row(
-        i === 0 ? "listening" : "",
-        visibleWidth(tagged) <= valueRoom ? tagged : a.url,
-      ),
-    );
+    rows.push(row(i === 0 ? "listening" : "", visibleWidth(tagged) <= valueRoom ? tagged : a.url));
   });
   if (info.addresses.length > shown.length)
     rows.push(row("", u.mute(`+${info.addresses.length - shown.length} more`)));
@@ -511,26 +457,21 @@ export function renderBanner(info: BannerInfo, u: ConsoleUi): string[] {
     ),
   );
   rows.push(
-    row(
-      "inbox",
-      info.inbox ? `watching ${info.inbox}` : u.mute("off (set APK_INBOX_DIR)"),
-    ),
+    row("inbox", info.inbox ? `watching ${info.inbox}` : u.mute("off (set APK_INBOX_DIR)")),
   );
   const names = info.workspaces.map((w) => w.name);
   rows.push(
     row(
       "workspaces",
       names.length
-        ? names.slice(0, 3).join(", ") +
-            (names.length > 3 ? ` +${names.length - 3}` : "")
+        ? names.slice(0, 3).join(", ") + (names.length > 3 ? ` +${names.length - 3}` : "")
         : u.mute("none yet"),
     ),
   );
 
   const out = u.box(
     rows,
-    u.bold(u.accent(`${u.g.hex} HexForge Gateway`)) +
-      u.mute(` v${info.version}`),
+    u.bold(u.accent(`${u.g.hex} HexForge Gateway`)) + u.mute(` v${info.version}`),
     u.accent,
   );
 
@@ -548,8 +489,7 @@ export function renderBanner(info: BannerInfo, u: ConsoleUi): string[] {
     warnings.push(
       `AI provider "${info.ai.provider}" isn't configured, so chat and summarize will return 503. See docs/AI.md.`,
     );
-  for (const w of warnings)
-    out.push("", ...leadWrap(u, ` ${u.warn(u.g.warn)} `, w));
+  for (const w of warnings) out.push("", ...leadWrap(u, ` ${u.warn(u.g.warn)} `, w));
 
   out.push(
     "",
@@ -611,20 +551,13 @@ export function formatRequestLine(
 ): string {
   const showTime = u.width >= 64;
   const lead = showTime ? `${u.mute(clock(time))}  ` : " ";
-  const methodCol = (
-    method === "GET" ? u.info : method === "DELETE" ? u.err : u.accent
-  )(method.padEnd(6));
+  const methodCol = (method === "GET" ? u.info : method === "DELETE" ? u.err : u.accent)(
+    method.padEnd(6),
+  );
   const statusCol = (
-    status >= 500
-      ? u.err
-      : status >= 400
-        ? u.warn
-        : status >= 300
-          ? u.info
-          : u.ok
+    status >= 500 ? u.err : status >= 400 ? u.warn : status >= 300 ? u.info : u.ok
   )(String(status));
-  const dur =
-    ms >= 1000 ? u.warn(formatDuration(ms)) : u.mute(formatDuration(ms));
+  const dur = ms >= 1000 ? u.warn(formatDuration(ms)) : u.mute(formatDuration(ms));
   const tail = `${statusCol}  ${dur}`;
   const room = u.width - visibleWidth(lead) - 7 - visibleWidth(tail) - 2;
   if (room < 8)
@@ -664,8 +597,7 @@ export function createPrettyLogStream(
 ): PrettyLogStream {
   let buffer = "";
   const inflight = new Map<string, { method: string; url: string }>();
-  let last:
-    { key: string; time: number; extra: number; totalMs: number } | undefined;
+  let last: { key: string; time: number; extra: number; totalMs: number } | undefined;
   let timer: NodeJS.Timeout | undefined;
 
   const flush = (): void => {
@@ -687,8 +619,7 @@ export function createPrettyLogStream(
     const time = line.time ?? Date.now();
 
     if (msg === "incoming request" && line.reqId) {
-      if (inflight.size > 500)
-        inflight.delete(inflight.keys().next().value as string);
+      if (inflight.size > 500) inflight.delete(inflight.keys().next().value as string);
       inflight.set(line.reqId, {
         method: line.req?.method ?? "?",
         url: line.req?.url ?? "?",
@@ -720,10 +651,7 @@ export function createPrettyLogStream(
       return;
     }
 
-    if (
-      msg.startsWith("Server listening at") ||
-      msg.startsWith("HexForge Gateway listening on")
-    )
+    if (msg.startsWith("Server listening at") || msg.startsWith("HexForge Gateway listening on"))
       return;
 
     flush();
@@ -738,11 +666,7 @@ export function createPrettyLogStream(
       .filter(([k]) => !HIDDEN_KEYS.has(k))
       .slice(0, 4)
       .map(([k, v]) => `${k}=${typeof v === "string" ? v : JSON.stringify(v)}`);
-    const text = [
-      msg,
-      line.err?.message ? `- ${line.err.message}` : "",
-      ...extras,
-    ]
+    const text = [msg, line.err?.message ? `- ${line.err.message}` : "", ...extras]
       .filter(Boolean)
       .join(" ");
     const showTime = u.width >= 64;
@@ -751,9 +675,7 @@ export function createPrettyLogStream(
     write(leadWrap(u, lead, text).join("\n") + "\n");
     if (level >= 50 && line.err?.stack) {
       for (const frame of line.err.stack.split("\n").slice(1, 6))
-        write(
-          `${" ".repeat(leadW)}${u.mute(u.truncate(frame.trim(), u.width - leadW))}\n`,
-        );
+        write(`${" ".repeat(leadW)}${u.mute(u.truncate(frame.trim(), u.width - leadW))}\n`);
     }
   };
 

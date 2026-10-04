@@ -63,11 +63,7 @@
  * Point a Streamable-HTTP-capable MCP client at http://<host>:<port>/mcp.
  */
 
-import {
-  createServer,
-  type IncomingMessage,
-  type ServerResponse,
-} from "node:http";
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { handleRequest, log, type JsonRpcRequest } from "./protocol.js";
 
 const HOST = process.env.MCP_HTTP_HOST ?? "127.0.0.1";
@@ -90,9 +86,7 @@ const ALLOWED_ORIGINS = new Set(
 // perspective if it ever needs to talk to both with the same key.
 function extractApiKey(req: IncomingMessage): string | undefined {
   const header = req.headers.authorization;
-  const bearer = header?.startsWith("Bearer ")
-    ? header.slice("Bearer ".length)
-    : undefined;
+  const bearer = header?.startsWith("Bearer ") ? header.slice("Bearer ".length) : undefined;
   const xApiKey = req.headers["x-api-key"];
   return bearer ?? (typeof xApiKey === "string" ? xApiKey : undefined);
 }
@@ -182,10 +176,7 @@ function checkAuth(req: IncomingMessage): boolean {
 }
 
 async function requestListener(req: IncomingMessage, res: ServerResponse) {
-  const url = new URL(
-    req.url ?? "/",
-    `http://${req.headers.host ?? "localhost"}`,
-  );
+  const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
 
   if (url.pathname === "/health") {
     sendJson(res, 200, {
@@ -253,8 +244,7 @@ function main() {
   const server = createServer((req, res) => {
     void requestListener(req, res).catch((err) => {
       log("unhandled error handling request:", err);
-      if (!res.headersSent)
-        sendJson(res, 500, { error: "Internal server error" });
+      if (!res.headersSent) sendJson(res, 500, { error: "Internal server error" });
     });
   });
 

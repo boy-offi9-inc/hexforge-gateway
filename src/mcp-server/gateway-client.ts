@@ -18,11 +18,7 @@ function authHeaders(): Record<string, string> {
   return API_KEY ? { Authorization: `Bearer ${API_KEY}` } : {};
 }
 
-async function request<T>(
-  method: string,
-  path: string,
-  body?: unknown,
-): Promise<T> {
+async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     method,
     headers: { "Content-Type": "application/json", ...authHeaders() },
@@ -35,15 +31,11 @@ async function request<T>(
     try {
       const parsed = JSON.parse(text);
       message =
-        typeof parsed.error === "string"
-          ? parsed.error
-          : JSON.stringify(parsed.error ?? parsed);
+        typeof parsed.error === "string" ? parsed.error : JSON.stringify(parsed.error ?? parsed);
     } catch {
       // not JSON, use the raw text
     }
-    throw new Error(
-      `Gateway ${method} ${path} -> ${res.status}: ${message || res.statusText}`,
-    );
+    throw new Error(`Gateway ${method} ${path} -> ${res.status}: ${message || res.statusText}`);
   }
 
   if (res.status === 204) return undefined as T;
@@ -72,25 +64,17 @@ export interface Workflow {
 }
 
 /** Get-or-create a workspace by name - every tool call resolves its `workspace` argument through this. */
-export async function getOrCreateWorkspace(
-  name: string,
-  targetLabel = name,
-): Promise<Workspace> {
-  return request<Workspace>(
-    "PUT",
-    `/workspaces/by-name/${encodeURIComponent(name)}`,
-    { targetLabel },
-  );
+export async function getOrCreateWorkspace(name: string, targetLabel = name): Promise<Workspace> {
+  return request<Workspace>("PUT", `/workspaces/by-name/${encodeURIComponent(name)}`, {
+    targetLabel,
+  });
 }
 
 export async function listWorkspaces(): Promise<Workspace[]> {
   return request<Workspace[]>("GET", "/workspaces");
 }
 
-export async function listKnowledge(
-  workspaceId: string,
-  type?: string,
-): Promise<unknown[]> {
+export async function listKnowledge(workspaceId: string, type?: string): Promise<unknown[]> {
   const qs = type ? `?type=${encodeURIComponent(type)}` : "";
   return request<unknown[]>("GET", `/workspaces/${workspaceId}/knowledge${qs}`);
 }
@@ -104,10 +88,7 @@ export interface InboxApk {
 
 /** The "PC-side APK MCP" lookup - see docs/INBOX.md. Whatever's actually in this workspace's inbox/ directory, newest first. */
 export async function listInboxApks(workspaceId: string): Promise<InboxApk[]> {
-  const { apks } = await request<{ apks: InboxApk[] }>(
-    "GET",
-    `/workspaces/${workspaceId}/inbox`,
-  );
+  const { apks } = await request<{ apks: InboxApk[] }>("GET", `/workspaces/${workspaceId}/inbox`);
   return apks;
 }
 
@@ -135,16 +116,12 @@ export async function runJob(
   payload: Record<string, unknown>,
   maxAttempts?: number,
 ): Promise<Job> {
-  const job = await request<Job & { id: string }>(
-    "POST",
-    `/workspaces/${workspaceId}/jobs`,
-    {
-      agent,
-      operation,
-      payload,
-      maxAttempts,
-    },
-  );
+  const job = await request<Job & { id: string }>("POST", `/workspaces/${workspaceId}/jobs`, {
+    agent,
+    operation,
+    payload,
+    maxAttempts,
+  });
 
   const deadline = Date.now() + POLL_TIMEOUT_MS;
   let current = job;

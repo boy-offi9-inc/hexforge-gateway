@@ -4,9 +4,7 @@ import { z } from "zod";
 const envSchema = z.object({
   PORT: z.coerce.number().default(8080),
   HOST: z.string().default("0.0.0.0"),
-  NODE_ENV: z
-    .enum(["development", "production", "test"])
-    .default("development"),
+  NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 
   // Off by default - this Gateway has always trusted whoever can reach it
   // (adb shell, filesystem write/delete, rebuilding APKs), which is fine
@@ -108,10 +106,7 @@ const envSchema = z.object({
 const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {
-  console.error(
-    "❌ Invalid environment configuration:",
-    parsed.error.flatten().fieldErrors,
-  );
+  console.error("❌ Invalid environment configuration:", parsed.error.flatten().fieldErrors);
   process.exit(1);
 }
 
@@ -130,8 +125,7 @@ export const apiKeys = new Set(
 // than silently bricking every route.
 export const isAuthEffectivelyEnabled = config.AUTH_ENABLED && apiKeys.size > 0;
 
-export const isSupabaseConfigured =
-  !!config.SUPABASE_URL && !!config.SUPABASE_SERVICE_ROLE_KEY;
+export const isSupabaseConfigured = !!config.SUPABASE_URL && !!config.SUPABASE_SERVICE_ROLE_KEY;
 
 export const isAiConfigured = (() => {
   switch (config.AI_PROVIDER) {

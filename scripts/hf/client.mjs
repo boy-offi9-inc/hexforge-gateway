@@ -8,13 +8,7 @@
  * requirement of the Gateway itself, so the CLI can rely on it.
  */
 
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  renameSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 
@@ -27,10 +21,7 @@ import path from "node:path";
  * they never touch a real home directory.
  */
 export function stateFile(env = process.env) {
-  return path.join(
-    env.HF_STATE_DIR || path.join(homedir(), ".hexforge"),
-    "state.env",
-  );
+  return path.join(env.HF_STATE_DIR || path.join(homedir(), ".hexforge"), "state.env");
 }
 
 export function readState(env = process.env) {
@@ -55,8 +46,7 @@ export function saveState(key, value, env = process.env) {
         .split("\n")
         .filter((l) => l.trim() !== "" && !l.startsWith(`${key}=`))
     : [];
-  if (value !== undefined)
-    kept.push(`${key}="${String(value).replace(/["\\$`]/g, "\\$&")}"`);
+  if (value !== undefined) kept.push(`${key}="${String(value).replace(/["\\$`]/g, "\\$&")}"`);
   const tmp = `${file}.tmp`;
   writeFileSync(tmp, kept.join("\n") + (kept.length ? "\n" : ""));
   renameSync(tmp, file);
@@ -120,17 +110,16 @@ export function createClient({
       });
     } catch (err) {
       if (err?.name === "TimeoutError" || err?.name === "AbortError") {
-        throw new GatewayError(
-          `No response from ${root} within ${Math.round(timeout / 1000)}s`,
-          { kind: "timeout", url },
-        );
+        throw new GatewayError(`No response from ${root} within ${Math.round(timeout / 1000)}s`, {
+          kind: "timeout",
+          url,
+        });
       }
-      const reason =
-        err?.cause?.code ?? err?.cause?.message ?? err?.message ?? String(err);
-      throw new GatewayError(
-        `Couldn't reach the Gateway at ${root} (${reason})`,
-        { kind: "network", url },
-      );
+      const reason = err?.cause?.code ?? err?.cause?.message ?? err?.message ?? String(err);
+      throw new GatewayError(`Couldn't reach the Gateway at ${root} (${reason})`, {
+        kind: "network",
+        url,
+      });
     }
 
     const text = await res.text();

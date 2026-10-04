@@ -120,8 +120,7 @@ export const AGENT_TOOLS: AgentToolSpec[] = [
         },
         noRes: {
           type: "boolean",
-          description:
-            "Skip decoding resources - disassemble smali only. Default false.",
+          description: "Skip decoding resources - disassemble smali only. Default false.",
           default: false,
         },
       },
@@ -152,8 +151,7 @@ export const AGENT_TOOLS: AgentToolSpec[] = [
         },
         outputName: {
           type: "string",
-          description:
-            'Output file name only, not a path (no "/" or ".."). Default "rebuilt.apk".',
+          description: 'Output file name only, not a path (no "/" or ".."). Default "rebuilt.apk".',
           default: "rebuilt.apk",
         },
       },
@@ -177,8 +175,7 @@ export const AGENT_TOOLS: AgentToolSpec[] = [
         workspace: workspaceProp,
         apkPath: {
           type: "string",
-          description:
-            "Absolute path to the .apk (or .dex) file to scan. Must exist.",
+          description: "Absolute path to the .apk (or .dex) file to scan. Must exist.",
         },
         timeoutSeconds: {
           type: "number",
@@ -295,8 +292,7 @@ export const AGENT_TOOLS: AgentToolSpec[] = [
         encoding: {
           type: "string",
           enum: ["utf8", "base64"],
-          description:
-            "How content is returned. Default utf8; use base64 for binary files.",
+          description: "How content is returned. Default utf8; use base64 for binary files.",
           default: "utf8",
         },
       },
@@ -398,8 +394,7 @@ export const AGENT_TOOLS: AgentToolSpec[] = [
         workspace: workspaceProp,
         apkPath: {
           type: "string",
-          description:
-            "Absolute path, on this machine, of the signed .apk to install. Must exist.",
+          description: "Absolute path, on this machine, of the signed .apk to install. Must exist.",
         },
         reinstall: {
           type: "boolean",
@@ -434,8 +429,7 @@ export const AGENT_TOOLS: AgentToolSpec[] = [
         },
         lines: {
           type: "number",
-          description:
-            "How many of the most recent lines to return. Default 200.",
+          description: "How many of the most recent lines to return. Default 200.",
           default: 200,
           minimum: 1,
         },
@@ -602,8 +596,7 @@ export const META_TOOL_DEFINITIONS: ToolDefinition[] = [
         type: {
           type: "string",
           enum: ["report", "note", "summary", "chat"],
-          description:
-            "Only return entries of this type. Omit to return every type.",
+          description: "Only return entries of this type. Omit to return every type.",
         },
       },
     },
@@ -647,7 +640,4 @@ export const META_TOOL_DEFINITIONS: ToolDefinition[] = [
   },
 ];
 
-export const ALL_TOOL_DEFINITIONS: ToolDefinition[] = [
-  ...META_TOOL_DEFINITIONS,
-  ...AGENT_TOOLS,
-];
+export const ALL_TOOL_DEFINITIONS: ToolDefinition[] = [...META_TOOL_DEFINITIONS, ...AGENT_TOOLS];

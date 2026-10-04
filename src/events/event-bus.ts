@@ -33,17 +33,11 @@ class EventBus {
     this.emitter.emit(event, payload);
   }
 
-  on<K extends EventName>(
-    event: K,
-    listener: (payload: EventMap[K]) => void,
-  ): void {
+  on<K extends EventName>(event: K, listener: (payload: EventMap[K]) => void): void {
     this.emitter.on(event, listener);
   }
 
-  off<K extends EventName>(
-    event: K,
-    listener: (payload: EventMap[K]) => void,
-  ): void {
+  off<K extends EventName>(event: K, listener: (payload: EventMap[K]) => void): void {
     this.emitter.off(event, listener);
   }
 }

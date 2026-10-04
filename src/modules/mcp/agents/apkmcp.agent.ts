@@ -69,9 +69,7 @@ async function sendMcpMessage(
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(
-      `MCP server responded ${res.status}: ${text.slice(0, 500)}`,
-    );
+    throw new Error(`MCP server responded ${res.status}: ${text.slice(0, 500)}`);
   }
 
   // Notifications get no body back.
@@ -86,8 +84,7 @@ async function sendMcpMessage(
     // can't wait for it to close (res.text() would hang forever). Read
     // incrementally and stop as soon as we see a complete JSON-RPC message
     // matching this request's id.
-    if (!res.body)
-      throw new Error("MCP server returned an event-stream with no body");
+    if (!res.body) throw new Error("MCP server returned an event-stream with no body");
 
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
@@ -105,9 +102,7 @@ async function sendMcpMessage(
         buffer = events.pop() ?? "";
 
         for (const evt of events) {
-          const dataLine = evt
-            .split("\n")
-            .find((line) => line.startsWith("data:"));
+          const dataLine = evt.split("\n").find((line) => line.startsWith("data:"));
           if (!dataLine) continue;
 
           const jsonStr = dataLine.slice(5).trim();
@@ -158,17 +153,11 @@ async function initSession(baseUrl: string): Promise<string | undefined> {
   });
 
   if (initResult.error) {
-    throw new Error(
-      `MCP initialize failed: ${JSON.stringify(initResult.error)}`,
-    );
+    throw new Error(`MCP initialize failed: ${JSON.stringify(initResult.error)}`);
   }
 
   const sessionId = initResult.sessionId;
-  await sendMcpMessage(
-    baseUrl,
-    { jsonrpc: "2.0", method: "notifications/initialized" },
-    sessionId,
-  );
+  await sendMcpMessage(baseUrl, { jsonrpc: "2.0", method: "notifications/initialized" }, sessionId);
   return sessionId;
 }
 
@@ -224,9 +213,7 @@ async function callTool(
   // this can read payload.error and payload.nextActions to decide what to
   // do next.
   if (result?.isError && typeof payload !== "object") {
-    throw new Error(
-      `${toolName} reported an error: ${JSON.stringify(payload)}`,
-    );
+    throw new Error(`${toolName} reported an error: ${JSON.stringify(payload)}`);
   }
 
   return payload;
@@ -279,14 +266,8 @@ export async function apkMcpHandler(task: McpTask): Promise<unknown> {
     }
 
     case "call_tool": {
-      if (!payload.tool)
-        throw new Error('call_tool requires a "tool" name in the payload');
-      return callTool(
-        baseUrl,
-        sessionId,
-        payload.tool,
-        payload.arguments ?? {},
-      );
+      if (!payload.tool) throw new Error('call_tool requires a "tool" name in the payload');
+      return callTool(baseUrl, sessionId, payload.tool, payload.arguments ?? {});
     }
 
     case "list_available_apks": {

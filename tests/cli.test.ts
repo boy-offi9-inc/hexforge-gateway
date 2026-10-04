@@ -45,41 +45,30 @@ describe("ui: measuring", () => {
 
   it("truncates to a visible width, keeping ANSI intact and ending with the ellipsis", () => {
     expect(ui.truncate("abcdefghij", 5)).toBe("abcd…");
-    expect(ui.visibleWidth(ui.truncate("\x1b[31mabcdefghij\x1b[39m", 6))).toBe(
-      6,
-    );
+    expect(ui.visibleWidth(ui.truncate("\x1b[31mabcdefghij\x1b[39m", 6))).toBe(6);
     expect(ui.truncate("short", 20)).toBe("short");
   });
 
   it("truncateStart keeps the useful tail of a long path", () => {
-    expect(ui.truncateStart("/a/very/long/path/to/file", 10)).toBe(
-      "…h/to/file",
-    );
+    expect(ui.truncateStart("/a/very/long/path/to/file", 10)).toBe("…h/to/file");
   });
 });
 
 describe("ui: wrapAnsi", () => {
   it("never exceeds the width, and reopens a bold span on each continuation line", () => {
     const wrapped = ui.wrapAnsi(
-      "one " +
-        unicode.bold(
-          "two three four five six seven eight nine ten eleven twelve",
-        ) +
-        " end",
+      "one " + unicode.bold("two three four five six seven eight nine ten eleven twelve") + " end",
       20,
       { indent: "  " },
     );
-    for (const line of wrapped)
-      expect(ui.visibleWidth(line)).toBeLessThanOrEqual(20);
+    for (const line of wrapped) expect(ui.visibleWidth(line)).toBeLessThanOrEqual(20);
     expect(wrapped.length >= 3).toBe(true);
     expect(wrapped[1]).toContain("\x1b[1m");
     expect(wrapped[0].endsWith("\x1b[0m")).toBe(true); // a line never leaves a style open
   });
 
   it("hard-breaks a word longer than a whole line", () => {
-    expect(ui.wrapAnsi("x".repeat(45), 20).map(ui.visibleWidth)).toEqual([
-      20, 20, 5,
-    ]);
+    expect(ui.wrapAnsi("x".repeat(45), 20).map(ui.visibleWidth)).toEqual([20, 20, 5]);
   });
 
   it("uses the hanging indent on continuation lines", () => {
@@ -94,10 +83,9 @@ describe("ui: wrapAnsi", () => {
 
 describe("ui: theme layout", () => {
   it("draws a box whose rows are all exactly the terminal width, even with styled and CJK text", () => {
-    const box = unicode.box(
-      ["plain", unicode.accent("styled line"), "日本語 mixed"],
-      { title: unicode.bold("Title") },
-    );
+    const box = unicode.box(["plain", unicode.accent("styled line"), "日本語 mixed"], {
+      title: unicode.bold("Title"),
+    });
     expect(new Set(box.map(ui.visibleWidth)).size).toBe(1);
     expect(ui.visibleWidth(box[0])).toBe(50);
   });
@@ -117,14 +105,8 @@ describe("ui: theme layout", () => {
       title: "jadx · decompile",
       right: "12.4s",
       rows: [
-        [
-          "outputDir",
-          "/data/data/com.termux/files/home/hexforge/workspaces/ws_abc/jadx",
-        ],
-        [
-          "note",
-          "this has several words in it so it wraps under its key nicely",
-        ],
+        ["outputDir", "/data/data/com.termux/files/home/hexforge/workspaces/ws_abc/jadx"],
+        ["note", "this has several words in it so it wraps under its key nicely"],
       ],
       hint: "a long follow-up hint that needs to wrap rather than run off the edge of the screen",
     });
@@ -162,29 +144,17 @@ describe("ui: theme layout", () => {
 
   it("ASCII mode never emits a non-ASCII byte - boxes, cards, truncation, hints, definitions, markdown, errors, every status icon", () => {
     const parts = [
-      ...ascii.box(
-        ["a fairly long line that must be truncated with an ellipsis"],
-        { title: "T" },
-      ),
+      ...ascii.box(["a fairly long line that must be truncated with an ellipsis"], { title: "T" }),
       ...ascii.card({
         icon: ascii.icon("completed"),
         title: "a very long title that will certainly need truncating here",
         right: "1s",
-        rows: [
-          ["path", "/very/long/unbroken/path/that/needs/its/tail/kept/ok"],
-        ],
+        rows: [["path", "/very/long/unbroken/path/that/needs/its/tail/kept/ok"]],
         hint: "hf job-status --json",
       }),
-      ...ascii.errorBlock(
-        "Something failed",
-        "with some detail text",
-        "try this",
-      ),
+      ...ascii.errorBlock("Something failed", "with some detail text", "try this"),
       ...ascii.definitions([
-        [
-          "ws <name>",
-          "get or create a workspace and make it current right now",
-        ],
+        ["ws <name>", "get or create a workspace and make it current right now"],
       ]),
       ascii.markdown(
         "# Title\n- a bullet with `code` and **bold**\n1. numbered\n> quote\n```\ncode line\n```\n---\n[docs](https://x.io)",
@@ -222,8 +192,7 @@ describe("ui: markdown", () => {
   );
 
   it("never exceeds the terminal width", () => {
-    for (const line of md.split("\n"))
-      expect(ui.visibleWidth(line)).toBeLessThanOrEqual(50);
+    for (const line of md.split("\n")) expect(ui.visibleWidth(line)).toBeLessThanOrEqual(50);
   });
 
   it("renders bullets, numbering, links, and strips the markdown markers", () => {
@@ -251,9 +220,7 @@ describe("ui: markdown", () => {
   });
 
   it("leaves lone asterisks and snake_case alone", () => {
-    expect(plain.markdown("a * b and snake_case_name")).toContain(
-      "a * b and snake_case_name",
-    );
+    expect(plain.markdown("a * b and snake_case_name")).toContain("a * b and snake_case_name");
   });
 });
 
@@ -279,12 +246,8 @@ describe("ui: detectCaps", () => {
   const tty = { isTTY: true, columns: 60, getColorDepth: () => 24 };
 
   it("is pretty on a TTY, plain when piped", () => {
-    expect(ui.detectCaps({ env: {}, stdout: tty, stderr: tty }).pretty).toBe(
-      true,
-    );
-    expect(
-      ui.detectCaps({ env: {}, stdout: { isTTY: false }, stderr: tty }).pretty,
-    ).toBe(false);
+    expect(ui.detectCaps({ env: {}, stdout: tty, stderr: tty }).pretty).toBe(true);
+    expect(ui.detectCaps({ env: {}, stdout: { isTTY: false }, stderr: tty }).pretty).toBe(false);
   });
 
   it("--json and --plain and HF_PLAIN force plain output even on a TTY", () => {
@@ -304,10 +267,7 @@ describe("ui: detectCaps", () => {
         flags: { plain: true },
       }).pretty,
     ).toBe(false);
-    expect(
-      ui.detectCaps({ env: { HF_PLAIN: "1" }, stdout: tty, stderr: tty })
-        .pretty,
-    ).toBe(false);
+    expect(ui.detectCaps({ env: { HF_PLAIN: "1" }, stdout: tty, stderr: tty }).pretty).toBe(false);
   });
 
   it("NO_COLOR drops color but keeps the pretty layout", () => {
@@ -345,10 +305,7 @@ describe("ui: detectCaps", () => {
         stderr: tty,
       }).unicode,
     ).toBe(false);
-    expect(
-      ui.detectCaps({ env: { HF_ASCII: "1" }, stdout: tty, stderr: tty })
-        .unicode,
-    ).toBe(false);
+    expect(ui.detectCaps({ env: { HF_ASCII: "1" }, stdout: tty, stderr: tty }).unicode).toBe(false);
     expect(
       ui.detectCaps({
         env: {},
@@ -357,23 +314,15 @@ describe("ui: detectCaps", () => {
         flags: { ascii: true },
       }).unicode,
     ).toBe(false);
-    expect(
-      ui.detectCaps({ env: { TERM: "linux" }, stdout: tty, stderr: tty })
-        .unicode,
-    ).toBe(false);
-    expect(
-      ui.detectCaps({ env: { LANG: "en_US.UTF-8" }, stdout: tty, stderr: tty })
-        .unicode,
-    ).toBe(true);
+    expect(ui.detectCaps({ env: { TERM: "linux" }, stdout: tty, stderr: tty }).unicode).toBe(false);
+    expect(ui.detectCaps({ env: { LANG: "en_US.UTF-8" }, stdout: tty, stderr: tty }).unicode).toBe(
+      true,
+    );
   });
 
   it("only allows live (spinner) output on a real interactive stderr", () => {
-    expect(ui.detectCaps({ env: {}, stdout: tty, stderr: tty }).live).toBe(
-      true,
-    );
-    expect(
-      ui.detectCaps({ env: {}, stdout: tty, stderr: { isTTY: false } }).live,
-    ).toBe(false);
+    expect(ui.detectCaps({ env: {}, stdout: tty, stderr: tty }).live).toBe(true);
+    expect(ui.detectCaps({ env: {}, stdout: tty, stderr: { isTTY: false } }).live).toBe(false);
   });
 });
 
@@ -399,14 +348,12 @@ describe("cli: arguments", () => {
     expect(parsePayload(['{"apkPath":"/x.apk"}'])).toEqual({
       apkPath: "/x.apk",
     });
-    expect(
-      parsePayload([
-        "apkPath=/x.apk",
-        "reinstall:=true",
-        "n:=3",
-        'list:=["a","b"]',
-      ]),
-    ).toEqual({ apkPath: "/x.apk", reinstall: true, n: 3, list: ["a", "b"] });
+    expect(parsePayload(["apkPath=/x.apk", "reinstall:=true", "n:=3", 'list:=["a","b"]'])).toEqual({
+      apkPath: "/x.apk",
+      reinstall: true,
+      n: 3,
+      list: ["a", "b"],
+    });
     expect(parsePayload([])).toEqual({});
   });
 
@@ -452,9 +399,7 @@ describe("cli: arguments", () => {
       ["fileCount", "200"],
       ["files", "[200 items]"],
     ]);
-    const many = resultRows(
-      Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`k${i}`, i])),
-    );
+    const many = resultRows(Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`k${i}`, i])));
     expect(many).toHaveLength(9);
     expect(many[8]).toEqual(["more", "4 more fields"]);
     expect(resultRows(undefined)).toEqual([["result", "(none)"]]);
@@ -489,10 +434,7 @@ describe("client: state file", () => {
   });
 
   it("preserves lines it doesn't understand, and reads the unquoted form the old bash script could write", async () => {
-    await writeFile(
-      path.join(dir, "state.env"),
-      'WORKSPACE_ID=ws_old\nCUSTOM_THING="keep me"\n',
-    );
+    await writeFile(path.join(dir, "state.env"), 'WORKSPACE_ID=ws_old\nCUSTOM_THING="keep me"\n');
     saveState("JOB_ID", "j", env);
     expect(readState(env)).toEqual({
       WORKSPACE_ID: "ws_old",
@@ -513,11 +455,7 @@ describe("client: requests", () => {
     ok: status >= 200 && status < 300,
     status,
     text: async () =>
-      body === undefined
-        ? ""
-        : typeof body === "string"
-          ? body
-          : JSON.stringify(body),
+      body === undefined ? "" : typeof body === "string" ? body : JSON.stringify(body),
   });
   const failure = async (promise) => {
     try {

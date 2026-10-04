@@ -1,9 +1,5 @@
 import { nanoid } from "nanoid";
-import type {
-  McpTask,
-  TaskDispatchRequest,
-  McpAgentKind,
-} from "../../core/types.js";
+import type { McpTask, TaskDispatchRequest, McpAgentKind } from "../../core/types.js";
 import { eventBus } from "../../events/event-bus.js";
 import { jadxHandler } from "./agents/jadx.agent.js";
 import { apkMcpHandler } from "./agents/apkmcp.agent.js";
@@ -39,9 +35,7 @@ class McpOrchestrator {
   }
 
   listTasksForWorkspace(workspaceId: string): McpTask[] {
-    return Array.from(this.tasks.values()).filter(
-      (t) => t.workspaceId === workspaceId,
-    );
+    return Array.from(this.tasks.values()).filter((t) => t.workspaceId === workspaceId);
   }
 
   async dispatch(req: TaskDispatchRequest): Promise<McpTask> {
@@ -100,10 +94,8 @@ class McpOrchestrator {
     this.tasks.set(id, updated);
 
     eventBus.emit("mcp.task.updated", { task: updated });
-    if (updated.status === "completed")
-      eventBus.emit("mcp.task.completed", { task: updated });
-    if (updated.status === "failed")
-      eventBus.emit("mcp.task.failed", { task: updated });
+    if (updated.status === "completed") eventBus.emit("mcp.task.completed", { task: updated });
+    if (updated.status === "failed") eventBus.emit("mcp.task.failed", { task: updated });
   }
 }
 

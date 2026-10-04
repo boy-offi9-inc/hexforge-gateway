@@ -1,10 +1,4 @@
-import type {
-  McpTask,
-  Workspace,
-  Job,
-  Workflow,
-  KnowledgeEntry,
-} from "../core/types.js";
+import type { McpTask, Workspace, Job, Workflow, KnowledgeEntry } from "../core/types.js";
 
 /**
  * Every event the Event Bus carries, and the payload shape for each.

@@ -61,8 +61,7 @@ async function run() {
       }))
     : [{ name: "match", regex: new RegExp(data.pattern!, flags) }];
 
-  const results: { file: string; line: number; text: string; name: string }[] =
-    [];
+  const results: { file: string; line: number; text: string; name: string }[] = [];
   let filesScanned = 0;
   let truncated = false;
 

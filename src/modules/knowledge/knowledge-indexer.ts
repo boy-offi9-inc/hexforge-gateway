@@ -68,9 +68,6 @@ async function onWorkflowSettled(
     // Indexing must never crash the process or take down the workflow
     // that triggered it - the workflow itself already completed/failed
     // and that result stands regardless of whether indexing succeeds.
-    console.error(
-      `[knowledge-indexer] failed to index workflow ${workflow.id}:`,
-      err,
-    );
+    console.error(`[knowledge-indexer] failed to index workflow ${workflow.id}:`, err);
   }
 }

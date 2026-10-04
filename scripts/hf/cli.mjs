@@ -18,23 +18,11 @@
  * installed on top of it.
  */
 
-import {
-  appendFileSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  realpathSync,
-} from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 import readline from "node:readline";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import {
-  createClient,
-  GatewayError,
-  readState,
-  saveState,
-  stateFile,
-} from "./client.mjs";
+import { createClient, GatewayError, readState, saveState, stateFile } from "./client.mjs";
 import {
   createTheme,
   detectCaps,
@@ -87,8 +75,7 @@ export function parseArgs(argv) {
         flags.attempts = Number(argv[++i]);
         break;
       default:
-        if (a.startsWith("--attempts="))
-          flags.attempts = Number(a.slice("--attempts=".length));
+        if (a.startsWith("--attempts=")) flags.attempts = Number(a.slice("--attempts=".length));
         else positionals.push(a);
     }
   }
@@ -132,9 +119,7 @@ export function parsePayload(args) {
       try {
         payload[arg.slice(0, typed)] = JSON.parse(arg.slice(typed + 2));
       } catch (err) {
-        throw new UsageError(
-          `"${arg}": the value after := must be valid JSON (${err.message}).`,
-        );
+        throw new UsageError(`"${arg}": the value after := must be valid JSON (${err.message}).`);
       }
     } else if (plain > 0) {
       payload[arg.slice(0, plain)] = arg.slice(plain + 1);
@@ -154,9 +139,7 @@ function packageVersion() {
   try {
     const here = path.dirname(fileURLToPath(import.meta.url));
     return (
-      JSON.parse(
-        readFileSync(path.join(here, "..", "..", "package.json"), "utf8"),
-      ).version ?? "dev"
+      JSON.parse(readFileSync(path.join(here, "..", "..", "package.json"), "utf8")).version ?? "dev"
     );
   } catch {
     return "dev";
@@ -172,14 +155,12 @@ export function formatBytes(n) {
 }
 
 function need(value, usage) {
-  if (value === undefined || value === "")
-    throw new UsageError(`usage: ${usage}`);
+  if (value === undefined || value === "") throw new UsageError(`usage: ${usage}`);
   return value;
 }
 
 function needWorkspace(ctx) {
-  if (!ctx.state.WORKSPACE_ID)
-    throw new UsageError("No current workspace set. Run: hf ws <name>");
+  if (!ctx.state.WORKSPACE_ID) throw new UsageError("No current workspace set. Run: hf ws <name>");
   return ctx.state.WORKSPACE_ID;
 }
 
@@ -190,9 +171,7 @@ function needWorkspace(ctx) {
  * ("line one,line two") instead of failing loudly.
  */
 const print = (ctx, lines = "") =>
-  ctx.out.write(
-    (Array.isArray(lines) ? lines.flat(Infinity).join("\n") : lines) + "\n",
-  );
+  ctx.out.write((Array.isArray(lines) ? lines.flat(Infinity).join("\n") : lines) + "\n");
 const printJson = (ctx, data) => print(ctx, JSON.stringify(data, null, 2));
 /** Notices go to stderr, as the bash version did, so they never pollute piped stdout. */
 const notice = (ctx, msg) => ctx.err.write(msg + "\n");
@@ -202,13 +181,8 @@ function entry(ctx, { icon, title, right = "", detail = "" }) {
   const { t } = ctx;
   const lead = ` ${icon} `;
   const rightW = visibleWidth(right);
-  const head = t.truncate(
-    title,
-    Math.max(8, t.width - 3 - (rightW ? rightW + 2 : 0)),
-  );
-  const gap = rightW
-    ? Math.max(1, t.width - 3 - visibleWidth(head) - rightW)
-    : 0;
+  const head = t.truncate(title, Math.max(8, t.width - 3 - (rightW ? rightW + 2 : 0)));
+  const gap = rightW ? Math.max(1, t.width - 3 - visibleWidth(head) - rightW) : 0;
   const lines = [lead + head + " ".repeat(gap) + right];
   if (detail) lines.push("   " + t.mute(t.truncate(detail, t.width - 3)));
   return lines;
@@ -230,10 +204,7 @@ const HELP = [
   [
     "Run things",
     [
-      [
-        "job <agent> <op> [payload]",
-        "run one agent operation and follow it live",
-      ],
+      ["job <agent> <op> [payload]", "run one agent operation and follow it live"],
       ["job-status [id]", "show a job (default: the last one)"],
       ["jobs", "list this workspace's jobs"],
       ["wf <name> <steps-json>", "run a multi-step workflow and follow it"],
@@ -296,14 +267,11 @@ async function gatewayStatus(ctx) {
 async function cmdHelp(ctx) {
   const { t } = ctx;
   if (!ctx.caps.pretty) {
-    const pad =
-      Math.max(...HELP.flatMap(([, items]) => items.map(([u]) => u.length))) +
-      2;
+    const pad = Math.max(...HELP.flatMap(([, items]) => items.map(([u]) => u.length))) + 2;
     const out = ["hf - HexForge Gateway CLI", ""];
     for (const [group, items] of HELP) {
       out.push(`${group}:`);
-      for (const [usage, desc] of items)
-        out.push(`  hf ${usage.padEnd(pad)}${desc}`);
+      for (const [usage, desc] of items) out.push(`  hf ${usage.padEnd(pad)}${desc}`);
       out.push("");
     }
     out.push(
@@ -335,16 +303,13 @@ async function cmdHelp(ctx) {
         `${t.mute("workspace".padEnd(10))}${ws}`,
       ],
       {
-        title:
-          t.bold(t.accent(`${t.g.hex} HexForge`)) +
-          t.mute(` v${packageVersion()}`),
+        title: t.bold(t.accent(`${t.g.hex} HexForge`)) + t.mute(` v${packageVersion()}`),
         border: t.accent,
       },
     ),
   );
 
-  for (const [group, items] of HELP)
-    print(ctx, ["", " " + t.bold(group), ...t.definitions(items)]);
+  for (const [group, items] of HELP) print(ctx, ["", " " + t.bold(group), ...t.definitions(items)]);
   print(ctx, [
     "",
     " " + t.bold("Flags"),
@@ -365,28 +330,16 @@ async function cmdHelp(ctx) {
   if (status.up) {
     try {
       const list = await ctx.client.get("/workspaces");
-      print(ctx, [
-        "",
-        " " + t.bold(`Workspaces on this server (${list.length})`),
-      ]);
-      if (list.length === 0)
-        print(ctx, "   " + t.mute("none yet - create one with: hf ws <name>"));
-      for (const ws of list.slice(0, 8))
-        print(ctx, entry(ctx, workspaceEntry(ctx, ws)));
+      print(ctx, ["", " " + t.bold(`Workspaces on this server (${list.length})`)]);
+      if (list.length === 0) print(ctx, "   " + t.mute("none yet - create one with: hf ws <name>"));
+      for (const ws of list.slice(0, 8)) print(ctx, entry(ctx, workspaceEntry(ctx, ws)));
       if (list.length > 8)
-        print(
-          ctx,
-          "   " +
-            t.mute(`${t.g.ellipsis} and ${list.length - 8} more (hf ws-list)`),
-        );
+        print(ctx, "   " + t.mute(`${t.g.ellipsis} and ${list.length - 8} more (hf ws-list)`));
     } catch {
       /* the list is a courtesy - the help above is the point */
     }
   } else {
-    print(ctx, [
-      "",
-      ...t.errorBlock(status.error.message, "", "start it with: npm run dev"),
-    ]);
+    print(ctx, ["", ...t.errorBlock(status.error.message, "", "start it with: npm run dev")]);
   }
   print(ctx, "");
   return 0;
@@ -432,9 +385,7 @@ async function cmdWs(ctx, [name, label]) {
       right: t.statusText(ws.status),
       rows: [
         ["id", ws.id],
-        ...(ws.targetLabel && ws.targetLabel !== ws.name
-          ? [["target", ws.targetLabel]]
-          : []),
+        ...(ws.targetLabel && ws.targetLabel !== ws.name ? [["target", ws.targetLabel]] : []),
       ],
       hint: "now current - next: hf job jadx decompile apkPath=<file.apk>",
     }),
@@ -451,10 +402,7 @@ async function cmdWsId(ctx, [id]) {
     // Unreachable Gateway shouldn't stop you selecting a workspace you know exists.
     if (!(err instanceof GatewayError) || err.kind !== "network") throw err;
     saveState("WORKSPACE_ID", id, ctx.env);
-    notice(
-      ctx,
-      `Current workspace: ${id} (couldn't verify it - ${err.message})`,
-    );
+    notice(ctx, `Current workspace: ${id} (couldn't verify it - ${err.message})`);
     return 0;
   }
   rememberWorkspace(ctx, ws);
@@ -497,10 +445,8 @@ async function cmdWsList(ctx) {
   const list = await ctx.client.get("/workspaces");
   if (ctx.flags.json) return void printJson(ctx, list);
   if (!ctx.caps.pretty) {
-    if (list.length === 0)
-      print(ctx, "No workspaces yet. Create one: hf ws <n>");
-    else
-      for (const ws of list) print(ctx, `${ws.id}  ${ws.name}  [${ws.status}]`);
+    if (list.length === 0) print(ctx, "No workspaces yet. Create one: hf ws <n>");
+    else for (const ws of list) print(ctx, `${ws.id}  ${ws.name}  [${ws.status}]`);
     return 0;
   }
   if (list.length === 0) {
@@ -550,10 +496,7 @@ async function cmdInbox(ctx) {
       }),
     );
   }
-  print(ctx, [
-    "",
-    ...t.hint("use these paths with: hf job jadx decompile apkPath=<path>"),
-  ]);
+  print(ctx, ["", ...t.hint("use these paths with: hf job jadx decompile apkPath=<path>")]);
   return 0;
 }
 
@@ -561,8 +504,7 @@ async function cmdInbox(ctx) {
 
 function summarizeValue(v) {
   if (v === null || v === undefined) return "-";
-  if (typeof v === "string")
-    return v.replace(/\s+/g, " ").trim().slice(0, 160) || '""';
+  if (typeof v === "string") return v.replace(/\s+/g, " ").trim().slice(0, 160) || '""';
   if (Array.isArray(v)) return `[${v.length} item${v.length === 1 ? "" : "s"}]`;
   if (typeof v === "object")
     return `{${Object.keys(v).length} field${Object.keys(v).length === 1 ? "" : "s"}}`;
@@ -639,9 +581,7 @@ async function withLive(ctx, resumeHint, fn) {
     show();
     notice(
       ctx,
-      ctx.t.mute(
-        `stopped watching - it keeps running in the Gateway. Resume: ${resumeHint}`,
-      ),
+      ctx.t.mute(`stopped watching - it keeps running in the Gateway. Resume: ${resumeHint}`),
     );
     process.exit(130);
   };
@@ -709,10 +649,7 @@ async function followJob(ctx, job) {
 
 async function cmdJob(ctx, [agent, operation, ...payloadArgs]) {
   need(agent, "hf job <agent> <operation> [json | key=value | key:=json ...]");
-  need(
-    operation,
-    "hf job <agent> <operation> [json | key=value | key:=json ...]",
-  );
+  need(operation, "hf job <agent> <operation> [json | key=value | key:=json ...]");
   const wsId = needWorkspace(ctx);
   const body = {
     agent,
@@ -720,11 +657,7 @@ async function cmdJob(ctx, [agent, operation, ...payloadArgs]) {
     payload: parsePayload(payloadArgs),
   };
   if (ctx.flags.attempts !== undefined) {
-    if (
-      !Number.isInteger(ctx.flags.attempts) ||
-      ctx.flags.attempts < 1 ||
-      ctx.flags.attempts > 10
-    )
+    if (!Number.isInteger(ctx.flags.attempts) || ctx.flags.attempts < 1 || ctx.flags.attempts > 10)
       throw new UsageError("--attempts must be a whole number from 1 to 10.");
     body.maxAttempts = ctx.flags.attempts;
   }
@@ -767,9 +700,7 @@ async function cmdJobStatus(ctx, [id]) {
 }
 
 async function cmdJobs(ctx) {
-  const list = await ctx.client.get(
-    `/workspaces/${enc(needWorkspace(ctx))}/jobs`,
-  );
+  const list = await ctx.client.get(`/workspaces/${enc(needWorkspace(ctx))}/jobs`);
   if (!ctx.caps.pretty) return void printJson(ctx, list);
   const { t } = ctx;
   if (list.length === 0) {
@@ -786,11 +717,8 @@ async function cmdJobs(ctx) {
   print(ctx, [t.rule(`Jobs (${list.length})`)]);
   for (const job of list) {
     const retry =
-      job.maxAttempts > 1
-        ? ` ${t.g.sep} attempt ${job.attempts}/${job.maxAttempts}`
-        : "";
-    const why =
-      job.status === "failed" && job.error ? ` ${t.g.sep} ${job.error}` : "";
+      job.maxAttempts > 1 ? ` ${t.g.sep} attempt ${job.attempts}/${job.maxAttempts}` : "";
+    const why = job.status === "failed" && job.error ? ` ${t.g.sep} ${job.error}` : "";
     print(
       ctx,
       entry(ctx, {
@@ -816,8 +744,7 @@ function workflowLines(ctx, wf, frame = 0) {
     lines.push(
       `   ${t.mute(String(i + 1))} ${t.icon(step.status, frame)} ${step.agent} ${t.g.sep} ${step.operation}  ${t.mute(step.status)}`,
     );
-    if (step.status === "failed" && step.error)
-      lines.push("       " + t.err(step.error));
+    if (step.status === "failed" && step.error) lines.push("       " + t.err(step.error));
   });
   return lines.map((l) => t.truncate(l, t.width - 1));
 }
@@ -893,10 +820,7 @@ async function cmdWf(ctx, [name, steps]) {
   const follow = ctx.caps.pretty ? !ctx.flags.detach : Boolean(ctx.flags.wait);
   if (!follow) {
     if (ctx.caps.pretty) {
-      print(ctx, [
-        ...workflowLines(ctx, wf),
-        ...ctx.t.hint("follow it: hf wf-status"),
-      ]);
+      print(ctx, [...workflowLines(ctx, wf), ...ctx.t.hint("follow it: hf wf-status")]);
     } else {
       printJson(ctx, wf);
       notice(ctx, `Current workflow: ${wf.id}`);
@@ -920,8 +844,7 @@ async function cmdWf(ctx, [name, steps]) {
 
 async function cmdWfStatus(ctx, [id]) {
   const wfId = id ?? ctx.state.WORKFLOW_ID;
-  if (!wfId)
-    throw new UsageError("No workflow id given and no current workflow set.");
+  if (!wfId) throw new UsageError("No workflow id given and no current workflow set.");
   const wf = await ctx.client.get(`/workflows/${enc(wfId)}`);
   if (!ctx.caps.pretty) return void printJson(ctx, wf);
   print(ctx, workflowLines(ctx, wf));
@@ -929,9 +852,7 @@ async function cmdWfStatus(ctx, [id]) {
 }
 
 async function cmdWfs(ctx) {
-  const list = await ctx.client.get(
-    `/workspaces/${enc(needWorkspace(ctx))}/workflows`,
-  );
+  const list = await ctx.client.get(`/workspaces/${enc(needWorkspace(ctx))}/workflows`);
   if (!ctx.caps.pretty) return void printJson(ctx, list);
   const { t } = ctx;
   if (list.length === 0) {
@@ -964,9 +885,7 @@ async function cmdWfs(ctx) {
 // --- knowledge & AI --------------------------------------------------------
 
 async function cmdKnowledge(ctx) {
-  const list = await ctx.client.get(
-    `/workspaces/${enc(needWorkspace(ctx))}/knowledge`,
-  );
+  const list = await ctx.client.get(`/workspaces/${enc(needWorkspace(ctx))}/knowledge`);
   if (!ctx.caps.pretty) return void printJson(ctx, list);
   const { t } = ctx;
   if (list.length === 0) {
@@ -1102,9 +1021,7 @@ function cmdCurrent(ctx) {
       rows: [
         [
           "workspace",
-          state.WORKSPACE_ID
-            ? `${state.WORKSPACE_NAME ?? ""} ${state.WORKSPACE_ID}`.trim()
-            : none,
+          state.WORKSPACE_ID ? `${state.WORKSPACE_NAME ?? ""} ${state.WORKSPACE_ID}`.trim() : none,
         ],
         ["job", state.JOB_ID ?? none],
         ["workflow", state.WORKFLOW_ID ?? none],
@@ -1148,11 +1065,7 @@ function chatHistoryFile(ctx) {
 function loadChatHistory(ctx) {
   const file = chatHistoryFile(ctx);
   if (!existsSync(file)) return [];
-  return readFileSync(file, "utf8")
-    .split("\n")
-    .filter(Boolean)
-    .slice(-200)
-    .reverse(); // readline wants newest first
+  return readFileSync(file, "utf8").split("\n").filter(Boolean).slice(-200).reverse(); // readline wants newest first
 }
 
 function saveChatHistory(ctx, line) {
@@ -1178,10 +1091,7 @@ async function cmdChat(ctx) {
 
   if (!ctx.caps.pretty) {
     // Plain mode keeps the original contract: prompts on stderr, replies on stdout, works with piped input.
-    notice(
-      ctx,
-      `Chatting in workspace ${wsId}. Type 'exit' or press Ctrl+D to quit.\n`,
-    );
+    notice(ctx, `Chatting in workspace ${wsId}. Type 'exit' or press Ctrl+D to quit.\n`);
     const rl = readline.createInterface({
       input: process.stdin,
       output: process.stderr,
@@ -1252,9 +1162,7 @@ async function cmdChat(ctx) {
       return;
     }
     armed = Date.now();
-    ctx.out.write(
-      "\n" + t.mute("(press Ctrl+C again, or type /exit, to quit)") + "\n",
-    );
+    ctx.out.write("\n" + t.mute("(press Ctrl+C again, or type /exit, to quit)") + "\n");
     rl.prompt();
   });
 
@@ -1262,8 +1170,7 @@ async function cmdChat(ctx) {
     const log = await ctx.client.get(`/workspaces/${enc(wsId)}/chat`);
     if (log.length === 0) return print(ctx, [t.mute("  no messages yet"), ""]);
     for (const m of log.slice(-count)) {
-      if (m.role === "user")
-        print(ctx, ["", `${t.accent(t.g.prompt)} ${m.content}`]);
+      if (m.role === "user") print(ctx, ["", `${t.accent(t.g.prompt)} ${m.content}`]);
       else print(ctx, renderReply(ctx, m.content));
     }
   };
@@ -1327,9 +1234,7 @@ async function cmdChat(ctx) {
   print(ctx, [
     "",
     ...wrapAnsi(
-      t.mute(
-        "saved to the workspace " + t.g.sep + " hf chat-log to read it back",
-      ),
+      t.mute("saved to the workspace " + t.g.sep + " hf chat-log to read it back"),
       t.width,
       {
         indent: "  ",
@@ -1341,9 +1246,7 @@ async function cmdChat(ctx) {
 }
 
 async function cmdChatLog(ctx) {
-  const log = await ctx.client.get(
-    `/workspaces/${enc(needWorkspace(ctx))}/chat`,
-  );
+  const log = await ctx.client.get(`/workspaces/${enc(needWorkspace(ctx))}/chat`);
   if (!ctx.caps.pretty) return void printJson(ctx, log);
   const { t } = ctx;
   if (log.length === 0) {
@@ -1402,11 +1305,7 @@ function errorLines(ctx, err) {
             /workspace/i.test(err.message) ? "see what exists: hf ws-list" : "",
           );
         if (err.status === 503)
-          return t.errorBlock(
-            "Not available",
-            err.message,
-            "check provider settings: hf health",
-          );
+          return t.errorBlock("Not available", err.message, "check provider settings: hf health");
         return t.errorBlock(`The Gateway returned ${err.status}`, err.message);
     }
   }
@@ -1476,10 +1375,7 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
 
   const handler = COMMANDS[cmd];
   if (!handler) {
-    return reportError(
-      ctx,
-      new UsageError(`Unknown command "${cmd}". Run: hf help`),
-    );
+    return reportError(ctx, new UsageError(`Unknown command "${cmd}". Run: hf help`));
   }
   try {
     return (await handler(ctx, args)) ?? 0;
@@ -1491,10 +1387,7 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
 // Only run when executed directly, so tests can import parseArgs/parsePayload/resultRows without side effects.
 const invokedDirectly = (() => {
   try {
-    return (
-      process.argv[1] &&
-      pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url
-    );
+    return process.argv[1] && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url;
   } catch {
     return false;
   }

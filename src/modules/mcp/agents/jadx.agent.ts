@@ -18,9 +18,7 @@ interface JadxPayload {
 function assertValidPayload(payload: Record<string, unknown>): JadxPayload {
   const apkPath = payload.apkPath;
   if (typeof apkPath !== "string" || apkPath.trim().length === 0) {
-    throw new Error(
-      'jadx agent requires a "apkPath" string in the task payload',
-    );
+    throw new Error('jadx agent requires a "apkPath" string in the task payload');
   }
 
   const resolved = path.resolve(apkPath);
@@ -66,18 +64,12 @@ async function listFilesCapped(dir: string, limit = 200): Promise<string[]> {
 
 export async function jadxHandler(task: McpTask): Promise<unknown> {
   if (task.operation !== "decompile") {
-    throw new Error(
-      `Unsupported jadx operation "${task.operation}". Supported: "decompile"`,
-    );
+    throw new Error(`Unsupported jadx operation "${task.operation}". Supported: "decompile"`);
   }
 
   const { apkPath } = assertValidPayload(task.payload);
 
-  const outputDir = path.resolve(
-    config.WORKSPACES_ROOT,
-    task.workspaceId,
-    "jadx",
-  );
+  const outputDir = path.resolve(config.WORKSPACES_ROOT, task.workspaceId, "jadx");
   await mkdir(outputDir, { recursive: true });
 
   try {

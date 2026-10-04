@@ -70,9 +70,7 @@ const MAX_TIMEOUT_SECONDS = 60;
 // pull/push already do for the same reason.
 function assertSafeRemotePath(remotePath: string): void {
   if (!remotePath.startsWith("/")) {
-    throw new Error(
-      `"remotePath" must be an absolute path on the device, got: ${remotePath}`,
-    );
+    throw new Error(`"remotePath" must be an absolute path on the device, got: ${remotePath}`);
   }
   if (/['"$`\\;&|(){}<>\n]/.test(remotePath)) {
     throw new Error(
@@ -88,9 +86,7 @@ function deviceArgs(payload: DeviceScopedPayload): string[] {
   return payload.deviceSerial ? ["-D", payload.deviceSerial] : ["-U"];
 }
 
-async function runAdb(
-  args: string[],
-): Promise<{ stdout: string; stderr: string }> {
+async function runAdb(args: string[]): Promise<{ stdout: string; stderr: string }> {
   try {
     return await execFileAsync("adb", args, { maxBuffer: 1024 * 1024 * 10 });
   } catch (err) {
@@ -162,13 +158,10 @@ async function listProcessesHandler(task: McpTask): Promise<unknown> {
 async function pushServerHandler(task: McpTask): Promise<unknown> {
   const payload = task.payload as unknown as PushServerPayload;
   if (!payload.localServerPath)
-    throw new Error(
-      'push-server requires "localServerPath" in the task payload',
-    );
+    throw new Error('push-server requires "localServerPath" in the task payload');
 
   const localPath = path.resolve(payload.localServerPath);
-  if (!existsSync(localPath))
-    throw new Error(`File not found at path: ${localPath}`);
+  if (!existsSync(localPath)) throw new Error(`File not found at path: ${localPath}`);
 
   const remotePath = payload.remotePath ?? DEFAULT_REMOTE_SERVER_PATH;
   const args = payload.deviceSerial ? ["-s", payload.deviceSerial] : [];
@@ -204,11 +197,7 @@ async function stopServerHandler(task: McpTask): Promise<unknown> {
   const payload = task.payload as ServerControlPayload;
   const args = payload.deviceSerial ? ["-s", payload.deviceSerial] : [];
 
-  const { stdout, stderr } = await runAdb([
-    ...args,
-    "shell",
-    "su -c 'pkill -f frida-server'",
-  ]);
+  const { stdout, stderr } = await runAdb([...args, "shell", "su -c 'pkill -f frida-server'"]);
   return {
     stopped: true,
     stdoutTail: stdout.slice(-500),
@@ -218,12 +207,9 @@ async function stopServerHandler(task: McpTask): Promise<unknown> {
 
 async function traceHandler(task: McpTask): Promise<unknown> {
   const payload = task.payload as unknown as TracePayload;
-  if (!payload.target)
-    throw new Error('trace requires "target" in the task payload');
+  if (!payload.target) throw new Error('trace requires "target" in the task payload');
   if (!payload.script)
-    throw new Error(
-      'trace requires "script" (raw Frida JS) in the task payload',
-    );
+    throw new Error('trace requires "script" (raw Frida JS) in the task payload');
 
   const mode = payload.mode ?? "spawn";
   const timeoutSeconds =
@@ -231,12 +217,7 @@ async function traceHandler(task: McpTask): Promise<unknown> {
       ? Math.min(payload.timeoutSeconds, MAX_TIMEOUT_SECONDS)
       : DEFAULT_TIMEOUT_SECONDS;
 
-  const scriptsDir = path.resolve(
-    config.WORKSPACES_ROOT,
-    task.workspaceId,
-    "frida",
-    "scripts",
-  );
+  const scriptsDir = path.resolve(config.WORKSPACES_ROOT, task.workspaceId, "frida", "scripts");
   await mkdir(scriptsDir, { recursive: true });
   const scriptPath = path.join(scriptsDir, `${Date.now()}.js`);
   await writeFile(scriptPath, payload.script, "utf8");

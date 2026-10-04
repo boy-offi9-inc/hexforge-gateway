@@ -65,12 +65,7 @@ async function decodeHandler(task: McpTask): Promise<unknown> {
   }
   const apkPath = resolveExistingApk(payload.apkPath);
 
-  const outputDir = path.resolve(
-    config.WORKSPACES_ROOT,
-    task.workspaceId,
-    "apktool",
-    "decode",
-  );
+  const outputDir = path.resolve(config.WORKSPACES_ROOT, task.workspaceId, "apktool", "decode");
   await mkdir(path.dirname(outputDir), { recursive: true });
 
   const args = ["d", apkPath, "-o", outputDir, "-f"]; // -f: always overwrite, workspace-scoped dir is ours to manage
@@ -120,32 +115,19 @@ async function buildHandler(task: McpTask): Promise<unknown> {
     );
   }
 
-  const buildDir = path.resolve(
-    config.WORKSPACES_ROOT,
-    task.workspaceId,
-    "apktool",
-    "build",
-  );
+  const buildDir = path.resolve(config.WORKSPACES_ROOT, task.workspaceId, "apktool", "build");
   await mkdir(buildDir, { recursive: true });
 
   const outputName = payload.outputName?.trim() || "rebuilt.apk";
-  if (
-    outputName.includes("/") ||
-    outputName.includes("\\") ||
-    outputName.includes("..")
-  ) {
+  if (outputName.includes("/") || outputName.includes("\\") || outputName.includes("..")) {
     throw new Error('"outputName" must be a plain file name, not a path');
   }
   const outputPath = path.join(buildDir, outputName);
 
   try {
-    const { stdout, stderr } = await execFileAsync(
-      "apktool",
-      ["b", inputDir, "-o", outputPath],
-      {
-        maxBuffer: 1024 * 1024 * 20,
-      },
-    );
+    const { stdout, stderr } = await execFileAsync("apktool", ["b", inputDir, "-o", outputPath], {
+      maxBuffer: 1024 * 1024 * 20,
+    });
 
     return {
       outputPath,

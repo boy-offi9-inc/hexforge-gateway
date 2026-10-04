@@ -13,14 +13,7 @@ export interface Workspace {
 // while still accepting arbitrary strings - required so plugins (see
 // src/plugins/) can register new agent kinds without editing this type.
 export type McpAgentKind =
-  | "apktool"
-  | "jadx"
-  | "frida"
-  | "adb"
-  | "filesystem"
-  | "apkmcp"
-  | "ai"
-  | (string & {});
+  "apktool" | "jadx" | "frida" | "adb" | "filesystem" | "apkmcp" | "ai" | (string & {});
 
 export type TaskStatus = "queued" | "running" | "completed" | "failed";
 
@@ -106,8 +99,7 @@ export interface WorkflowSpec {
   steps: WorkflowStepSpec[];
 }
 
-export type WorkflowStepStatus =
-  "pending" | "queued" | "running" | "completed" | "failed";
+export type WorkflowStepStatus = "pending" | "queued" | "running" | "completed" | "failed";
 
 export interface WorkflowStepState {
   agent: McpAgentKind;

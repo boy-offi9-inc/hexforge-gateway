@@ -8,10 +8,7 @@ import { orchestrator } from "../modules/mcp/orchestrator.js";
 import type { HexForgePlugin, PluginContext } from "./types.js";
 import { detectConsoleCaps, notice } from "../core/console-ui.js";
 
-const INSTALLED_DIR = path.join(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "installed",
-);
+const INSTALLED_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "installed");
 
 export interface LoadedPluginInfo {
   name: string;
@@ -78,9 +75,7 @@ export async function loadPlugins(app: FastifyInstance): Promise<void> {
     // in this codebase already uses (tsx/tsc both resolve it correctly);
     // this just does it dynamically since the plugin list isn't known
     // ahead of time.
-    const entryUrl = pathToFileURL(
-      path.join(INSTALLED_DIR, dirName, "index.js"),
-    ).href;
+    const entryUrl = pathToFileURL(path.join(INSTALLED_DIR, dirName, "index.js")).href;
 
     try {
       const mod = (await import(entryUrl)) as { default?: HexForgePlugin };

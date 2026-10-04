@@ -21,8 +21,7 @@ export const PROTOCOL_VERSION = SUPPORTED_PROTOCOL_VERSIONS[0];
 // echo back a version we don't implement - a client that checks the reply
 // against its own supported list (mcp-proxy does) will refuse the connection.
 export function negotiateProtocolVersion(requested: unknown): string {
-  return typeof requested === "string" &&
-    SUPPORTED_PROTOCOL_VERSIONS.includes(requested)
+  return typeof requested === "string" && SUPPORTED_PROTOCOL_VERSIONS.includes(requested)
     ? requested
     : PROTOCOL_VERSION;
 }
@@ -50,11 +49,7 @@ function resultMessage(id: number | string, result: unknown): JsonRpcResponse {
   return { jsonrpc: "2.0", id, result };
 }
 
-function errorMessage(
-  id: number | string,
-  code: number,
-  message: string,
-): JsonRpcResponse {
+function errorMessage(id: number | string, code: number, message: string): JsonRpcResponse {
   return { jsonrpc: "2.0", id, error: { code, message } };
 }
 
@@ -84,8 +79,7 @@ async function callTool(
   name: string,
   args: Record<string, unknown>,
 ): Promise<{ content: unknown[]; isError: boolean }> {
-  const workspaceName =
-    (args.workspace as string | undefined)?.trim() || DEFAULT_WORKSPACE;
+  const workspaceName = (args.workspace as string | undefined)?.trim() || DEFAULT_WORKSPACE;
 
   try {
     // Meta tools first - bespoke logic, not a straight agent-job mapping.
@@ -105,10 +99,7 @@ async function callTool(
       }
       case "list_knowledge": {
         const ws = await gateway.getOrCreateWorkspace(workspaceName);
-        const entries = await gateway.listKnowledge(
-          ws.id,
-          args.type as string | undefined,
-        );
+        const entries = await gateway.listKnowledge(ws.id, args.type as string | undefined);
         return toolTextResult(JSON.stringify(entries));
       }
       case "get_inbox_apks": {
@@ -144,17 +135,11 @@ async function callTool(
     );
 
     if (job.status === "failed") {
-      return toolTextResult(
-        job.error ?? "Job failed with no error message",
-        true,
-      );
+      return toolTextResult(job.error ?? "Job failed with no error message", true);
     }
     return toolTextResult(JSON.stringify(job.result));
   } catch (err) {
-    return toolTextResult(
-      err instanceof Error ? err.message : String(err),
-      true,
-    );
+    return toolTextResult(err instanceof Error ? err.message : String(err), true);
   }
 }
 
@@ -164,9 +149,7 @@ async function callTool(
  * per JSON-RPC - the caller shouldn't write anything to the wire in that
  * case, not even an empty message).
  */
-export async function handleRequest(
-  req: JsonRpcRequest,
-): Promise<JsonRpcResponse | undefined> {
+export async function handleRequest(req: JsonRpcRequest): Promise<JsonRpcResponse | undefined> {
   const { id, method, params } = req;
   const isNotification = id === undefined;
 
@@ -200,11 +183,7 @@ export async function handleRequest(
         const toolName = params?.name as string | undefined;
         const args = (params?.arguments as Record<string, unknown>) ?? {};
         if (!toolName) {
-          return errorMessage(
-            id,
-            -32602,
-            'Missing "name" in tools/call params',
-          );
+          return errorMessage(id, -32602, 'Missing "name" in tools/call params');
         }
         const result = await callTool(toolName, args);
         return resultMessage(id, result);
@@ -220,10 +199,6 @@ export async function handleRequest(
   } catch (err) {
     log(`unhandled error in ${method}:`, err);
     if (isNotification) return undefined;
-    return errorMessage(
-      id,
-      -32603,
-      err instanceof Error ? err.message : String(err),
-    );
+    return errorMessage(id, -32603, err instanceof Error ? err.message : String(err));
   }
 }

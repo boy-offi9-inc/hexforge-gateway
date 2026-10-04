@@ -98,12 +98,10 @@ async function packagesHandler(task: McpTask): Promise<unknown> {
 
 async function installHandler(task: McpTask): Promise<unknown> {
   const payload = task.payload as unknown as InstallPayload;
-  if (!payload.apkPath)
-    throw new Error('install requires "apkPath" in the task payload');
+  if (!payload.apkPath) throw new Error('install requires "apkPath" in the task payload');
 
   const apkPath = path.resolve(payload.apkPath);
-  if (!existsSync(apkPath))
-    throw new Error(`File not found at path: ${apkPath}`);
+  if (!existsSync(apkPath)) throw new Error(`File not found at path: ${apkPath}`);
 
   const args = [...deviceArgs(payload), "install"];
   if (payload.reinstall) args.push("-r");
@@ -119,8 +117,7 @@ async function installHandler(task: McpTask): Promise<unknown> {
 
 async function uninstallHandler(task: McpTask): Promise<unknown> {
   const payload = task.payload as unknown as UninstallPayload;
-  if (!payload.packageName)
-    throw new Error('uninstall requires "packageName" in the task payload');
+  if (!payload.packageName) throw new Error('uninstall requires "packageName" in the task payload');
 
   const args = [...deviceArgs(payload), "uninstall"];
   if (payload.keepData) args.push("-k");
@@ -136,8 +133,7 @@ async function uninstallHandler(task: McpTask): Promise<unknown> {
 
 async function shellHandler(task: McpTask): Promise<unknown> {
   const payload = task.payload as unknown as ShellPayload;
-  if (!payload.command)
-    throw new Error('shell requires "command" in the task payload');
+  if (!payload.command) throw new Error('shell requires "command" in the task payload');
 
   const args = [...deviceArgs(payload), "shell", payload.command];
   const { stdout, stderr } = await run(args);
@@ -170,25 +166,14 @@ async function logcatHandler(task: McpTask): Promise<unknown> {
 
 async function pullHandler(task: McpTask): Promise<unknown> {
   const payload = task.payload as unknown as PullPayload;
-  if (!payload.remotePath)
-    throw new Error('pull requires "remotePath" in the task payload');
+  if (!payload.remotePath) throw new Error('pull requires "remotePath" in the task payload');
 
-  const fileName =
-    payload.fileName?.trim() || path.basename(payload.remotePath);
-  if (
-    fileName.includes("/") ||
-    fileName.includes("\\") ||
-    fileName.includes("..")
-  ) {
+  const fileName = payload.fileName?.trim() || path.basename(payload.remotePath);
+  if (fileName.includes("/") || fileName.includes("\\") || fileName.includes("..")) {
     throw new Error('"fileName" must be a plain file name, not a path');
   }
 
-  const destDir = path.resolve(
-    config.WORKSPACES_ROOT,
-    task.workspaceId,
-    "adb",
-    "pulled",
-  );
+  const destDir = path.resolve(config.WORKSPACES_ROOT, task.workspaceId, "adb", "pulled");
   await mkdir(destDir, { recursive: true });
   const destPath = path.join(destDir, fileName);
 
@@ -204,14 +189,11 @@ async function pullHandler(task: McpTask): Promise<unknown> {
 
 async function pushHandler(task: McpTask): Promise<unknown> {
   const payload = task.payload as unknown as PushPayload;
-  if (!payload.localPath)
-    throw new Error('push requires "localPath" in the task payload');
-  if (!payload.remotePath)
-    throw new Error('push requires "remotePath" in the task payload');
+  if (!payload.localPath) throw new Error('push requires "localPath" in the task payload');
+  if (!payload.remotePath) throw new Error('push requires "remotePath" in the task payload');
 
   const localPath = path.resolve(payload.localPath);
-  if (!existsSync(localPath))
-    throw new Error(`File not found at path: ${localPath}`);
+  if (!existsSync(localPath)) throw new Error(`File not found at path: ${localPath}`);
 
   const args = [...deviceArgs(payload), "push", localPath, payload.remotePath];
   const { stdout, stderr } = await run(args);

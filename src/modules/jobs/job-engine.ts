@@ -51,8 +51,7 @@ class JobEngine {
         const corrected: Job = {
           ...job,
           status: "failed",
-          error:
-            "Interrupted by a Gateway restart before this job finished; not resumed.",
+          error: "Interrupted by a Gateway restart before this job finished; not resumed.",
           updatedAt: new Date().toISOString(),
         };
         this.jobs.set(job.id, corrected);
@@ -64,9 +63,7 @@ class JobEngine {
   }
 
   listJobsForWorkspace(workspaceId: string): Job[] {
-    return Array.from(this.jobs.values()).filter(
-      (j) => j.workspaceId === workspaceId,
-    );
+    return Array.from(this.jobs.values()).filter((j) => j.workspaceId === workspaceId);
   }
 
   submit(spec: JobSpec): Job {
@@ -79,8 +76,7 @@ class JobEngine {
       payload: spec.payload ?? {},
       status: "queued",
       attempts: 0,
-      maxAttempts:
-        spec.maxAttempts && spec.maxAttempts > 0 ? spec.maxAttempts : 1,
+      maxAttempts: spec.maxAttempts && spec.maxAttempts > 0 ? spec.maxAttempts : 1,
       createdAt: now,
       updatedAt: now,
     };
@@ -108,10 +104,8 @@ class JobEngine {
     persist(updated);
 
     eventBus.emit("job.updated", { job: updated });
-    if (updated.status === "completed")
-      eventBus.emit("job.completed", { job: updated });
-    if (updated.status === "failed")
-      eventBus.emit("job.failed", { job: updated });
+    if (updated.status === "completed") eventBus.emit("job.completed", { job: updated });
+    if (updated.status === "failed") eventBus.emit("job.failed", { job: updated });
 
     return updated;
   }
@@ -132,9 +126,7 @@ class JobEngine {
 
     this.update(jobId, { currentTaskId: task.id });
 
-    const handleTerminal = (
-      latestTask: NonNullable<ReturnType<typeof orchestrator.getTask>>,
-    ) => {
+    const handleTerminal = (latestTask: NonNullable<ReturnType<typeof orchestrator.getTask>>) => {
       if (latestTask.status === "completed") {
         this.update(jobId, {
           status: "completed",

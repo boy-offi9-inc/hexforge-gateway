@@ -9,8 +9,7 @@ import path from "node:path";
 // test - a fresh on-disk directory *and* a fresh cache - we point DATA_DIR
 // at a new temp dir and vi.resetModules() before every dynamic import
 // below, rather than importing the module once at the top of the file.
-type LocalStorageModule =
-  typeof import("../src/providers/local-storage.provider.js");
+type LocalStorageModule = typeof import("../src/providers/local-storage.provider.js");
 
 interface Widget {
   id: string;
@@ -35,21 +34,15 @@ afterEach(async () => {
 
 describe("local-storage.provider", () => {
   it("returns null for a record whose collection file doesn't exist yet", async () => {
-    await expect(
-      store.getRecord<Widget>("widgets", "missing"),
-    ).resolves.toBeNull();
+    await expect(store.getRecord<Widget>("widgets", "missing")).resolves.toBeNull();
   });
 
   it("round-trips a record through upsert / get / list", async () => {
     const record: Widget = { id: "a1", name: "First" };
     await store.upsertRecord("widgets", record);
 
-    await expect(store.getRecord<Widget>("widgets", "a1")).resolves.toEqual(
-      record,
-    );
-    await expect(store.listRecords<Widget>("widgets")).resolves.toEqual([
-      record,
-    ]);
+    await expect(store.getRecord<Widget>("widgets", "a1")).resolves.toEqual(record);
+    await expect(store.listRecords<Widget>("widgets")).resolves.toEqual([record]);
   });
 
   it("upserting the same id again overwrites rather than duplicating", async () => {
@@ -71,8 +64,7 @@ describe("local-storage.provider", () => {
     // from the in-memory collectionCache - it has to come from disk.
     vi.resetModules();
     vi.stubEnv("DATA_DIR", dataDir);
-    const reopened: LocalStorageModule =
-      await import("../src/providers/local-storage.provider.js");
+    const reopened: LocalStorageModule = await import("../src/providers/local-storage.provider.js");
     await expect(reopened.getRecord<Widget>("widgets", "a1")).resolves.toEqual({
       id: "a1",
       name: "First",
@@ -102,16 +94,12 @@ describe("local-storage.provider", () => {
       tag: "y",
     });
 
-    await expect(
-      store.findRecord<Widget>("widgets", (r) => r.tag === "y"),
-    ).resolves.toEqual({
+    await expect(store.findRecord<Widget>("widgets", (r) => r.tag === "y")).resolves.toEqual({
       id: "a2",
       name: "Second",
       tag: "y",
     });
-    await expect(
-      store.findRecord<Widget>("widgets", (r) => r.tag === "z"),
-    ).resolves.toBeNull();
+    await expect(store.findRecord<Widget>("widgets", (r) => r.tag === "z")).resolves.toBeNull();
   });
 
   it("keeps separate collections independent, even with overlapping ids", async () => {

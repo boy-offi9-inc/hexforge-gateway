@@ -19,9 +19,7 @@ describe("tool definitions", () => {
   });
 
   it("exposes every meta tool and agent tool together", () => {
-    expect(ALL_TOOL_DEFINITIONS).toHaveLength(
-      META_TOOL_DEFINITIONS.length + AGENT_TOOLS.length,
-    );
+    expect(ALL_TOOL_DEFINITIONS).toHaveLength(META_TOOL_DEFINITIONS.length + AGENT_TOOLS.length);
   });
 
   it.each(ALL_TOOL_DEFINITIONS.map((t) => [t.name, t] as const))(
@@ -36,9 +34,7 @@ describe("tool definitions", () => {
   it.each(ALL_TOOL_DEFINITIONS.map((t) => [t.name, t] as const))(
     "%s documents every parameter",
     (_name, tool) => {
-      for (const [param, schema] of Object.entries(
-        tool.inputSchema.properties,
-      )) {
+      for (const [param, schema] of Object.entries(tool.inputSchema.properties)) {
         expect(
           (schema as { description?: string }).description,
           `parameter "${param}"`,
@@ -67,21 +63,18 @@ describe("tool definitions", () => {
     );
 
     it.each(
-      ALL_TOOL_DEFINITIONS.filter(
-        (t) => t.annotations?.readOnlyHint === false,
-      ).map((t) => [t.name, t] as const),
-    )(
-      "%s (a write tool) also declares destructiveHint and idempotentHint",
-      (_name, tool) => {
-        expect(typeof tool.annotations?.destructiveHint).toBe("boolean");
-        expect(typeof tool.annotations?.idempotentHint).toBe("boolean");
-      },
-    );
+      ALL_TOOL_DEFINITIONS.filter((t) => t.annotations?.readOnlyHint === false).map(
+        (t) => [t.name, t] as const,
+      ),
+    )("%s (a write tool) also declares destructiveHint and idempotentHint", (_name, tool) => {
+      expect(typeof tool.annotations?.destructiveHint).toBe("boolean");
+      expect(typeof tool.annotations?.idempotentHint).toBe("boolean");
+    });
 
     it.each(
-      ALL_TOOL_DEFINITIONS.filter(
-        (t) => t.annotations?.readOnlyHint === true,
-      ).map((t) => [t.name, t] as const),
+      ALL_TOOL_DEFINITIONS.filter((t) => t.annotations?.readOnlyHint === true).map(
+        (t) => [t.name, t] as const,
+      ),
     )("%s (read-only) doesn't also claim to be destructive", (_name, tool) => {
       // destructiveHint/idempotentHint are only meaningful for tools that
       // aren't read-only - declaring one on a read-only tool contradicts it.
@@ -89,20 +82,13 @@ describe("tool definitions", () => {
     });
 
     it("flags the tools that can change or delete things on the device or in prior work as destructive", () => {
-      const destructive = ALL_TOOL_DEFINITIONS.filter(
-        (t) => t.annotations?.destructiveHint,
-      )
+      const destructive = ALL_TOOL_DEFINITIONS.filter((t) => t.annotations?.destructiveHint)
         .map((t) => t.name)
         .sort();
       // adb_shell runs arbitrary commands, adb_install can replace an installed
       // app, frida_trace injects code into a running app, and decode_apk
       // replaces the workspace's previous decode (including any edits to it).
-      expect(destructive).toEqual([
-        "adb_install",
-        "adb_shell",
-        "decode_apk",
-        "frida_trace",
-      ]);
+      expect(destructive).toEqual(["adb_install", "adb_shell", "decode_apk", "frida_trace"]);
     });
   });
 

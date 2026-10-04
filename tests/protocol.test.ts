@@ -22,9 +22,7 @@ import {
   PROTOCOL_VERSION,
 } from "../src/mcp-server/protocol.js";
 
-const getOrCreateWorkspace = gateway.getOrCreateWorkspace as ReturnType<
-  typeof vi.fn
->;
+const getOrCreateWorkspace = gateway.getOrCreateWorkspace as ReturnType<typeof vi.fn>;
 const listWorkspaces = gateway.listWorkspaces as ReturnType<typeof vi.fn>;
 const runJob = gateway.runJob as ReturnType<typeof vi.fn>;
 
@@ -60,16 +58,8 @@ describe("protocol - non-tool methods", () => {
       "2026-09-30",
       PROTOCOL_VERSION,
     ],
-    [
-      "a missing version, answered with its own newest",
-      undefined,
-      PROTOCOL_VERSION,
-    ],
-    [
-      "a non-string version, answered with its own newest",
-      20250326,
-      PROTOCOL_VERSION,
-    ],
+    ["a missing version, answered with its own newest", undefined, PROTOCOL_VERSION],
+    ["a non-string version, answered with its own newest", 20250326, PROTOCOL_VERSION],
   ])(
     "negotiates the protocol version when the client requests %s",
     async (_label, requested, expected) => {
@@ -81,9 +71,7 @@ describe("protocol - non-tool methods", () => {
         method: "initialize",
         params: { protocolVersion: requested },
       });
-      expect(
-        (response?.result as { protocolVersion: string }).protocolVersion,
-      ).toBe(expected);
+      expect((response?.result as { protocolVersion: string }).protocolVersion).toBe(expected);
     },
   );
 
@@ -137,9 +125,9 @@ describe("protocol - tools/call dispatch", () => {
     });
     expect(response?.error).toBeUndefined(); // this must be a normal result, not a protocol-level error
     expect(response?.result).toMatchObject({ isError: true });
-    expect(
-      (response?.result as { content: { text: string }[] }).content[0].text,
-    ).toContain('Unknown tool "not_a_real_tool"');
+    expect((response?.result as { content: { text: string }[] }).content[0].text).toContain(
+      'Unknown tool "not_a_real_tool"',
+    );
   });
 
   it("dispatches a meta tool (list_workspaces) straight to its gateway-client function", async () => {
@@ -258,9 +246,7 @@ describe("protocol - tools/call dispatch", () => {
 
   it("catches a thrown/rejected gateway call and reports it as isError: true rather than crashing the request", async () => {
     getOrCreateWorkspace.mockRejectedValue(
-      new Error(
-        "Gateway PUT /workspaces/by-name/my-app -> 500: internal error",
-      ),
+      new Error("Gateway PUT /workspaces/by-name/my-app -> 500: internal error"),
     );
 
     const response = await handleRequest({

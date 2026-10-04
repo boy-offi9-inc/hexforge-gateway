@@ -88,19 +88,11 @@ async function buildApp(opts: { aiConfigured?: boolean } = {}) {
 
   const { default: Fastify } = await import("fastify");
   const app = Fastify();
-  await app.register(
-    (await import("../src/api/v1/health.routes.js")).healthRoutes,
-  );
-  await app.register(
-    (await import("../src/api/v1/workspace.routes.js")).workspaceRoutes,
-  );
+  await app.register((await import("../src/api/v1/health.routes.js")).healthRoutes);
+  await app.register((await import("../src/api/v1/workspace.routes.js")).workspaceRoutes);
   await app.register((await import("../src/api/v1/job.routes.js")).jobRoutes);
-  await app.register(
-    (await import("../src/api/v1/workflow.routes.js")).workflowRoutes,
-  );
-  await app.register(
-    (await import("../src/api/v1/knowledge.routes.js")).knowledgeRoutes,
-  );
+  await app.register((await import("../src/api/v1/workflow.routes.js")).workflowRoutes);
+  await app.register((await import("../src/api/v1/knowledge.routes.js")).knowledgeRoutes);
   await app.ready();
 
   return { app, m };
@@ -198,10 +190,7 @@ describe("workspace routes", () => {
       payload: { targetLabel: "com.clite.dialer" },
     });
 
-    expect(m.workspace.getOrCreateWorkspace).toHaveBeenCalledWith(
-      "clite",
-      "com.clite.dialer",
-    );
+    expect(m.workspace.getOrCreateWorkspace).toHaveBeenCalledWith("clite", "com.clite.dialer");
   });
 
   it("PUT /workspaces/by-name/:name rejects an empty targetLabel", async () => {
@@ -221,9 +210,7 @@ describe("workspace routes", () => {
   it("GET /workspaces/:id returns 404 for an unknown workspace and the workspace otherwise", async () => {
     const { app: a, m } = await buildApp();
     app = a;
-    m.workspace.getWorkspace
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce(workspace);
+    m.workspace.getWorkspace.mockResolvedValueOnce(undefined).mockResolvedValueOnce(workspace);
 
     const missing = await app.inject({
       method: "GET",
@@ -255,10 +242,7 @@ describe("workspace routes", () => {
     it.each([
       ["a missing agent", { operation: "decompile" }],
       ["a missing operation", { agent: "jadx" }],
-      [
-        "a non-object payload",
-        { agent: "jadx", operation: "decompile", payload: "not-an-object" },
-      ],
+      ["a non-object payload", { agent: "jadx", operation: "decompile", payload: "not-an-object" }],
     ])("rejects %s with 400 and never dispatches", async (_label, payload) => {
       const { app: a, m } = await buildApp();
       app = a;
@@ -298,10 +282,7 @@ describe("workspace routes", () => {
         operation: "decompile",
         payload: { apkPath: "/x.apk" },
       });
-      expect(m.workspace.updateWorkspaceStatus).toHaveBeenCalledWith(
-        "ws1",
-        "analyzing",
-      );
+      expect(m.workspace.updateWorkspaceStatus).toHaveBeenCalledWith("ws1", "analyzing");
     });
   });
 
@@ -316,9 +297,7 @@ describe("workspace routes", () => {
         detectedAt: "now",
       },
     ];
-    m.workspace.getWorkspace
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce(workspace);
+    m.workspace.getWorkspace.mockResolvedValueOnce(undefined).mockResolvedValueOnce(workspace);
     m.inbox.listInboxApks.mockResolvedValue(apks);
 
     const missing = await app.inject({
@@ -463,10 +442,7 @@ describe("workflow routes", () => {
     app = a;
     m.workspace.getWorkspace.mockResolvedValue(workspace);
     m.workflows.submit.mockReturnValue({ id: "wf1", status: "queued" });
-    const steps = [
-      step,
-      { agent: "filesystem", operation: "search", mergePreviousResult: true },
-    ];
+    const steps = [step, { agent: "filesystem", operation: "search", mergePreviousResult: true }];
 
     const res = await app.inject({
       method: "POST",
@@ -520,23 +496,20 @@ describe("knowledge routes", () => {
     ["an unknown type", { type: "bogus", title: "t", content: "c" }],
     ["an empty title", { type: "note", title: "", content: "c" }],
     ["empty content", { type: "note", title: "t", content: "" }],
-  ])(
-    "POST /workspaces/:id/knowledge rejects %s with 400",
-    async (_label, payload) => {
-      const { app: a, m } = await buildApp();
-      app = a;
-      m.workspace.getWorkspace.mockResolvedValue(workspace);
+  ])("POST /workspaces/:id/knowledge rejects %s with 400", async (_label, payload) => {
+    const { app: a, m } = await buildApp();
+    app = a;
+    m.workspace.getWorkspace.mockResolvedValue(workspace);
 
-      const res = await app.inject({
-        method: "POST",
-        url: "/workspaces/ws1/knowledge",
-        payload,
-      });
+    const res = await app.inject({
+      method: "POST",
+      url: "/workspaces/ws1/knowledge",
+      payload,
+    });
 
-      expect(res.statusCode).toBe(400);
-      expect(m.knowledge.createEntry).not.toHaveBeenCalled();
-    },
-  );
+    expect(res.statusCode).toBe(400);
+    expect(m.knowledge.createEntry).not.toHaveBeenCalled();
+  });
 
   it("GET /workspaces/:id/knowledge validates the ?type= filter and passes a valid one through", async () => {
     const { app: a, m } = await buildApp();
@@ -614,9 +587,7 @@ describe("knowledge routes", () => {
   it("DELETE /knowledge/:entryId 404s for an unknown entry and returns 204 after deleting an existing one", async () => {
     const { app: a, m } = await buildApp();
     app = a;
-    m.knowledge.getEntry
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce(entry);
+    m.knowledge.getEntry.mockResolvedValueOnce(undefined).mockResolvedValueOnce(entry);
 
     const missing = await app.inject({
       method: "DELETE",
@@ -666,9 +637,7 @@ describe("knowledge routes", () => {
       const { app: a, m } = await buildApp();
       app = a;
       m.knowledge.getEntry.mockResolvedValue(entry);
-      m.ai.summarizeEntry.mockRejectedValue(
-        new Error("Anthropic API error (429): rate limited"),
-      );
+      m.ai.summarizeEntry.mockRejectedValue(new Error("Anthropic API error (429): rate limited"));
 
       const res = await app.inject({
         method: "POST",

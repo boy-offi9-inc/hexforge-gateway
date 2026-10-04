@@ -32,15 +32,10 @@ interface AnthropicMessagesResponse {
 
 async function completeWithAnthropic(req: CompletionRequest): Promise<string> {
   if (!config.ANTHROPIC_API_KEY) {
-    throw new Error(
-      "ANTHROPIC_API_KEY is not set - AI provider is not configured.",
-    );
+    throw new Error("ANTHROPIC_API_KEY is not set - AI provider is not configured.");
   }
 
-  const messages = [
-    ...(req.history ?? []),
-    { role: "user", content: req.prompt },
-  ];
+  const messages = [...(req.history ?? []), { role: "user", content: req.prompt }];
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -59,9 +54,7 @@ async function completeWithAnthropic(req: CompletionRequest): Promise<string> {
 
   if (!response.ok) {
     const body = await response.text().catch(() => "");
-    throw new Error(
-      `Anthropic API error (${response.status}): ${body.slice(0, 500)}`,
-    );
+    throw new Error(`Anthropic API error (${response.status}): ${body.slice(0, 500)}`);
   }
 
   const data = (await response.json()) as AnthropicMessagesResponse;
@@ -124,9 +117,7 @@ async function completeWithOpenAiCompatibleShape(
 
   if (!response.ok) {
     const body = await response.text().catch(() => "");
-    throw new Error(
-      `${providerLabel} API error (${response.status}): ${body.slice(0, 500)}`,
-    );
+    throw new Error(`${providerLabel} API error (${response.status}): ${body.slice(0, 500)}`);
   }
 
   const data = (await response.json()) as OpenAiCompatibleChatResponse;
@@ -151,9 +142,7 @@ async function completeWithGroq(req: CompletionRequest): Promise<string> {
 
 async function completeWithOpenAi(req: CompletionRequest): Promise<string> {
   if (!config.OPENAI_API_KEY) {
-    throw new Error(
-      "OPENAI_API_KEY is not set - AI provider is not configured.",
-    );
+    throw new Error("OPENAI_API_KEY is not set - AI provider is not configured.");
   }
   return completeWithOpenAiCompatibleShape(
     "OpenAI",
@@ -166,9 +155,7 @@ async function completeWithOpenAi(req: CompletionRequest): Promise<string> {
 
 async function completeWithDeepseek(req: CompletionRequest): Promise<string> {
   if (!config.DEEPSEEK_API_KEY) {
-    throw new Error(
-      "DEEPSEEK_API_KEY is not set - AI provider is not configured.",
-    );
+    throw new Error("DEEPSEEK_API_KEY is not set - AI provider is not configured.");
   }
   return completeWithOpenAiCompatibleShape(
     "DeepSeek",
@@ -194,9 +181,7 @@ async function completeWithXai(req: CompletionRequest): Promise<string> {
 
 async function completeWithMistral(req: CompletionRequest): Promise<string> {
   if (!config.MISTRAL_API_KEY) {
-    throw new Error(
-      "MISTRAL_API_KEY is not set - AI provider is not configured.",
-    );
+    throw new Error("MISTRAL_API_KEY is not set - AI provider is not configured.");
   }
   return completeWithOpenAiCompatibleShape(
     "Mistral",
@@ -215,9 +200,7 @@ async function completeWithMistral(req: CompletionRequest): Promise<string> {
  * above, there's no sensible default model - it varies entirely by what
  * you're running, so it's required rather than defaulted.
  */
-async function completeWithOpenAiCompatible(
-  req: CompletionRequest,
-): Promise<string> {
+async function completeWithOpenAiCompatible(req: CompletionRequest): Promise<string> {
   if (!config.OPENAI_COMPATIBLE_MODEL) {
     throw new Error(
       "OPENAI_COMPATIBLE_MODEL is not set - required for AI_PROVIDER=openai-compatible since there's no " +
@@ -239,9 +222,7 @@ interface GeminiGenerateResponse {
 
 async function completeWithGemini(req: CompletionRequest): Promise<string> {
   if (!config.GEMINI_API_KEY) {
-    throw new Error(
-      "GEMINI_API_KEY is not set - AI provider is not configured.",
-    );
+    throw new Error("GEMINI_API_KEY is not set - AI provider is not configured.");
   }
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${config.GEMINI_MODEL}:generateContent?key=${config.GEMINI_API_KEY}`;
@@ -258,22 +239,15 @@ async function completeWithGemini(req: CompletionRequest): Promise<string> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      ...(req.system
-        ? { systemInstruction: { parts: [{ text: req.system }] } }
-        : {}),
-      contents: [
-        ...historyContents,
-        { role: "user", parts: [{ text: req.prompt }] },
-      ],
+      ...(req.system ? { systemInstruction: { parts: [{ text: req.system }] } } : {}),
+      contents: [...historyContents, { role: "user", parts: [{ text: req.prompt }] }],
       generationConfig: { maxOutputTokens: req.maxTokens ?? 1024 },
     }),
   });
 
   if (!response.ok) {
     const body = await response.text().catch(() => "");
-    throw new Error(
-      `Gemini API error (${response.status}): ${body.slice(0, 500)}`,
-    );
+    throw new Error(`Gemini API error (${response.status}): ${body.slice(0, 500)}`);
   }
 
   const data = (await response.json()) as GeminiGenerateResponse;
@@ -307,8 +281,7 @@ async function completeWithOllama(req: CompletionRequest): Promise<string> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
-  if (config.OLLAMA_API_KEY)
-    headers.Authorization = `Bearer ${config.OLLAMA_API_KEY}`;
+  if (config.OLLAMA_API_KEY) headers.Authorization = `Bearer ${config.OLLAMA_API_KEY}`;
 
   let response: Response;
   try {
@@ -331,9 +304,7 @@ async function completeWithOllama(req: CompletionRequest): Promise<string> {
 
   if (!response.ok) {
     const body = await response.text().catch(() => "");
-    throw new Error(
-      `Ollama API error (${response.status}): ${body.slice(0, 500)}`,
-    );
+    throw new Error(`Ollama API error (${response.status}): ${body.slice(0, 500)}`);
   }
 
   const data = (await response.json()) as OllamaChatResponse;

@@ -16,9 +16,7 @@ function warnFallback(op: string, message: string) {
   );
 }
 
-export async function createEntry(
-  input: KnowledgeEntryInput,
-): Promise<KnowledgeEntry> {
+export async function createEntry(input: KnowledgeEntryInput): Promise<KnowledgeEntry> {
   const now = new Date().toISOString();
   const entry: KnowledgeEntry = {
     id: nanoid(12),
@@ -72,10 +70,7 @@ export async function listEntriesForWorkspace(
 ): Promise<KnowledgeEntry[]> {
   const supabase = getSupabase();
   if (supabase) {
-    let query = supabase
-      .from("knowledge_entries")
-      .select("*")
-      .eq("workspaceId", workspaceId);
+    let query = supabase.from("knowledge_entries").select("*").eq("workspaceId", workspaceId);
     if (options.type) query = query.eq("type", options.type);
     const { data, error } = await query.order("createdAt", {
       ascending: false,
@@ -85,11 +80,7 @@ export async function listEntriesForWorkspace(
   }
   const local = await localStore.listRecords<KnowledgeEntry>(COLLECTION);
   return local
-    .filter(
-      (e) =>
-        e.workspaceId === workspaceId &&
-        (!options.type || e.type === options.type),
-    )
+    .filter((e) => e.workspaceId === workspaceId && (!options.type || e.type === options.type))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
@@ -131,10 +122,7 @@ export async function updateEntry(
 export async function deleteEntry(id: string): Promise<boolean> {
   const supabase = getSupabase();
   if (supabase) {
-    const { error } = await supabase
-      .from("knowledge_entries")
-      .delete()
-      .eq("id", id);
+    const { error } = await supabase.from("knowledge_entries").delete().eq("id", id);
     if (!error) return true;
     warnFallback("delete", error.message);
   }

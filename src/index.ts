@@ -1,9 +1,5 @@
 import { buildServer } from "./core/server.js";
-import {
-  config,
-  isAiConfigured,
-  isAuthEffectivelyEnabled,
-} from "./core/config.js";
+import { config, isAiConfigured, isAuthEffectivelyEnabled } from "./core/config.js";
 import {
   createConsoleUi,
   detectConsoleCaps,
@@ -54,8 +50,7 @@ async function printPrettyBanner(caps: ConsoleCaps) {
 async function printPlainBanner(baseUrl: string) {
   // Best-effort - a Supabase hiccup here should never stop the Gateway
   // from starting, it just means the banner is a bit less helpful.
-  let workspaces: Awaited<ReturnType<typeof workspaceService.listWorkspaces>> =
-    [];
+  let workspaces: Awaited<ReturnType<typeof workspaceService.listWorkspaces>> = [];
   try {
     workspaces = await workspaceService.listWorkspaces();
   } catch {

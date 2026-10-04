@@ -61,13 +61,26 @@ describe("WorkflowEngine", () => {
       name: "Analyze APK",
       steps: [
         { agent: "jadx", operation: "decompile", payload: {} },
-        { agent: "filesystem", operation: "search", payload: { pattern: "TODO" }, mergePreviousResult: true },
+        {
+          agent: "filesystem",
+          operation: "search",
+          payload: { pattern: "TODO" },
+          mergePreviousResult: true,
+        },
       ],
     });
 
-    await vi.waitFor(() => expect(workflowEngine.getWorkflow(workflow.id)?.steps[0].jobId).toBe("job-1"));
+    await vi.waitFor(() =>
+      expect(workflowEngine.getWorkflow(workflow.id)?.steps[0].jobId).toBe(
+        "job-1",
+      ),
+    );
     eventBus.emit("job.updated", {
-      job: { ...makeJob({ id: "job-1" }), status: "completed", result: { outputDir: "/ws/out" } },
+      job: {
+        ...makeJob({ id: "job-1" }),
+        status: "completed",
+        result: { outputDir: "/ws/out" },
+      },
     });
 
     // Step 2 should be dispatched with its own payload plus step 1's
@@ -75,15 +88,32 @@ describe("WorkflowEngine", () => {
     await vi.waitFor(() => expect(submit).toHaveBeenCalledTimes(2));
     expect(submit).toHaveBeenNthCalledWith(
       2,
-      expect.objectContaining({ payload: { pattern: "TODO", outputDir: "/ws/out" } })
+      expect.objectContaining({
+        payload: { pattern: "TODO", outputDir: "/ws/out" },
+      }),
     );
 
-    await vi.waitFor(() => expect(workflowEngine.getWorkflow(workflow.id)?.steps[1].jobId).toBe("job-2"));
-    eventBus.emit("job.updated", { job: { ...makeJob({ id: "job-2" }), status: "completed", result: { hits: 3 } } });
+    await vi.waitFor(() =>
+      expect(workflowEngine.getWorkflow(workflow.id)?.steps[1].jobId).toBe(
+        "job-2",
+      ),
+    );
+    eventBus.emit("job.updated", {
+      job: {
+        ...makeJob({ id: "job-2" }),
+        status: "completed",
+        result: { hits: 3 },
+      },
+    });
 
-    await vi.waitFor(() => expect(workflowEngine.getWorkflow(workflow.id)?.status).toBe("completed"));
+    await vi.waitFor(() =>
+      expect(workflowEngine.getWorkflow(workflow.id)?.status).toBe("completed"),
+    );
     const finished = workflowEngine.getWorkflow(workflow.id)!;
-    expect(finished.steps.map((s) => s.status)).toEqual(["completed", "completed"]);
+    expect(finished.steps.map((s) => s.status)).toEqual([
+      "completed",
+      "completed",
+    ]);
     expect(finished.steps[1].result).toEqual({ hits: 3 });
   });
 
@@ -100,23 +130,45 @@ describe("WorkflowEngine", () => {
       ],
     });
 
-    await vi.waitFor(() => expect(workflowEngine.getWorkflow(workflow.id)?.steps[0].jobId).toBe("job-1"));
+    await vi.waitFor(() =>
+      expect(workflowEngine.getWorkflow(workflow.id)?.steps[0].jobId).toBe(
+        "job-1",
+      ),
+    );
     eventBus.emit("job.updated", {
-      job: { ...makeJob({ id: "job-1" }), status: "failed", error: "jadx blew up" },
+      job: {
+        ...makeJob({ id: "job-1" }),
+        status: "failed",
+        error: "jadx blew up",
+      },
     });
 
-    await vi.waitFor(() => expect(workflowEngine.getWorkflow(workflow.id)?.status).toBe("failed"));
+    await vi.waitFor(() =>
+      expect(workflowEngine.getWorkflow(workflow.id)?.status).toBe("failed"),
+    );
 
     const finished = workflowEngine.getWorkflow(workflow.id)!;
-    expect(finished.steps.map((s) => s.status)).toEqual(["failed", "pending", "pending"]);
+    expect(finished.steps.map((s) => s.status)).toEqual([
+      "failed",
+      "pending",
+      "pending",
+    ]);
     expect(finished.error).toContain("jadx blew up");
     expect(submit).toHaveBeenCalledTimes(1); // steps 2 and 3 never dispatched
   });
 
   it("advances past a step whose job is already terminal by the time submit() returns, without a stray listener double-firing", async () => {
-    const job1 = makeJob({ id: "job-fast", status: "completed", result: { ok: true } });
-    submit.mockReturnValueOnce(makeJob({ id: "job-fast" })).mockReturnValueOnce(makeJob({ id: "job-2" }));
-    getJob.mockImplementation((id: string) => (id === "job-fast" ? job1 : undefined));
+    const job1 = makeJob({
+      id: "job-fast",
+      status: "completed",
+      result: { ok: true },
+    });
+    submit
+      .mockReturnValueOnce(makeJob({ id: "job-fast" }))
+      .mockReturnValueOnce(makeJob({ id: "job-2" }));
+    getJob.mockImplementation((id: string) =>
+      id === "job-fast" ? job1 : undefined,
+    );
 
     const workflow = workflowEngine.submit({
       workspaceId: "ws1",
@@ -128,14 +180,22 @@ describe("WorkflowEngine", () => {
     });
 
     await vi.waitFor(() => expect(submit).toHaveBeenCalledTimes(2));
-    await vi.waitFor(() => expect(workflowEngine.getWorkflow(workflow.id)?.steps[0].status).toBe("completed"));
+    await vi.waitFor(() =>
+      expect(workflowEngine.getWorkflow(workflow.id)?.steps[0].status).toBe(
+        "completed",
+      ),
+    );
 
     // A stray duplicate event for the already-resolved first job should
     // have no listener left to react to it.
-    eventBus.emit("job.updated", { job: { ...job1, status: "failed", error: "should be ignored" } });
+    eventBus.emit("job.updated", {
+      job: { ...job1, status: "failed", error: "should be ignored" },
+    });
     await new Promise((resolve) => setImmediate(resolve));
 
-    expect(workflowEngine.getWorkflow(workflow.id)?.steps[0].status).toBe("completed");
+    expect(workflowEngine.getWorkflow(workflow.id)?.steps[0].status).toBe(
+      "completed",
+    );
     expect(submit).toHaveBeenCalledTimes(2); // never re-dispatched step 1
   });
 });

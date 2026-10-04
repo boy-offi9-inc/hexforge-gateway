@@ -3,8 +3,20 @@ import { mkdtemp, rm, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import * as ui from "../scripts/hf/ui.mjs";
-import { createClient, describeErrorBody, GatewayError, readState, saveState } from "../scripts/hf/client.mjs";
-import { formatBytes, parseArgs, parsePayload, resultRows, UsageError } from "../scripts/hf/cli.mjs";
+import {
+  createClient,
+  describeErrorBody,
+  GatewayError,
+  readState,
+  saveState,
+} from "../scripts/hf/client.mjs";
+import {
+  formatBytes,
+  parseArgs,
+  parsePayload,
+  resultRows,
+  UsageError,
+} from "../scripts/hf/cli.mjs";
 
 // The hf CLI is plain .mjs (not type-checked, no build step), but its pure
 // parts are tested here like everything else. What these can't cover - the
@@ -12,7 +24,12 @@ import { formatBytes, parseArgs, parsePayload, resultRows, UsageError } from "..
 // needs a real terminal; those were exercised by hand against a fake Gateway
 // inside a pseudo-terminal (see tests/README.md).
 
-const unicode = ui.createTheme({ color: true, depth: 24, unicode: true, columns: 50 });
+const unicode = ui.createTheme({
+  color: true,
+  depth: 24,
+  unicode: true,
+  columns: 50,
+});
 const plain = ui.createTheme({ color: false, unicode: true, columns: 50 });
 const ascii = ui.createTheme({ color: false, unicode: false, columns: 40 });
 
@@ -28,30 +45,48 @@ describe("ui: measuring", () => {
 
   it("truncates to a visible width, keeping ANSI intact and ending with the ellipsis", () => {
     expect(ui.truncate("abcdefghij", 5)).toBe("abcd…");
-    expect(ui.visibleWidth(ui.truncate("\x1b[31mabcdefghij\x1b[39m", 6))).toBe(6);
+    expect(ui.visibleWidth(ui.truncate("\x1b[31mabcdefghij\x1b[39m", 6))).toBe(
+      6,
+    );
     expect(ui.truncate("short", 20)).toBe("short");
   });
 
   it("truncateStart keeps the useful tail of a long path", () => {
-    expect(ui.truncateStart("/a/very/long/path/to/file", 10)).toBe("…h/to/file");
+    expect(ui.truncateStart("/a/very/long/path/to/file", 10)).toBe(
+      "…h/to/file",
+    );
   });
 });
 
 describe("ui: wrapAnsi", () => {
   it("never exceeds the width, and reopens a bold span on each continuation line", () => {
-    const wrapped = ui.wrapAnsi("one " + unicode.bold("two three four five six seven eight nine ten eleven twelve") + " end", 20, { indent: "  " });
-    for (const line of wrapped) expect(ui.visibleWidth(line)).toBeLessThanOrEqual(20);
+    const wrapped = ui.wrapAnsi(
+      "one " +
+        unicode.bold(
+          "two three four five six seven eight nine ten eleven twelve",
+        ) +
+        " end",
+      20,
+      { indent: "  " },
+    );
+    for (const line of wrapped)
+      expect(ui.visibleWidth(line)).toBeLessThanOrEqual(20);
     expect(wrapped.length >= 3).toBe(true);
     expect(wrapped[1]).toContain("\x1b[1m");
     expect(wrapped[0].endsWith("\x1b[0m")).toBe(true); // a line never leaves a style open
   });
 
   it("hard-breaks a word longer than a whole line", () => {
-    expect(ui.wrapAnsi("x".repeat(45), 20).map(ui.visibleWidth)).toEqual([20, 20, 5]);
+    expect(ui.wrapAnsi("x".repeat(45), 20).map(ui.visibleWidth)).toEqual([
+      20, 20, 5,
+    ]);
   });
 
   it("uses the hanging indent on continuation lines", () => {
-    const lines = ui.wrapAnsi("alpha beta gamma delta epsilon", 14, { indent: "> ", hang: "  " });
+    const lines = ui.wrapAnsi("alpha beta gamma delta epsilon", 14, {
+      indent: "> ",
+      hang: "  ",
+    });
     expect(lines[0].startsWith("> ")).toBe(true);
     expect(lines[1].startsWith("  ")).toBe(true);
   });
@@ -59,14 +94,19 @@ describe("ui: wrapAnsi", () => {
 
 describe("ui: theme layout", () => {
   it("draws a box whose rows are all exactly the terminal width, even with styled and CJK text", () => {
-    const box = unicode.box(["plain", unicode.accent("styled line"), "日本語 mixed"], { title: unicode.bold("Title") });
+    const box = unicode.box(
+      ["plain", unicode.accent("styled line"), "日本語 mixed"],
+      { title: unicode.bold("Title") },
+    );
     expect(new Set(box.map(ui.visibleWidth)).size).toBe(1);
     expect(ui.visibleWidth(box[0])).toBe(50);
   });
 
   it("truncates a box title that's wider than the terminal instead of overflowing the top border", () => {
     const tiny = ui.createTheme({ color: false, unicode: true, columns: 24 });
-    const box = tiny.box(["x"], { title: "a title that is far too long for this box" });
+    const box = tiny.box(["x"], {
+      title: "a title that is far too long for this box",
+    });
     expect(widest(box)).toBeLessThanOrEqual(24);
     expect(new Set(box.map(ui.visibleWidth)).size).toBe(1);
   });
@@ -76,7 +116,16 @@ describe("ui: theme layout", () => {
       icon: "✔",
       title: "jadx · decompile",
       right: "12.4s",
-      rows: [["outputDir", "/data/data/com.termux/files/home/hexforge/workspaces/ws_abc/jadx"], ["note", "this has several words in it so it wraps under its key nicely"]],
+      rows: [
+        [
+          "outputDir",
+          "/data/data/com.termux/files/home/hexforge/workspaces/ws_abc/jadx",
+        ],
+        [
+          "note",
+          "this has several words in it so it wraps under its key nicely",
+        ],
+      ],
       hint: "a long follow-up hint that needs to wrap rather than run off the edge of the screen",
     });
     expect(widest(card)).toBeLessThanOrEqual(50);
@@ -86,27 +135,75 @@ describe("ui: theme layout", () => {
 
   it("works down to a 24-column terminal without overflowing", () => {
     const tiny = ui.createTheme({ color: false, unicode: true, columns: 24 });
-    const out = [...tiny.card({ icon: "✔", title: "jadx · decompile", right: "2.9s", rows: [["warnings", "3 methods could not be decompiled"]], hint: "hf job-status --json" }), ...tiny.box(["hello world this is long"], { title: "T" })];
+    const out = [
+      ...tiny.card({
+        icon: "✔",
+        title: "jadx · decompile",
+        right: "2.9s",
+        rows: [["warnings", "3 methods could not be decompiled"]],
+        hint: "hf job-status --json",
+      }),
+      ...tiny.box(["hello world this is long"], { title: "T" }),
+    ];
     expect(widest(out)).toBeLessThanOrEqual(24);
   });
 
   it("emits no color escapes when color is off, but keeps the layout", () => {
-    const out = plain.card({ icon: plain.icon("completed"), title: plain.bold("x"), rows: [["k", plain.accent("v")]] }).join("\n");
+    const out = plain
+      .card({
+        icon: plain.icon("completed"),
+        title: plain.bold("x"),
+        rows: [["k", plain.accent("v")]],
+      })
+      .join("\n");
     expect(/\x1b\[(?:38|[39]\d)[;m]/.test(out)).toBe(false);
     expect(out).toContain("x");
   });
 
   it("ASCII mode never emits a non-ASCII byte - boxes, cards, truncation, hints, definitions, markdown, errors, every status icon", () => {
     const parts = [
-      ...ascii.box(["a fairly long line that must be truncated with an ellipsis"], { title: "T" }),
-      ...ascii.card({ icon: ascii.icon("completed"), title: "a very long title that will certainly need truncating here", right: "1s", rows: [["path", "/very/long/unbroken/path/that/needs/its/tail/kept/ok"]], hint: "hf job-status --json" }),
-      ...ascii.errorBlock("Something failed", "with some detail text", "try this"),
-      ...ascii.definitions([["ws <name>", "get or create a workspace and make it current right now"]]),
-      ascii.markdown("# Title\n- a bullet with `code` and **bold**\n1. numbered\n> quote\n```\ncode line\n```\n---\n[docs](https://x.io)"),
+      ...ascii.box(
+        ["a fairly long line that must be truncated with an ellipsis"],
+        { title: "T" },
+      ),
+      ...ascii.card({
+        icon: ascii.icon("completed"),
+        title: "a very long title that will certainly need truncating here",
+        right: "1s",
+        rows: [
+          ["path", "/very/long/unbroken/path/that/needs/its/tail/kept/ok"],
+        ],
+        hint: "hf job-status --json",
+      }),
+      ...ascii.errorBlock(
+        "Something failed",
+        "with some detail text",
+        "try this",
+      ),
+      ...ascii.definitions([
+        [
+          "ws <name>",
+          "get or create a workspace and make it current right now",
+        ],
+      ]),
+      ascii.markdown(
+        "# Title\n- a bullet with `code` and **bold**\n1. numbered\n> quote\n```\ncode line\n```\n---\n[docs](https://x.io)",
+      ),
       ascii.rule("Section"),
       ascii.truncate("a long string that has to be cut", 10),
       ascii.truncateStart("/a/long/path/to/cut", 8),
-      ...["completed", "ready", "failed", "error", "running", "analyzing", "created", "queued", "pending", "weird"].map((s) => ascii.icon(s, 3)),
+      ...[
+        "completed",
+        "ready",
+        "failed",
+        "error",
+        "running",
+        "analyzing",
+        "created",
+        "queued",
+        "pending",
+        "weird",
+      ].map((s) => ascii.icon(s, 3)),
       ascii.spinFrame(1),
     ];
     for (const part of parts) expect(nonAscii(part)).toBe(false);
@@ -120,10 +217,13 @@ describe("ui: theme layout", () => {
 });
 
 describe("ui: markdown", () => {
-  const md = plain.markdown("# Title\nSome **bold** and `code` text that is long enough to wrap around the narrow fifty column terminal width.\n\n- item one\n- item two with a very long tail that needs to wrap onto the next line properly\n1. first\n\n```smali\nconst/4 v0, 0x1\n```\n> quoted\n[docs](https://x.io/a)");
+  const md = plain.markdown(
+    "# Title\nSome **bold** and `code` text that is long enough to wrap around the narrow fifty column terminal width.\n\n- item one\n- item two with a very long tail that needs to wrap onto the next line properly\n1. first\n\n```smali\nconst/4 v0, 0x1\n```\n> quoted\n[docs](https://x.io/a)",
+  );
 
   it("never exceeds the terminal width", () => {
-    for (const line of md.split("\n")) expect(ui.visibleWidth(line)).toBeLessThanOrEqual(50);
+    for (const line of md.split("\n"))
+      expect(ui.visibleWidth(line)).toBeLessThanOrEqual(50);
   });
 
   it("renders bullets, numbering, links, and strips the markdown markers", () => {
@@ -151,7 +251,9 @@ describe("ui: markdown", () => {
   });
 
   it("leaves lone asterisks and snake_case alone", () => {
-    expect(plain.markdown("a * b and snake_case_name")).toContain("a * b and snake_case_name");
+    expect(plain.markdown("a * b and snake_case_name")).toContain(
+      "a * b and snake_case_name",
+    );
   });
 });
 
@@ -177,46 +279,115 @@ describe("ui: detectCaps", () => {
   const tty = { isTTY: true, columns: 60, getColorDepth: () => 24 };
 
   it("is pretty on a TTY, plain when piped", () => {
-    expect(ui.detectCaps({ env: {}, stdout: tty, stderr: tty }).pretty).toBe(true);
-    expect(ui.detectCaps({ env: {}, stdout: { isTTY: false }, stderr: tty }).pretty).toBe(false);
+    expect(ui.detectCaps({ env: {}, stdout: tty, stderr: tty }).pretty).toBe(
+      true,
+    );
+    expect(
+      ui.detectCaps({ env: {}, stdout: { isTTY: false }, stderr: tty }).pretty,
+    ).toBe(false);
   });
 
   it("--json and --plain and HF_PLAIN force plain output even on a TTY", () => {
-    expect(ui.detectCaps({ env: {}, stdout: tty, stderr: tty, flags: { json: true } }).pretty).toBe(false);
-    expect(ui.detectCaps({ env: {}, stdout: tty, stderr: tty, flags: { plain: true } }).pretty).toBe(false);
-    expect(ui.detectCaps({ env: { HF_PLAIN: "1" }, stdout: tty, stderr: tty }).pretty).toBe(false);
+    expect(
+      ui.detectCaps({
+        env: {},
+        stdout: tty,
+        stderr: tty,
+        flags: { json: true },
+      }).pretty,
+    ).toBe(false);
+    expect(
+      ui.detectCaps({
+        env: {},
+        stdout: tty,
+        stderr: tty,
+        flags: { plain: true },
+      }).pretty,
+    ).toBe(false);
+    expect(
+      ui.detectCaps({ env: { HF_PLAIN: "1" }, stdout: tty, stderr: tty })
+        .pretty,
+    ).toBe(false);
   });
 
   it("NO_COLOR drops color but keeps the pretty layout", () => {
-    const caps = ui.detectCaps({ env: { NO_COLOR: "1" }, stdout: tty, stderr: tty });
+    const caps = ui.detectCaps({
+      env: { NO_COLOR: "1" },
+      stdout: tty,
+      stderr: tty,
+    });
     expect(caps.color).toBe(false);
     expect(caps.pretty).toBe(true);
   });
 
   it("FORCE_COLOR turns color on even when piped; TERM=dumb turns everything off", () => {
-    expect(ui.detectCaps({ env: { FORCE_COLOR: "1" }, stdout: { isTTY: false }, stderr: {} }).color).toBe(true);
-    const dumb = ui.detectCaps({ env: { TERM: "dumb" }, stdout: tty, stderr: tty });
+    expect(
+      ui.detectCaps({
+        env: { FORCE_COLOR: "1" },
+        stdout: { isTTY: false },
+        stderr: {},
+      }).color,
+    ).toBe(true);
+    const dumb = ui.detectCaps({
+      env: { TERM: "dumb" },
+      stdout: tty,
+      stderr: tty,
+    });
     expect(dumb.pretty).toBe(false);
     expect(dumb.color).toBe(false);
   });
 
   it("falls back to ASCII for a non-UTF-8 locale, HF_ASCII, --ascii, or TERM=linux", () => {
-    expect(ui.detectCaps({ env: { LANG: "en_US.ISO-8859-1" }, stdout: tty, stderr: tty }).unicode).toBe(false);
-    expect(ui.detectCaps({ env: { HF_ASCII: "1" }, stdout: tty, stderr: tty }).unicode).toBe(false);
-    expect(ui.detectCaps({ env: {}, stdout: tty, stderr: tty, flags: { ascii: true } }).unicode).toBe(false);
-    expect(ui.detectCaps({ env: { TERM: "linux" }, stdout: tty, stderr: tty }).unicode).toBe(false);
-    expect(ui.detectCaps({ env: { LANG: "en_US.UTF-8" }, stdout: tty, stderr: tty }).unicode).toBe(true);
+    expect(
+      ui.detectCaps({
+        env: { LANG: "en_US.ISO-8859-1" },
+        stdout: tty,
+        stderr: tty,
+      }).unicode,
+    ).toBe(false);
+    expect(
+      ui.detectCaps({ env: { HF_ASCII: "1" }, stdout: tty, stderr: tty })
+        .unicode,
+    ).toBe(false);
+    expect(
+      ui.detectCaps({
+        env: {},
+        stdout: tty,
+        stderr: tty,
+        flags: { ascii: true },
+      }).unicode,
+    ).toBe(false);
+    expect(
+      ui.detectCaps({ env: { TERM: "linux" }, stdout: tty, stderr: tty })
+        .unicode,
+    ).toBe(false);
+    expect(
+      ui.detectCaps({ env: { LANG: "en_US.UTF-8" }, stdout: tty, stderr: tty })
+        .unicode,
+    ).toBe(true);
   });
 
   it("only allows live (spinner) output on a real interactive stderr", () => {
-    expect(ui.detectCaps({ env: {}, stdout: tty, stderr: tty }).live).toBe(true);
-    expect(ui.detectCaps({ env: {}, stdout: tty, stderr: { isTTY: false } }).live).toBe(false);
+    expect(ui.detectCaps({ env: {}, stdout: tty, stderr: tty }).live).toBe(
+      true,
+    );
+    expect(
+      ui.detectCaps({ env: {}, stdout: tty, stderr: { isTTY: false } }).live,
+    ).toBe(false);
   });
 });
 
 describe("cli: arguments", () => {
   it("accepts flags anywhere and leaves the rest as positionals", () => {
-    const { flags, positionals } = parseArgs(["job", "jadx", "decompile", "-d", "--attempts", "3", "--json"]);
+    const { flags, positionals } = parseArgs([
+      "job",
+      "jadx",
+      "decompile",
+      "-d",
+      "--attempts",
+      "3",
+      "--json",
+    ]);
     expect(positionals).toEqual(["job", "jadx", "decompile"]);
     expect(flags.detach).toBe(true);
     expect(flags.attempts).toBe(3);
@@ -225,17 +396,31 @@ describe("cli: arguments", () => {
   });
 
   it("parses a JSON object payload, or key=value / key:=json pairs", () => {
-    expect(parsePayload(['{"apkPath":"/x.apk"}'])).toEqual({ apkPath: "/x.apk" });
-    expect(parsePayload(["apkPath=/x.apk", "reinstall:=true", "n:=3", 'list:=["a","b"]'])).toEqual({ apkPath: "/x.apk", reinstall: true, n: 3, list: ["a", "b"] });
+    expect(parsePayload(['{"apkPath":"/x.apk"}'])).toEqual({
+      apkPath: "/x.apk",
+    });
+    expect(
+      parsePayload([
+        "apkPath=/x.apk",
+        "reinstall:=true",
+        "n:=3",
+        'list:=["a","b"]',
+      ]),
+    ).toEqual({ apkPath: "/x.apk", reinstall: true, n: 3, list: ["a", "b"] });
     expect(parsePayload([])).toEqual({});
   });
 
   it("never guesses types: a numeric-looking key=value stays a string", () => {
-    expect(parsePayload(["command=123", "flag=true"])).toEqual({ command: "123", flag: "true" });
+    expect(parsePayload(["command=123", "flag=true"])).toEqual({
+      command: "123",
+      flag: "true",
+    });
   });
 
   it("keeps = inside a value and splits on the first one", () => {
-    expect(parsePayload(["command=pm list packages --user=0"])).toEqual({ command: "pm list packages --user=0" });
+    expect(parsePayload(["command=pm list packages --user=0"])).toEqual({
+      command: "pm list packages --user=0",
+    });
   });
 
   it.each([
@@ -255,9 +440,21 @@ describe("cli: arguments", () => {
   });
 
   it("summarizes a job result into card rows, hiding stdout/stderr noise and capping at 8 fields", () => {
-    const rows = resultRows({ outputDir: "/x", fileCount: 200, files: new Array(200).fill("f"), stdoutTail: "noise", stderrTail: "noise" });
-    expect(rows).toEqual([["outputDir", "/x"], ["fileCount", "200"], ["files", "[200 items]"]]);
-    const many = resultRows(Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`k${i}`, i])));
+    const rows = resultRows({
+      outputDir: "/x",
+      fileCount: 200,
+      files: new Array(200).fill("f"),
+      stdoutTail: "noise",
+      stderrTail: "noise",
+    });
+    expect(rows).toEqual([
+      ["outputDir", "/x"],
+      ["fileCount", "200"],
+      ["files", "[200 items]"],
+    ]);
+    const many = resultRows(
+      Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`k${i}`, i])),
+    );
     expect(many).toHaveLength(9);
     expect(many[8]).toEqual(["more", "4 more fields"]);
     expect(resultRows(undefined)).toEqual([["result", "(none)"]]);
@@ -292,12 +489,19 @@ describe("client: state file", () => {
   });
 
   it("preserves lines it doesn't understand, and reads the unquoted form the old bash script could write", async () => {
-    await writeFile(path.join(dir, "state.env"), 'WORKSPACE_ID=ws_old\nCUSTOM_THING="keep me"\n');
+    await writeFile(
+      path.join(dir, "state.env"),
+      'WORKSPACE_ID=ws_old\nCUSTOM_THING="keep me"\n',
+    );
     saveState("JOB_ID", "j", env);
-    expect(readState(env)).toEqual({ WORKSPACE_ID: "ws_old", CUSTOM_THING: "keep me", JOB_ID: "j" });
+    expect(readState(env)).toEqual({
+      WORKSPACE_ID: "ws_old",
+      CUSTOM_THING: "keep me",
+      JOB_ID: "j",
+    });
   });
 
-  it("writes plain KEY=\"value\" lines that bash can source, escaping quotes and dollars", async () => {
+  it('writes plain KEY="value" lines that bash can source, escaping quotes and dollars', async () => {
     saveState("WORKSPACE_NAME", 'we"ird $name', env);
     const text = await readFile(path.join(dir, "state.env"), "utf8");
     expect(text).toBe('WORKSPACE_NAME="we\\"ird \\$name"\n');
@@ -305,7 +509,16 @@ describe("client: state file", () => {
 });
 
 describe("client: requests", () => {
-  const res = (status, body) => ({ ok: status >= 200 && status < 300, status, text: async () => (body === undefined ? "" : typeof body === "string" ? body : JSON.stringify(body)) });
+  const res = (status, body) => ({
+    ok: status >= 200 && status < 300,
+    status,
+    text: async () =>
+      body === undefined
+        ? ""
+        : typeof body === "string"
+          ? body
+          : JSON.stringify(body),
+  });
   const failure = async (promise) => {
     try {
       await promise;
@@ -325,7 +538,9 @@ describe("client: requests", () => {
         return res(201, { id: "ws1" });
       },
     });
-    expect(await client.post("/workspaces", { name: "x" })).toEqual({ id: "ws1" });
+    expect(await client.post("/workspaces", { name: "x" })).toEqual({
+      id: "ws1",
+    });
     expect(seen.url).toBe("http://gw:8080/workspaces"); // trailing slash on the base URL doesn't double up
     expect(seen.init.headers.Authorization).toBe("Bearer secret");
     expect(seen.init.headers["Content-Type"]).toBe("application/json");
@@ -334,14 +549,23 @@ describe("client: requests", () => {
 
   it("sends no auth header or body when there's nothing to send", async () => {
     let seen;
-    const client = createClient({ baseUrl: "http://gw", fetchImpl: async (u, init) => ((seen = init), res(200, [])) });
+    const client = createClient({
+      baseUrl: "http://gw",
+      fetchImpl: async (u, init) => ((seen = init), res(200, [])),
+    });
     await client.get("/workspaces");
     expect(seen.headers.Authorization).toBeUndefined();
     expect(seen.body).toBeUndefined();
   });
 
   it("maps statuses to error kinds: 401 -> auth, other 4xx/5xx -> http (with the status)", async () => {
-    const client = createClient({ baseUrl: "http://gw", fetchImpl: async (u) => (u.endsWith("/a") ? res(401, { error: "Missing or invalid API key." }) : res(404, { error: "Workspace not found" })) });
+    const client = createClient({
+      baseUrl: "http://gw",
+      fetchImpl: async (u) =>
+        u.endsWith("/a")
+          ? res(401, { error: "Missing or invalid API key." })
+          : res(404, { error: "Workspace not found" }),
+    });
     const auth = await failure(client.get("/a"));
     expect(auth instanceof GatewayError).toBe(true);
     expect(auth.kind).toBe("auth");
@@ -352,17 +576,41 @@ describe("client: requests", () => {
   });
 
   it("turns a zod validation body into a readable message", async () => {
-    const client = createClient({ baseUrl: "http://gw", fetchImpl: async () => res(400, { error: { formErrors: [], fieldErrors: { name: ["Required"], targetLabel: ["Too short", "Bad"] } } }) });
+    const client = createClient({
+      baseUrl: "http://gw",
+      fetchImpl: async () =>
+        res(400, {
+          error: {
+            formErrors: [],
+            fieldErrors: {
+              name: ["Required"],
+              targetLabel: ["Too short", "Bad"],
+            },
+          },
+        }),
+    });
     const err = await failure(client.post("/workspaces", {}));
     expect(err.message).toBe("name: Required; targetLabel: Too short, Bad");
   });
 
   it("classifies a refused connection as network, and an abort as timeout", async () => {
-    const refused = createClient({ baseUrl: "http://gw", fetchImpl: async () => { throw Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNREFUSED" } }); } });
+    const refused = createClient({
+      baseUrl: "http://gw",
+      fetchImpl: async () => {
+        throw Object.assign(new TypeError("fetch failed"), {
+          cause: { code: "ECONNREFUSED" },
+        });
+      },
+    });
     const net = await failure(refused.get("/health"));
     expect(net.kind).toBe("network");
     expect(net.message).toContain("ECONNREFUSED");
-    const slow = createClient({ baseUrl: "http://gw", fetchImpl: async () => { throw Object.assign(new Error("aborted"), { name: "TimeoutError" }); } });
+    const slow = createClient({
+      baseUrl: "http://gw",
+      fetchImpl: async () => {
+        throw Object.assign(new Error("aborted"), { name: "TimeoutError" });
+      },
+    });
     expect((await failure(slow.get("/health"))).kind).toBe("timeout");
   });
 
@@ -370,6 +618,10 @@ describe("client: requests", () => {
     expect(describeErrorBody(undefined)).toBe("");
     expect(describeErrorBody("plain text")).toBe("plain text");
     expect(describeErrorBody({ error: "boom" })).toBe("boom");
-    expect(describeErrorBody({ error: { formErrors: ["bad body"], fieldErrors: {} } })).toBe("bad body");
+    expect(
+      describeErrorBody({
+        error: { formErrors: ["bad body"], fieldErrors: {} },
+      }),
+    ).toBe("bad body");
   });
 });

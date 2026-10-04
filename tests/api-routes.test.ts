@@ -15,8 +15,25 @@ import type { FastifyInstance } from "fastify";
 // a plain exported constant - the cleanest way to get both values is a
 // fresh module graph per app, built with whichever value the test wants.
 
-const workspace = { id: "ws1", name: "demo", targetLabel: "demo", status: "idle", createdAt: "", updatedAt: "" };
-const entry = { id: "kn1", workspaceId: "ws1", type: "note", title: "t", content: "c", source: "user", createdAt: "1", updatedAt: "1", relatedEntryIds: [] };
+const workspace = {
+  id: "ws1",
+  name: "demo",
+  targetLabel: "demo",
+  status: "idle",
+  createdAt: "",
+  updatedAt: "",
+};
+const entry = {
+  id: "kn1",
+  workspaceId: "ws1",
+  type: "note",
+  title: "t",
+  content: "c",
+  source: "user",
+  createdAt: "1",
+  updatedAt: "1",
+  relatedEntryIds: [],
+};
 
 async function buildApp(opts: { aiConfigured?: boolean } = {}) {
   const aiConfigured = opts.aiConfigured ?? true;
@@ -33,7 +50,11 @@ async function buildApp(opts: { aiConfigured?: boolean } = {}) {
     orchestrator: { dispatch: vi.fn(), listTasksForWorkspace: vi.fn() },
     inbox: { listInboxApks: vi.fn() },
     jobs: { submit: vi.fn(), listJobsForWorkspace: vi.fn(), getJob: vi.fn() },
-    workflows: { submit: vi.fn(), listWorkflowsForWorkspace: vi.fn(), getWorkflow: vi.fn() },
+    workflows: {
+      submit: vi.fn(),
+      listWorkflowsForWorkspace: vi.fn(),
+      getWorkflow: vi.fn(),
+    },
     knowledge: {
       createEntry: vi.fn(),
       listEntriesForWorkspace: vi.fn(),
@@ -45,12 +66,19 @@ async function buildApp(opts: { aiConfigured?: boolean } = {}) {
   };
 
   vi.doMock("../src/modules/workspace/workspace.service.js", () => m.workspace);
-  vi.doMock("../src/modules/mcp/orchestrator.js", () => ({ orchestrator: m.orchestrator }));
+  vi.doMock("../src/modules/mcp/orchestrator.js", () => ({
+    orchestrator: m.orchestrator,
+  }));
   vi.doMock("../src/modules/inbox/inbox-watcher.js", () => m.inbox);
   vi.doMock("../src/modules/jobs/job-engine.js", () => ({ jobEngine: m.jobs }));
-  vi.doMock("../src/modules/workflow/workflow-engine.js", () => ({ workflowEngine: m.workflows }));
+  vi.doMock("../src/modules/workflow/workflow-engine.js", () => ({
+    workflowEngine: m.workflows,
+  }));
   vi.doMock("../src/modules/knowledge/knowledge.service.js", () => m.knowledge);
-  vi.doMock("../src/modules/ai/ai.service.js", () => ({ isAiConfigured: aiConfigured, ...m.ai }));
+  vi.doMock("../src/modules/ai/ai.service.js", () => ({
+    isAiConfigured: aiConfigured,
+    ...m.ai,
+  }));
   vi.doMock("../src/core/config.js", () => ({
     config: { AI_PROVIDER: "anthropic", STORAGE_BACKEND: "local" },
     isSupabaseConfigured: false,
@@ -60,11 +88,19 @@ async function buildApp(opts: { aiConfigured?: boolean } = {}) {
 
   const { default: Fastify } = await import("fastify");
   const app = Fastify();
-  await app.register((await import("../src/api/v1/health.routes.js")).healthRoutes);
-  await app.register((await import("../src/api/v1/workspace.routes.js")).workspaceRoutes);
+  await app.register(
+    (await import("../src/api/v1/health.routes.js")).healthRoutes,
+  );
+  await app.register(
+    (await import("../src/api/v1/workspace.routes.js")).workspaceRoutes,
+  );
   await app.register((await import("../src/api/v1/job.routes.js")).jobRoutes);
-  await app.register((await import("../src/api/v1/workflow.routes.js")).workflowRoutes);
-  await app.register((await import("../src/api/v1/knowledge.routes.js")).knowledgeRoutes);
+  await app.register(
+    (await import("../src/api/v1/workflow.routes.js")).workflowRoutes,
+  );
+  await app.register(
+    (await import("../src/api/v1/knowledge.routes.js")).knowledgeRoutes,
+  );
   await app.ready();
 
   return { app, m };
@@ -101,7 +137,11 @@ describe("workspace routes", () => {
     app = a;
     m.workspace.createWorkspace.mockResolvedValue(workspace);
 
-    const res = await app.inject({ method: "POST", url: "/workspaces", payload: { name: "demo", targetLabel: "demo" } });
+    const res = await app.inject({
+      method: "POST",
+      url: "/workspaces",
+      payload: { name: "demo", targetLabel: "demo" },
+    });
 
     expect(res.statusCode).toBe(201);
     expect(res.json()).toEqual(workspace);
@@ -112,26 +152,39 @@ describe("workspace routes", () => {
     ["a missing name", { targetLabel: "demo" }, "name"],
     ["an empty name", { name: "", targetLabel: "demo" }, "name"],
     ["a missing targetLabel", { name: "demo" }, "targetLabel"],
-  ])("POST /workspaces rejects %s with 400 and never touches the service", async (_label, payload, field) => {
-    const { app: a, m } = await buildApp();
-    app = a;
+  ])(
+    "POST /workspaces rejects %s with 400 and never touches the service",
+    async (_label, payload, field) => {
+      const { app: a, m } = await buildApp();
+      app = a;
 
-    const res = await app.inject({ method: "POST", url: "/workspaces", payload });
+      const res = await app.inject({
+        method: "POST",
+        url: "/workspaces",
+        payload,
+      });
 
-    expect(res.statusCode).toBe(400);
-    expect(res.json().error.fieldErrors[field]).toBeDefined();
-    expect(m.workspace.createWorkspace).not.toHaveBeenCalled();
-  });
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error.fieldErrors[field]).toBeDefined();
+      expect(m.workspace.createWorkspace).not.toHaveBeenCalled();
+    },
+  );
 
   it("PUT /workspaces/by-name/:name with no body defaults targetLabel to the name", async () => {
     const { app: a, m } = await buildApp();
     app = a;
     m.workspace.getOrCreateWorkspace.mockResolvedValue(workspace);
 
-    const res = await app.inject({ method: "PUT", url: "/workspaces/by-name/clite-analysis" });
+    const res = await app.inject({
+      method: "PUT",
+      url: "/workspaces/by-name/clite-analysis",
+    });
 
     expect(res.statusCode).toBe(200);
-    expect(m.workspace.getOrCreateWorkspace).toHaveBeenCalledWith("clite-analysis", "clite-analysis");
+    expect(m.workspace.getOrCreateWorkspace).toHaveBeenCalledWith(
+      "clite-analysis",
+      "clite-analysis",
+    );
   });
 
   it("PUT /workspaces/by-name/:name uses an explicit targetLabel when given", async () => {
@@ -139,16 +192,27 @@ describe("workspace routes", () => {
     app = a;
     m.workspace.getOrCreateWorkspace.mockResolvedValue(workspace);
 
-    await app.inject({ method: "PUT", url: "/workspaces/by-name/clite", payload: { targetLabel: "com.clite.dialer" } });
+    await app.inject({
+      method: "PUT",
+      url: "/workspaces/by-name/clite",
+      payload: { targetLabel: "com.clite.dialer" },
+    });
 
-    expect(m.workspace.getOrCreateWorkspace).toHaveBeenCalledWith("clite", "com.clite.dialer");
+    expect(m.workspace.getOrCreateWorkspace).toHaveBeenCalledWith(
+      "clite",
+      "com.clite.dialer",
+    );
   });
 
   it("PUT /workspaces/by-name/:name rejects an empty targetLabel", async () => {
     const { app: a, m } = await buildApp();
     app = a;
 
-    const res = await app.inject({ method: "PUT", url: "/workspaces/by-name/clite", payload: { targetLabel: "" } });
+    const res = await app.inject({
+      method: "PUT",
+      url: "/workspaces/by-name/clite",
+      payload: { targetLabel: "" },
+    });
 
     expect(res.statusCode).toBe(400);
     expect(m.workspace.getOrCreateWorkspace).not.toHaveBeenCalled();
@@ -157,9 +221,14 @@ describe("workspace routes", () => {
   it("GET /workspaces/:id returns 404 for an unknown workspace and the workspace otherwise", async () => {
     const { app: a, m } = await buildApp();
     app = a;
-    m.workspace.getWorkspace.mockResolvedValueOnce(undefined).mockResolvedValueOnce(workspace);
+    m.workspace.getWorkspace
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(workspace);
 
-    const missing = await app.inject({ method: "GET", url: "/workspaces/nope" });
+    const missing = await app.inject({
+      method: "GET",
+      url: "/workspaces/nope",
+    });
     const found = await app.inject({ method: "GET", url: "/workspaces/ws1" });
 
     expect(missing.statusCode).toBe(404);
@@ -173,7 +242,11 @@ describe("workspace routes", () => {
       app = a;
       m.workspace.getWorkspace.mockResolvedValue(undefined);
 
-      const res = await app.inject({ method: "POST", url: "/workspaces/nope/tasks", payload: { agent: "jadx", operation: "decompile" } });
+      const res = await app.inject({
+        method: "POST",
+        url: "/workspaces/nope/tasks",
+        payload: { agent: "jadx", operation: "decompile" },
+      });
 
       expect(res.statusCode).toBe(404);
       expect(m.orchestrator.dispatch).not.toHaveBeenCalled();
@@ -182,13 +255,20 @@ describe("workspace routes", () => {
     it.each([
       ["a missing agent", { operation: "decompile" }],
       ["a missing operation", { agent: "jadx" }],
-      ["a non-object payload", { agent: "jadx", operation: "decompile", payload: "not-an-object" }],
+      [
+        "a non-object payload",
+        { agent: "jadx", operation: "decompile", payload: "not-an-object" },
+      ],
     ])("rejects %s with 400 and never dispatches", async (_label, payload) => {
       const { app: a, m } = await buildApp();
       app = a;
       m.workspace.getWorkspace.mockResolvedValue(workspace);
 
-      const res = await app.inject({ method: "POST", url: "/workspaces/ws1/tasks", payload });
+      const res = await app.inject({
+        method: "POST",
+        url: "/workspaces/ws1/tasks",
+        payload,
+      });
 
       expect(res.statusCode).toBe(400);
       expect(m.orchestrator.dispatch).not.toHaveBeenCalled();
@@ -203,7 +283,11 @@ describe("workspace routes", () => {
       const res = await app.inject({
         method: "POST",
         url: "/workspaces/ws1/tasks",
-        payload: { agent: "jadx", operation: "decompile", payload: { apkPath: "/x.apk" } },
+        payload: {
+          agent: "jadx",
+          operation: "decompile",
+          payload: { apkPath: "/x.apk" },
+        },
       });
 
       expect(res.statusCode).toBe(202);
@@ -214,19 +298,37 @@ describe("workspace routes", () => {
         operation: "decompile",
         payload: { apkPath: "/x.apk" },
       });
-      expect(m.workspace.updateWorkspaceStatus).toHaveBeenCalledWith("ws1", "analyzing");
+      expect(m.workspace.updateWorkspaceStatus).toHaveBeenCalledWith(
+        "ws1",
+        "analyzing",
+      );
     });
   });
 
   it("GET /workspaces/:id/inbox 404s for an unknown workspace and wraps the list in { apks } otherwise", async () => {
     const { app: a, m } = await buildApp();
     app = a;
-    const apks = [{ fileName: "app.apk", path: "/w/ws1/inbox/app.apk", sizeBytes: 1, detectedAt: "now" }];
-    m.workspace.getWorkspace.mockResolvedValueOnce(undefined).mockResolvedValueOnce(workspace);
+    const apks = [
+      {
+        fileName: "app.apk",
+        path: "/w/ws1/inbox/app.apk",
+        sizeBytes: 1,
+        detectedAt: "now",
+      },
+    ];
+    m.workspace.getWorkspace
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(workspace);
     m.inbox.listInboxApks.mockResolvedValue(apks);
 
-    const missing = await app.inject({ method: "GET", url: "/workspaces/nope/inbox" });
-    const found = await app.inject({ method: "GET", url: "/workspaces/ws1/inbox" });
+    const missing = await app.inject({
+      method: "GET",
+      url: "/workspaces/nope/inbox",
+    });
+    const found = await app.inject({
+      method: "GET",
+      url: "/workspaces/ws1/inbox",
+    });
 
     expect(missing.statusCode).toBe(404);
     expect(found.json()).toEqual({ apks });
@@ -239,7 +341,11 @@ describe("job routes", () => {
     app = a;
     m.workspace.getWorkspace.mockResolvedValue(undefined);
 
-    const res = await app.inject({ method: "POST", url: "/workspaces/nope/jobs", payload: { agent: "jadx", operation: "decompile" } });
+    const res = await app.inject({
+      method: "POST",
+      url: "/workspaces/nope/jobs",
+      payload: { agent: "jadx", operation: "decompile" },
+    });
 
     expect(res.statusCode).toBe(404);
     expect(m.jobs.submit).not.toHaveBeenCalled();
@@ -274,7 +380,12 @@ describe("job routes", () => {
     const res = await app.inject({
       method: "POST",
       url: "/workspaces/ws1/jobs",
-      payload: { agent: "jadx", operation: "decompile", payload: { apkPath: "/x.apk" }, maxAttempts: 10 },
+      payload: {
+        agent: "jadx",
+        operation: "decompile",
+        payload: { apkPath: "/x.apk" },
+        maxAttempts: 10,
+      },
     });
 
     expect(res.statusCode).toBe(202);
@@ -290,7 +401,9 @@ describe("job routes", () => {
   it("GET /jobs/:jobId 404s for an unknown job and returns it otherwise", async () => {
     const { app: a, m } = await buildApp();
     app = a;
-    m.jobs.getJob.mockReturnValueOnce(undefined).mockReturnValueOnce({ id: "j1", status: "completed" });
+    m.jobs.getJob
+      .mockReturnValueOnce(undefined)
+      .mockReturnValueOnce({ id: "j1", status: "completed" });
 
     const missing = await app.inject({ method: "GET", url: "/jobs/nope" });
     const found = await app.inject({ method: "GET", url: "/jobs/j1" });
@@ -308,7 +421,11 @@ describe("workflow routes", () => {
     app = a;
     m.workspace.getWorkspace.mockResolvedValue(undefined);
 
-    const res = await app.inject({ method: "POST", url: "/workspaces/nope/workflows", payload: { name: "w", steps: [step] } });
+    const res = await app.inject({
+      method: "POST",
+      url: "/workspaces/nope/workflows",
+      payload: { name: "w", steps: [step] },
+    });
 
     expect(res.statusCode).toBe(404);
     expect(m.workflows.submit).not.toHaveBeenCalled();
@@ -318,14 +435,24 @@ describe("workflow routes", () => {
     ["a missing name", { steps: [step] }],
     ["an empty steps array", { name: "w", steps: [] }],
     ["a step missing its operation", { name: "w", steps: [{ agent: "jadx" }] }],
-    ["a step with an out-of-range maxAttempts", { name: "w", steps: [{ ...step, maxAttempts: 11 }] }],
-    ["a step with a non-boolean mergePreviousResult", { name: "w", steps: [{ ...step, mergePreviousResult: "yes" }] }],
+    [
+      "a step with an out-of-range maxAttempts",
+      { name: "w", steps: [{ ...step, maxAttempts: 11 }] },
+    ],
+    [
+      "a step with a non-boolean mergePreviousResult",
+      { name: "w", steps: [{ ...step, mergePreviousResult: "yes" }] },
+    ],
   ])("rejects %s with 400 and never submits", async (_label, payload) => {
     const { app: a, m } = await buildApp();
     app = a;
     m.workspace.getWorkspace.mockResolvedValue(workspace);
 
-    const res = await app.inject({ method: "POST", url: "/workspaces/ws1/workflows", payload });
+    const res = await app.inject({
+      method: "POST",
+      url: "/workspaces/ws1/workflows",
+      payload,
+    });
 
     expect(res.statusCode).toBe(400);
     expect(m.workflows.submit).not.toHaveBeenCalled();
@@ -336,12 +463,23 @@ describe("workflow routes", () => {
     app = a;
     m.workspace.getWorkspace.mockResolvedValue(workspace);
     m.workflows.submit.mockReturnValue({ id: "wf1", status: "queued" });
-    const steps = [step, { agent: "filesystem", operation: "search", mergePreviousResult: true }];
+    const steps = [
+      step,
+      { agent: "filesystem", operation: "search", mergePreviousResult: true },
+    ];
 
-    const res = await app.inject({ method: "POST", url: "/workspaces/ws1/workflows", payload: { name: "analyze", steps } });
+    const res = await app.inject({
+      method: "POST",
+      url: "/workspaces/ws1/workflows",
+      payload: { name: "analyze", steps },
+    });
 
     expect(res.statusCode).toBe(202);
-    expect(m.workflows.submit).toHaveBeenCalledWith({ workspaceId: "ws1", name: "analyze", steps });
+    expect(m.workflows.submit).toHaveBeenCalledWith({
+      workspaceId: "ws1",
+      name: "analyze",
+      steps,
+    });
   });
 
   it("GET /workflows/:workflowId 404s for an unknown workflow", async () => {
@@ -369,23 +507,36 @@ describe("knowledge routes", () => {
     });
 
     expect(res.statusCode).toBe(201);
-    expect(m.knowledge.createEntry).toHaveBeenCalledWith(expect.objectContaining({ workspaceId: "ws1", type: "note", source: "user" }));
+    expect(m.knowledge.createEntry).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: "ws1",
+        type: "note",
+        source: "user",
+      }),
+    );
   });
 
   it.each([
     ["an unknown type", { type: "bogus", title: "t", content: "c" }],
     ["an empty title", { type: "note", title: "", content: "c" }],
     ["empty content", { type: "note", title: "t", content: "" }],
-  ])("POST /workspaces/:id/knowledge rejects %s with 400", async (_label, payload) => {
-    const { app: a, m } = await buildApp();
-    app = a;
-    m.workspace.getWorkspace.mockResolvedValue(workspace);
+  ])(
+    "POST /workspaces/:id/knowledge rejects %s with 400",
+    async (_label, payload) => {
+      const { app: a, m } = await buildApp();
+      app = a;
+      m.workspace.getWorkspace.mockResolvedValue(workspace);
 
-    const res = await app.inject({ method: "POST", url: "/workspaces/ws1/knowledge", payload });
+      const res = await app.inject({
+        method: "POST",
+        url: "/workspaces/ws1/knowledge",
+        payload,
+      });
 
-    expect(res.statusCode).toBe(400);
-    expect(m.knowledge.createEntry).not.toHaveBeenCalled();
-  });
+      expect(res.statusCode).toBe(400);
+      expect(m.knowledge.createEntry).not.toHaveBeenCalled();
+    },
+  );
 
   it("GET /workspaces/:id/knowledge validates the ?type= filter and passes a valid one through", async () => {
     const { app: a, m } = await buildApp();
@@ -393,13 +544,21 @@ describe("knowledge routes", () => {
     m.workspace.getWorkspace.mockResolvedValue(workspace);
     m.knowledge.listEntriesForWorkspace.mockResolvedValue([entry]);
 
-    const bad = await app.inject({ method: "GET", url: "/workspaces/ws1/knowledge?type=bogus" });
-    const good = await app.inject({ method: "GET", url: "/workspaces/ws1/knowledge?type=note" });
+    const bad = await app.inject({
+      method: "GET",
+      url: "/workspaces/ws1/knowledge?type=bogus",
+    });
+    const good = await app.inject({
+      method: "GET",
+      url: "/workspaces/ws1/knowledge?type=note",
+    });
 
     expect(bad.statusCode).toBe(400);
     expect(good.statusCode).toBe(200);
     expect(m.knowledge.listEntriesForWorkspace).toHaveBeenCalledTimes(1);
-    expect(m.knowledge.listEntriesForWorkspace).toHaveBeenCalledWith("ws1", { type: "note" });
+    expect(m.knowledge.listEntriesForWorkspace).toHaveBeenCalledWith("ws1", {
+      type: "note",
+    });
   });
 
   describe("PATCH /knowledge/:entryId", () => {
@@ -408,18 +567,26 @@ describe("knowledge routes", () => {
       app = a;
       m.knowledge.getEntry.mockResolvedValue(undefined);
 
-      const res = await app.inject({ method: "PATCH", url: "/knowledge/nope", payload: { title: "new" } });
+      const res = await app.inject({
+        method: "PATCH",
+        url: "/knowledge/nope",
+        payload: { title: "new" },
+      });
 
       expect(res.statusCode).toBe(404);
       expect(m.knowledge.updateEntry).not.toHaveBeenCalled();
     });
 
-    it("rejects an empty update body (the \"at least one field\" refinement)", async () => {
+    it('rejects an empty update body (the "at least one field" refinement)', async () => {
       const { app: a, m } = await buildApp();
       app = a;
       m.knowledge.getEntry.mockResolvedValue(entry);
 
-      const res = await app.inject({ method: "PATCH", url: "/knowledge/kn1", payload: {} });
+      const res = await app.inject({
+        method: "PATCH",
+        url: "/knowledge/kn1",
+        payload: {},
+      });
 
       expect(res.statusCode).toBe(400);
       expect(m.knowledge.updateEntry).not.toHaveBeenCalled();
@@ -431,20 +598,34 @@ describe("knowledge routes", () => {
       m.knowledge.getEntry.mockResolvedValue(entry);
       m.knowledge.updateEntry.mockResolvedValue({ ...entry, title: "new" });
 
-      const res = await app.inject({ method: "PATCH", url: "/knowledge/kn1", payload: { title: "new" } });
+      const res = await app.inject({
+        method: "PATCH",
+        url: "/knowledge/kn1",
+        payload: { title: "new" },
+      });
 
       expect(res.statusCode).toBe(200);
-      expect(m.knowledge.updateEntry).toHaveBeenCalledWith("kn1", { title: "new" });
+      expect(m.knowledge.updateEntry).toHaveBeenCalledWith("kn1", {
+        title: "new",
+      });
     });
   });
 
   it("DELETE /knowledge/:entryId 404s for an unknown entry and returns 204 after deleting an existing one", async () => {
     const { app: a, m } = await buildApp();
     app = a;
-    m.knowledge.getEntry.mockResolvedValueOnce(undefined).mockResolvedValueOnce(entry);
+    m.knowledge.getEntry
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(entry);
 
-    const missing = await app.inject({ method: "DELETE", url: "/knowledge/nope" });
-    const deleted = await app.inject({ method: "DELETE", url: "/knowledge/kn1" });
+    const missing = await app.inject({
+      method: "DELETE",
+      url: "/knowledge/nope",
+    });
+    const deleted = await app.inject({
+      method: "DELETE",
+      url: "/knowledge/kn1",
+    });
 
     expect(missing.statusCode).toBe(404);
     expect(deleted.statusCode).toBe(204);
@@ -458,7 +639,10 @@ describe("knowledge routes", () => {
       app = a;
       m.knowledge.getEntry.mockResolvedValue(undefined);
 
-      const res = await app.inject({ method: "POST", url: "/knowledge/nope/summarize" });
+      const res = await app.inject({
+        method: "POST",
+        url: "/knowledge/nope/summarize",
+      });
 
       expect(res.statusCode).toBe(404);
     });
@@ -468,7 +652,10 @@ describe("knowledge routes", () => {
       app = a;
       m.knowledge.getEntry.mockResolvedValue(entry);
 
-      const res = await app.inject({ method: "POST", url: "/knowledge/kn1/summarize" });
+      const res = await app.inject({
+        method: "POST",
+        url: "/knowledge/kn1/summarize",
+      });
 
       expect(res.statusCode).toBe(503);
       expect(res.json().error).toContain('"anthropic"');
@@ -479,9 +666,14 @@ describe("knowledge routes", () => {
       const { app: a, m } = await buildApp();
       app = a;
       m.knowledge.getEntry.mockResolvedValue(entry);
-      m.ai.summarizeEntry.mockRejectedValue(new Error("Anthropic API error (429): rate limited"));
+      m.ai.summarizeEntry.mockRejectedValue(
+        new Error("Anthropic API error (429): rate limited"),
+      );
 
-      const res = await app.inject({ method: "POST", url: "/knowledge/kn1/summarize" });
+      const res = await app.inject({
+        method: "POST",
+        url: "/knowledge/kn1/summarize",
+      });
 
       expect(res.statusCode).toBe(502);
       expect(res.json().error).toContain("rate limited");
@@ -491,9 +683,16 @@ describe("knowledge routes", () => {
       const { app: a, m } = await buildApp();
       app = a;
       m.knowledge.getEntry.mockResolvedValue(entry);
-      m.ai.summarizeEntry.mockResolvedValue({ ...entry, id: "kn2", type: "summary" });
+      m.ai.summarizeEntry.mockResolvedValue({
+        ...entry,
+        id: "kn2",
+        type: "summary",
+      });
 
-      const res = await app.inject({ method: "POST", url: "/knowledge/kn1/summarize" });
+      const res = await app.inject({
+        method: "POST",
+        url: "/knowledge/kn1/summarize",
+      });
 
       expect(res.statusCode).toBe(201);
       expect(res.json().type).toBe("summary");
@@ -506,7 +705,11 @@ describe("knowledge routes", () => {
       app = a;
       m.workspace.getWorkspace.mockResolvedValue(undefined);
 
-      const res = await app.inject({ method: "POST", url: "/workspaces/nope/chat", payload: { message: "hi" } });
+      const res = await app.inject({
+        method: "POST",
+        url: "/workspaces/nope/chat",
+        payload: { message: "hi" },
+      });
 
       expect(res.statusCode).toBe(404);
     });
@@ -516,7 +719,11 @@ describe("knowledge routes", () => {
       app = a;
       m.workspace.getWorkspace.mockResolvedValue(workspace);
 
-      const res = await app.inject({ method: "POST", url: "/workspaces/ws1/chat", payload: {} });
+      const res = await app.inject({
+        method: "POST",
+        url: "/workspaces/ws1/chat",
+        payload: {},
+      });
 
       expect(res.statusCode).toBe(503);
       expect(m.ai.chat).not.toHaveBeenCalled();
@@ -527,7 +734,11 @@ describe("knowledge routes", () => {
       app = a;
       m.workspace.getWorkspace.mockResolvedValue(workspace);
 
-      const res = await app.inject({ method: "POST", url: "/workspaces/ws1/chat", payload: { message: "" } });
+      const res = await app.inject({
+        method: "POST",
+        url: "/workspaces/ws1/chat",
+        payload: { message: "" },
+      });
 
       expect(res.statusCode).toBe(400);
       expect(m.ai.chat).not.toHaveBeenCalled();
@@ -539,7 +750,11 @@ describe("knowledge routes", () => {
       m.workspace.getWorkspace.mockResolvedValue(workspace);
       m.ai.chat.mockRejectedValue(new Error("Could not reach Ollama"));
 
-      const res = await app.inject({ method: "POST", url: "/workspaces/ws1/chat", payload: { message: "hi" } });
+      const res = await app.inject({
+        method: "POST",
+        url: "/workspaces/ws1/chat",
+        payload: { message: "hi" },
+      });
 
       expect(res.statusCode).toBe(502);
       expect(res.json().error).toContain("Could not reach Ollama");
@@ -551,7 +766,11 @@ describe("knowledge routes", () => {
       m.workspace.getWorkspace.mockResolvedValue(workspace);
       m.ai.chat.mockResolvedValue({ reply: "hello" });
 
-      const res = await app.inject({ method: "POST", url: "/workspaces/ws1/chat", payload: { message: "hi" } });
+      const res = await app.inject({
+        method: "POST",
+        url: "/workspaces/ws1/chat",
+        payload: { message: "hi" },
+      });
 
       expect(res.statusCode).toBe(201);
       expect(res.json()).toEqual({ reply: "hello" });
@@ -559,7 +778,7 @@ describe("knowledge routes", () => {
     });
   });
 
-  it("GET /workspaces/:id/chat returns the transcript oldest-first, mapping source \"user\" to role user and anything else to assistant", async () => {
+  it('GET /workspaces/:id/chat returns the transcript oldest-first, mapping source "user" to role user and anything else to assistant', async () => {
     const { app: a, m } = await buildApp();
     app = a;
     m.workspace.getWorkspace.mockResolvedValue(workspace);
@@ -569,13 +788,18 @@ describe("knowledge routes", () => {
       { ...entry, id: "a", source: "user", content: "hi", createdAt: "1" },
     ]);
 
-    const res = await app.inject({ method: "GET", url: "/workspaces/ws1/chat" });
+    const res = await app.inject({
+      method: "GET",
+      url: "/workspaces/ws1/chat",
+    });
 
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual([
       { role: "user", content: "hi", createdAt: "1" },
       { role: "assistant", content: "reply", createdAt: "2" },
     ]);
-    expect(m.knowledge.listEntriesForWorkspace).toHaveBeenCalledWith("ws1", { type: "chat" });
+    expect(m.knowledge.listEntriesForWorkspace).toHaveBeenCalledWith("ws1", {
+      type: "chat",
+    });
   });
 });

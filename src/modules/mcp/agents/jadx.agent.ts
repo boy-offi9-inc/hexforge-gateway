@@ -18,7 +18,9 @@ interface JadxPayload {
 function assertValidPayload(payload: Record<string, unknown>): JadxPayload {
   const apkPath = payload.apkPath;
   if (typeof apkPath !== "string" || apkPath.trim().length === 0) {
-    throw new Error('jadx agent requires a "apkPath" string in the task payload');
+    throw new Error(
+      'jadx agent requires a "apkPath" string in the task payload',
+    );
   }
 
   const resolved = path.resolve(apkPath);
@@ -28,7 +30,9 @@ function assertValidPayload(payload: Record<string, unknown>): JadxPayload {
 
   const ext = path.extname(resolved).toLowerCase();
   if (!ALLOWED_EXTENSIONS.includes(ext)) {
-    throw new Error(`Unsupported file type "${ext}". Expected one of: ${ALLOWED_EXTENSIONS.join(", ")}`);
+    throw new Error(
+      `Unsupported file type "${ext}". Expected one of: ${ALLOWED_EXTENSIONS.join(", ")}`,
+    );
   }
 
   return { apkPath: resolved };
@@ -62,12 +66,18 @@ async function listFilesCapped(dir: string, limit = 200): Promise<string[]> {
 
 export async function jadxHandler(task: McpTask): Promise<unknown> {
   if (task.operation !== "decompile") {
-    throw new Error(`Unsupported jadx operation "${task.operation}". Supported: "decompile"`);
+    throw new Error(
+      `Unsupported jadx operation "${task.operation}". Supported: "decompile"`,
+    );
   }
 
   const { apkPath } = assertValidPayload(task.payload);
 
-  const outputDir = path.resolve(config.WORKSPACES_ROOT, task.workspaceId, "jadx");
+  const outputDir = path.resolve(
+    config.WORKSPACES_ROOT,
+    task.workspaceId,
+    "jadx",
+  );
   await mkdir(outputDir, { recursive: true });
 
   try {
@@ -77,7 +87,7 @@ export async function jadxHandler(task: McpTask): Promise<unknown> {
     const { stdout, stderr } = await execFileAsync(
       "jadx",
       ["-d", outputDir, "--show-bad-code", apkPath],
-      { maxBuffer: 1024 * 1024 * 20 } // 20MB buffer for verbose jadx output
+      { maxBuffer: 1024 * 1024 * 20 }, // 20MB buffer for verbose jadx output
     );
 
     const files = await listFilesCapped(outputDir);
@@ -93,7 +103,7 @@ export async function jadxHandler(task: McpTask): Promise<unknown> {
     throw friendlyExecError(
       "jadx",
       'Install it first (e.g. "brew install jadx" or see https://github.com/skylot/jadx/releases).',
-      err
+      err,
     );
   }
 }

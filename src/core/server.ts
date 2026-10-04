@@ -12,7 +12,11 @@ import { loadPlugins } from "../plugins/loader.js";
 import { registerWebsocketGateway } from "./websocket.js";
 import { registerAuth } from "./auth.js";
 import { config } from "./config.js";
-import { createConsoleUi, createPrettyLogStream, detectConsoleCaps } from "./console-ui.js";
+import {
+  createConsoleUi,
+  createPrettyLogStream,
+  detectConsoleCaps,
+} from "./console-ui.js";
 
 export async function buildServer() {
   // On an interactive terminal, give pino a destination that renders its
@@ -23,7 +27,9 @@ export async function buildServer() {
   const consoleCaps = detectConsoleCaps();
   const loggerOptions = {
     level: config.NODE_ENV === "development" ? "info" : "warn",
-    ...(consoleCaps.pretty ? { stream: createPrettyLogStream(createConsoleUi(consoleCaps)).stream } : {}),
+    ...(consoleCaps.pretty
+      ? { stream: createPrettyLogStream(createConsoleUi(consoleCaps)).stream }
+      : {}),
   };
   const app = Fastify({ logger: loggerOptions });
 

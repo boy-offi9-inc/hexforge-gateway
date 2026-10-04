@@ -54,7 +54,11 @@ describe("registerAuth", () => {
   it("rejects a wrong key", async () => {
     app = await buildApp({ enabled: true, keys: ["secret"] });
 
-    const res = await app.inject({ method: "GET", url: "/workspaces", headers: { authorization: "Bearer wrong" } });
+    const res = await app.inject({
+      method: "GET",
+      url: "/workspaces",
+      headers: { authorization: "Bearer wrong" },
+    });
 
     expect(res.statusCode).toBe(401);
   });
@@ -62,7 +66,11 @@ describe("registerAuth", () => {
   it("accepts a valid key via Authorization: Bearer", async () => {
     app = await buildApp({ enabled: true, keys: ["secret"] });
 
-    const res = await app.inject({ method: "GET", url: "/workspaces", headers: { authorization: "Bearer secret" } });
+    const res = await app.inject({
+      method: "GET",
+      url: "/workspaces",
+      headers: { authorization: "Bearer secret" },
+    });
 
     expect(res.statusCode).toBe(200);
   });
@@ -70,7 +78,11 @@ describe("registerAuth", () => {
   it("accepts a valid key via X-API-Key", async () => {
     app = await buildApp({ enabled: true, keys: ["secret"] });
 
-    const res = await app.inject({ method: "GET", url: "/workspaces", headers: { "x-api-key": "secret" } });
+    const res = await app.inject({
+      method: "GET",
+      url: "/workspaces",
+      headers: { "x-api-key": "secret" },
+    });
 
     expect(res.statusCode).toBe(200);
   });
@@ -78,7 +90,11 @@ describe("registerAuth", () => {
   it("accepts any one of several configured keys", async () => {
     app = await buildApp({ enabled: true, keys: ["first", "second"] });
 
-    const res = await app.inject({ method: "GET", url: "/workspaces", headers: { "x-api-key": "second" } });
+    const res = await app.inject({
+      method: "GET",
+      url: "/workspaces",
+      headers: { "x-api-key": "second" },
+    });
 
     expect(res.statusCode).toBe(200);
   });
@@ -108,7 +124,11 @@ describe("registerAuth", () => {
   it("only exempts GET /health - other methods and routes still require a key", async () => {
     app = await buildApp({ enabled: true, keys: ["secret"] });
 
-    const res = await app.inject({ method: "POST", url: "/workspaces", payload: {} });
+    const res = await app.inject({
+      method: "POST",
+      url: "/workspaces",
+      payload: {},
+    });
 
     expect(res.statusCode).toBe(401);
   });

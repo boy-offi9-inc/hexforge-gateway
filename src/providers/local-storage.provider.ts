@@ -39,13 +39,19 @@ const DATA_DIR = path.resolve(config.DATA_DIR);
 // supported setup anyway (see the module doc comment).
 const collectionLocks = new Map<string, Promise<unknown>>();
 
-function withCollectionLock<T>(collection: string, fn: () => Promise<T>): Promise<T> {
+function withCollectionLock<T>(
+  collection: string,
+  fn: () => Promise<T>,
+): Promise<T> {
   const prior = collectionLocks.get(collection) ?? Promise.resolve();
   const next = prior.then(fn, fn);
   // Swallow errors in the chained value we *store* (not the one we
   // return) so one failed write doesn't permanently wedge the queue for
   // every write after it.
-  collectionLocks.set(collection, next.catch(() => undefined));
+  collectionLocks.set(
+    collection,
+    next.catch(() => undefined),
+  );
   return next;
 }
 
@@ -87,7 +93,10 @@ async function readCollection<T>(name: string): Promise<Record<string, T>> {
   return data;
 }
 
-async function writeCollection<T>(name: string, data: Record<string, T>): Promise<void> {
+async function writeCollection<T>(
+  name: string,
+  data: Record<string, T>,
+): Promise<void> {
   await ensureDataDir();
   const finalPath = collectionPath(name);
   const tmpPath = `${finalPath}.tmp`;
@@ -96,12 +105,18 @@ async function writeCollection<T>(name: string, data: Record<string, T>): Promis
   collectionCache.set(name, data);
 }
 
-export async function getRecord<T>(collection: string, id: string): Promise<T | null> {
+export async function getRecord<T>(
+  collection: string,
+  id: string,
+): Promise<T | null> {
   const data = await readCollection<T>(collection);
   return data[id] ?? null;
 }
 
-export async function findRecord<T>(collection: string, predicate: (record: T) => boolean): Promise<T | null> {
+export async function findRecord<T>(
+  collection: string,
+  predicate: (record: T) => boolean,
+): Promise<T | null> {
   const data = await readCollection<T>(collection);
   return Object.values(data).find(predicate) ?? null;
 }
@@ -111,7 +126,10 @@ export async function listRecords<T>(collection: string): Promise<T[]> {
   return Object.values(data);
 }
 
-export async function upsertRecord<T extends { id: string }>(collection: string, record: T): Promise<T> {
+export async function upsertRecord<T extends { id: string }>(
+  collection: string,
+  record: T,
+): Promise<T> {
   return withCollectionLock(collection, async () => {
     const data = await readCollection<T>(collection);
     data[record.id] = record;
@@ -120,7 +138,10 @@ export async function upsertRecord<T extends { id: string }>(collection: string,
   });
 }
 
-export async function deleteRecord(collection: string, id: string): Promise<boolean> {
+export async function deleteRecord(
+  collection: string,
+  id: string,
+): Promise<boolean> {
   return withCollectionLock(collection, async () => {
     const data = await readCollection(collection);
     if (!(id in data)) return false;

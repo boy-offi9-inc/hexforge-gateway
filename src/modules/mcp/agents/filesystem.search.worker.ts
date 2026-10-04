@@ -21,7 +21,18 @@ import path from "node:path";
 
 const MAX_SEARCH_FILE_BYTES = 2 * 1024 * 1024;
 const BINARY_LIKE_EXTENSIONS = new Set([
-  ".apk", ".dex", ".zip", ".jar", ".so", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".ttf", ".otf",
+  ".apk",
+  ".dex",
+  ".zip",
+  ".jar",
+  ".so",
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".webp",
+  ".gif",
+  ".ttf",
+  ".otf",
 ]);
 
 interface NamedPattern {
@@ -44,10 +55,14 @@ async function run() {
   const flags = data.caseSensitive ? "g" : "gi";
 
   const compiled: { name: string; regex: RegExp }[] = data.patterns
-    ? data.patterns.map((p) => ({ name: p.name, regex: new RegExp(p.pattern, flags) }))
+    ? data.patterns.map((p) => ({
+        name: p.name,
+        regex: new RegExp(p.pattern, flags),
+      }))
     : [{ name: "match", regex: new RegExp(data.pattern!, flags) }];
 
-  const results: { file: string; line: number; text: string; name: string }[] = [];
+  const results: { file: string; line: number; text: string; name: string }[] =
+    [];
   let filesScanned = 0;
   let truncated = false;
 
@@ -112,5 +127,7 @@ async function run() {
 }
 
 run().catch((err) => {
-  parentPort?.postMessage({ __error: err instanceof Error ? err.message : String(err) });
+  parentPort?.postMessage({
+    __error: err instanceof Error ? err.message : String(err),
+  });
 });

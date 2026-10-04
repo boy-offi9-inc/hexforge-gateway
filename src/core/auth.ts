@@ -25,11 +25,18 @@ export async function registerAuth(app: FastifyInstance): Promise<void> {
     if (req.method === "GET" && req.url === "/health") return;
 
     const header = req.headers.authorization;
-    const bearer = header?.startsWith("Bearer ") ? header.slice("Bearer ".length) : undefined;
+    const bearer = header?.startsWith("Bearer ")
+      ? header.slice("Bearer ".length)
+      : undefined;
     const key = bearer ?? (req.headers["x-api-key"] as string | undefined);
 
     if (!key || !apiKeys.has(key)) {
-      reply.code(401).send({ error: "Missing or invalid API key. Send it as \"Authorization: Bearer <key>\" or \"X-API-Key: <key>\"." });
+      reply
+        .code(401)
+        .send({
+          error:
+            'Missing or invalid API key. Send it as "Authorization: Bearer <key>" or "X-API-Key: <key>".',
+        });
     }
   });
 }

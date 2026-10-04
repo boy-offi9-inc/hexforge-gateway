@@ -47,14 +47,21 @@ interface OutLike {
  * Read straight from the environment rather than config.ts, for the
  * no-cycles reason above.
  */
-export function detectConsoleCaps(env: NodeJS.ProcessEnv = process.env, out: OutLike = process.stdout): ConsoleCaps {
+export function detectConsoleCaps(
+  env: NodeJS.ProcessEnv = process.env,
+  out: OutLike = process.stdout,
+): ConsoleCaps {
   const tty = Boolean(out.isTTY);
   const dumb = env.TERM === "dumb";
   const format = (env.LOG_FORMAT ?? "auto").toLowerCase();
-  const pretty = format === "json" ? false : format === "pretty" ? !dumb : tty && !dumb;
+  const pretty =
+    format === "json" ? false : format === "pretty" ? !dumb : tty && !dumb;
 
   const noColor = env.NO_COLOR !== undefined && env.NO_COLOR !== "";
-  const forced = env.FORCE_COLOR !== undefined && env.FORCE_COLOR !== "" && env.FORCE_COLOR !== "0";
+  const forced =
+    env.FORCE_COLOR !== undefined &&
+    env.FORCE_COLOR !== "" &&
+    env.FORCE_COLOR !== "0";
   const color = pretty && !noColor && (tty || forced);
 
   let depth = 4;
@@ -66,23 +73,58 @@ export function detectConsoleCaps(env: NodeJS.ProcessEnv = process.env, out: Out
   const nonUtf8 = locale !== "" && !/utf-?8/i.test(locale);
   const unicode = !env.HF_ASCII && !dumb && env.TERM !== "linux" && !nonUtf8;
 
-  return { pretty, color, depth, unicode, columns: out.columns || Number(env.COLUMNS) || 80 };
+  return {
+    pretty,
+    color,
+    depth,
+    unicode,
+    columns: out.columns || Number(env.COLUMNS) || 80,
+  };
 }
 
 // --- theme -----------------------------------------------------------------
 
 const UNICODE = {
-  hex: "⬢", ok: "✔", err: "✖", dot: "●", ring: "○", warn: "▲", right: "→", sep: "·", ellipsis: "…",
-  dash: "─", vbar: "│", tl: "╭", tr: "╮", bl: "╰", br: "╯",
+  hex: "⬢",
+  ok: "✔",
+  err: "✖",
+  dot: "●",
+  ring: "○",
+  warn: "▲",
+  right: "→",
+  sep: "·",
+  ellipsis: "…",
+  dash: "─",
+  vbar: "│",
+  tl: "╭",
+  tr: "╮",
+  bl: "╰",
+  br: "╯",
 };
 const ASCII: typeof UNICODE = {
-  hex: "*", ok: "+", err: "x", dot: "*", ring: "o", warn: "!", right: "->", sep: "-", ellipsis: "...",
-  dash: "-", vbar: "|", tl: "+", tr: "+", bl: "+", br: "+",
+  hex: "*",
+  ok: "+",
+  err: "x",
+  dot: "*",
+  ring: "o",
+  warn: "!",
+  right: "->",
+  sep: "-",
+  ellipsis: "...",
+  dash: "-",
+  vbar: "|",
+  tl: "+",
+  tr: "+",
+  bl: "+",
+  br: "+",
 };
 
 // [r, g, b, 256-color, 16-color] - same brand palette as scripts/hf/ui.mjs.
 type Swatch = readonly [number, number, number, number, number];
-const PALETTE: Record<"accent" | "ok" | "err" | "warn" | "info" | "mute", Swatch> = {
+const PALETTE: Record<
+  "accent" | "ok" | "err" | "warn" | "info" | "mute",
+  Swatch
+> = {
   accent: [255, 167, 38, 214, 33],
   ok: [74, 222, 128, 78, 32],
   err: [248, 113, 113, 203, 31],
@@ -99,7 +141,12 @@ export function stripAnsi(s: string): string {
 
 function charWidth(cp: number): number {
   if (cp === 0 || cp < 32 || (cp >= 0x7f && cp < 0xa0)) return 0;
-  if ((cp >= 0x300 && cp <= 0x36f) || (cp >= 0x200b && cp <= 0x200f) || cp === 0xfe0f) return 0;
+  if (
+    (cp >= 0x300 && cp <= 0x36f) ||
+    (cp >= 0x200b && cp <= 0x200f) ||
+    cp === 0xfe0f
+  )
+    return 0;
   if (
     cp >= 0x1100 &&
     (cp <= 0x115f ||
@@ -138,8 +185,17 @@ export interface ConsoleUi {
   /** Cuts plain-or-styled text to a visible width, ending with the theme's ellipsis. */
   truncate: (s: string, max: number) => string;
   /** Word-wraps *plain* text (style the result per line) with a hanging indent. */
-  wrap: (text: string, width: number, indent?: string, hang?: string) => string[];
-  box: (lines: string[], title: string, border?: (s: string) => string) => string[];
+  wrap: (
+    text: string,
+    width: number,
+    indent?: string,
+    hang?: string,
+  ) => string[];
+  box: (
+    lines: string[],
+    title: string,
+    border?: (s: string) => string,
+  ) => string[];
 }
 
 export function createConsoleUi(caps: ConsoleCaps): ConsoleUi {
@@ -147,9 +203,17 @@ export function createConsoleUi(caps: ConsoleCaps): ConsoleUi {
   const width = Math.max(24, Math.min(100, caps.columns));
 
   const fg = ([r, gr, b, c256, c16]: Swatch): string =>
-    caps.depth >= 24 ? `\x1b[38;2;${r};${gr};${b}m` : caps.depth >= 8 ? `\x1b[38;5;${c256}m` : `\x1b[${c16}m`;
-  const styler = (open: string, close: string) => (s: string): string => (caps.color ? `${open}${s}${close}` : s);
-  const paint = (name: keyof typeof PALETTE) => styler(fg(PALETTE[name]), "\x1b[39m");
+    caps.depth >= 24
+      ? `\x1b[38;2;${r};${gr};${b}m`
+      : caps.depth >= 8
+        ? `\x1b[38;5;${c256}m`
+        : `\x1b[${c16}m`;
+  const styler =
+    (open: string, close: string) =>
+    (s: string): string =>
+      caps.color ? `${open}${s}${close}` : s;
+  const paint = (name: keyof typeof PALETTE) =>
+    styler(fg(PALETTE[name]), "\x1b[39m");
 
   const truncate = (s: string, max: number): string => {
     if (visibleWidth(s) <= max) return s;
@@ -168,7 +232,8 @@ export function createConsoleUi(caps: ConsoleCaps): ConsoleUi {
       return true;
     };
     for (const m of s.matchAll(ANSI_RE)) {
-      if (!take(s.slice(last, m.index))) return out + (sawAnsi ? "\x1b[0m" : "") + g.ellipsis;
+      if (!take(s.slice(last, m.index)))
+        return out + (sawAnsi ? "\x1b[0m" : "") + g.ellipsis;
       out += m[0];
       sawAnsi = true;
       last = (m.index ?? 0) + m[0].length;
@@ -177,7 +242,12 @@ export function createConsoleUi(caps: ConsoleCaps): ConsoleUi {
     return out + (sawAnsi ? "\x1b[0m" : "") + g.ellipsis;
   };
 
-  const wrap = (text: string, max: number, indent = "", hang = indent): string[] => {
+  const wrap = (
+    text: string,
+    max: number,
+    indent = "",
+    hang = indent,
+  ): string[] => {
     const lines: string[] = [];
     let line = indent;
     let lineW = visibleWidth(indent);
@@ -216,25 +286,49 @@ export function createConsoleUi(caps: ConsoleCaps): ConsoleUi {
   };
 
   const mute = paint("mute");
-  const box = (lines: string[], title: string, border: (s: string) => string = mute): string[] => {
+  const box = (
+    lines: string[],
+    title: string,
+    border: (s: string) => string = mute,
+  ): string[] => {
     const inner = width - 4;
     // A title wider than the box would push the top border past the terminal.
     const shownTitle = truncate(title, width - 6);
     const tw = visibleWidth(shownTitle);
-    const out = [border(g.tl + g.dash + " ") + shownTitle + border(" " + g.dash.repeat(Math.max(1, width - tw - 5)) + g.tr)];
+    const out = [
+      border(g.tl + g.dash + " ") +
+        shownTitle +
+        border(" " + g.dash.repeat(Math.max(1, width - tw - 5)) + g.tr),
+    ];
     for (const raw of lines) {
       const line = truncate(raw, inner);
-      out.push(border(g.vbar) + " " + line + " ".repeat(Math.max(0, inner - visibleWidth(line))) + " " + border(g.vbar));
+      out.push(
+        border(g.vbar) +
+          " " +
+          line +
+          " ".repeat(Math.max(0, inner - visibleWidth(line))) +
+          " " +
+          border(g.vbar),
+      );
     }
     out.push(border(g.bl + g.dash.repeat(width - 2) + g.br));
     return out;
   };
 
   return {
-    caps, width, g,
-    accent: paint("accent"), ok: paint("ok"), err: paint("err"), warn: paint("warn"), info: paint("info"), mute,
+    caps,
+    width,
+    g,
+    accent: paint("accent"),
+    ok: paint("ok"),
+    err: paint("err"),
+    warn: paint("warn"),
+    info: paint("info"),
+    mute,
     bold: styler("\x1b[1m", "\x1b[22m"),
-    truncate, wrap, box,
+    truncate,
+    wrap,
+    box,
   };
 }
 
@@ -263,18 +357,33 @@ export type NoticeLevel = "info" | "warn" | "error";
  * mode gives it an icon and wraps it to the terminal.
  */
 export function notice(tag: string, level: NoticeLevel, message: string): void {
-  const sink = level === "error" ? console.error : level === "warn" ? console.warn : console.log;
+  const sink =
+    level === "error"
+      ? console.error
+      : level === "warn"
+        ? console.warn
+        : console.log;
   const u = ui();
   if (!u.caps.pretty) {
     sink(`[${tag}] ${message}`);
     return;
   }
-  const icon = level === "error" ? u.err(u.g.err) : level === "warn" ? u.warn(u.g.warn) : u.accent(u.g.hex);
+  const icon =
+    level === "error"
+      ? u.err(u.g.err)
+      : level === "warn"
+        ? u.warn(u.g.warn)
+        : u.accent(u.g.hex);
   const lead = ` ${icon} ${u.mute(tag)}  `;
   if (visibleWidth(lead) > u.width * 0.45) {
     // A long tag ("plugin:webhook-notifier") beside the message would leave
     // it a sliver of the line and break words mid-token - stack them instead.
-    sink([` ${icon} ${u.mute(tag)}`, ...u.wrap(message, u.width, "   ", "   ")].join("\n"));
+    sink(
+      [
+        ` ${icon} ${u.mute(tag)}`,
+        ...u.wrap(message, u.width, "   ", "   "),
+      ].join("\n"),
+    );
     return;
   }
   sink(leadWrap(u, lead, message).join("\n"));
@@ -287,7 +396,8 @@ export interface ListenAddress {
   url: string;
 }
 
-const isLoopback = (host: string): boolean => host === "127.0.0.1" || host === "localhost" || host === "::1";
+const isLoopback = (host: string): boolean =>
+  host === "127.0.0.1" || host === "localhost" || host === "::1";
 
 /**
  * Every URL the server is reachable on. A wildcard bind (0.0.0.0, the
@@ -298,16 +408,24 @@ const isLoopback = (host: string): boolean => host === "127.0.0.1" || host === "
 export function listenAddresses(
   host: string,
   port: number,
-  nets: NodeJS.Dict<NetworkInterfaceInfo[]> = networkInterfaces()
+  nets: NodeJS.Dict<NetworkInterfaceInfo[]> = networkInterfaces(),
 ): ListenAddress[] {
   if (host !== "0.0.0.0" && host !== "::") {
-    return [{ label: isLoopback(host) ? "local" : "network", url: `http://${host}:${port}` }];
+    return [
+      {
+        label: isLoopback(host) ? "local" : "network",
+        url: `http://${host}:${port}`,
+      },
+    ];
   }
-  const out: ListenAddress[] = [{ label: "local", url: `http://127.0.0.1:${port}` }];
+  const out: ListenAddress[] = [
+    { label: "local", url: `http://127.0.0.1:${port}` },
+  ];
   for (const addrs of Object.values(nets)) {
     for (const a of addrs ?? []) {
       const family = String(a.family);
-      if (!a.internal && (family === "IPv4" || family === "4")) out.push({ label: "network", url: `http://${a.address}:${port}` });
+      if (!a.internal && (family === "IPv4" || family === "4"))
+        out.push({ label: "network", url: `http://${a.address}:${port}` });
     }
   }
   return out;
@@ -327,7 +445,9 @@ export interface BannerInfo {
 
 export function packageVersion(): string {
   try {
-    const pkg = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as { version?: string };
+    const pkg = JSON.parse(
+      readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
+    ) as { version?: string };
     return pkg.version ?? "dev";
   } catch {
     return "dev";
@@ -336,7 +456,8 @@ export function packageVersion(): string {
 
 export function renderBanner(info: BannerInfo, u: ConsoleUi): string[] {
   const LABEL = 11; // wide enough for "workspaces" plus a gap
-  const row = (label: string, value: string): string => `${u.mute(label.padEnd(LABEL))}${value}`;
+  const row = (label: string, value: string): string =>
+    `${u.mute(label.padEnd(LABEL))}${value}`;
   const rows: string[] = [];
 
   // The local/network tag is a nicety: on a narrow terminal it's dropped
@@ -345,37 +466,99 @@ export function renderBanner(info: BannerInfo, u: ConsoleUi): string[] {
   const shown = info.addresses.slice(0, 4);
   shown.forEach((a, i) => {
     const tagged = `${a.url} ${u.mute(a.label)}`;
-    rows.push(row(i === 0 ? "listening" : "", visibleWidth(tagged) <= valueRoom ? tagged : a.url));
+    rows.push(
+      row(
+        i === 0 ? "listening" : "",
+        visibleWidth(tagged) <= valueRoom ? tagged : a.url,
+      ),
+    );
   });
-  if (info.addresses.length > shown.length) rows.push(row("", u.mute(`+${info.addresses.length - shown.length} more`)));
+  if (info.addresses.length > shown.length)
+    rows.push(row("", u.mute(`+${info.addresses.length - shown.length} more`)));
 
   const exposed = info.addresses.some((a) => a.label === "network");
   rows.push(row("storage", info.storage));
-  rows.push(row("ai", info.ai.configured ? `${info.ai.provider} ${u.ok(u.g.ok)}` : `${info.ai.provider} ${u.warn("not configured")}`));
-  rows.push(row("auth", info.auth.enabled ? u.ok("enabled") : exposed ? u.warn("OPEN") : u.mute("off (localhost only)")));
-  const withVersions = info.plugins.map((p) => p.name + (p.version ? ` v${p.version}` : "")).join(", ");
+  rows.push(
+    row(
+      "ai",
+      info.ai.configured
+        ? `${info.ai.provider} ${u.ok(u.g.ok)}`
+        : `${info.ai.provider} ${u.warn("not configured")}`,
+    ),
+  );
+  rows.push(
+    row(
+      "auth",
+      info.auth.enabled
+        ? u.ok("enabled")
+        : exposed
+          ? u.warn("OPEN")
+          : u.mute("off (localhost only)"),
+    ),
+  );
+  const withVersions = info.plugins
+    .map((p) => p.name + (p.version ? ` v${p.version}` : ""))
+    .join(", ");
   const namesOnly = info.plugins.map((p) => p.name).join(", ");
-  rows.push(row("plugins", info.plugins.length ? (visibleWidth(withVersions) <= valueRoom ? withVersions : namesOnly) : u.mute("none")));
-  rows.push(row("inbox", info.inbox ? `watching ${info.inbox}` : u.mute("off (set APK_INBOX_DIR)")));
+  rows.push(
+    row(
+      "plugins",
+      info.plugins.length
+        ? visibleWidth(withVersions) <= valueRoom
+          ? withVersions
+          : namesOnly
+        : u.mute("none"),
+    ),
+  );
+  rows.push(
+    row(
+      "inbox",
+      info.inbox ? `watching ${info.inbox}` : u.mute("off (set APK_INBOX_DIR)"),
+    ),
+  );
   const names = info.workspaces.map((w) => w.name);
-  rows.push(row("workspaces", names.length ? names.slice(0, 3).join(", ") + (names.length > 3 ? ` +${names.length - 3}` : "") : u.mute("none yet")));
+  rows.push(
+    row(
+      "workspaces",
+      names.length
+        ? names.slice(0, 3).join(", ") +
+            (names.length > 3 ? ` +${names.length - 3}` : "")
+        : u.mute("none yet"),
+    ),
+  );
 
-  const out = u.box(rows, u.bold(u.accent(`${u.g.hex} HexForge Gateway`)) + u.mute(` v${info.version}`), u.accent);
+  const out = u.box(
+    rows,
+    u.bold(u.accent(`${u.g.hex} HexForge Gateway`)) +
+      u.mute(` v${info.version}`),
+    u.accent,
+  );
 
   const warnings: string[] = [];
   if (info.auth.requested && !info.auth.enabled) {
-    warnings.push("AUTH_ENABLED=true but API_KEYS is empty, so auth is NOT active. Set API_KEYS in .env.");
+    warnings.push(
+      "AUTH_ENABLED=true but API_KEYS is empty, so auth is NOT active. Set API_KEYS in .env.",
+    );
   } else if (!info.auth.enabled && exposed) {
-    warnings.push("Auth is off and this port is reachable from your network - anyone on it has full access. Set AUTH_ENABLED=true and API_KEYS in .env.");
+    warnings.push(
+      "Auth is off and this port is reachable from your network - anyone on it has full access. Set AUTH_ENABLED=true and API_KEYS in .env.",
+    );
   }
-  if (!info.ai.configured) warnings.push(`AI provider "${info.ai.provider}" isn't configured, so chat and summarize will return 503. See docs/AI.md.`);
-  for (const w of warnings) out.push("", ...leadWrap(u, ` ${u.warn(u.g.warn)} `, w));
+  if (!info.ai.configured)
+    warnings.push(
+      `AI provider "${info.ai.provider}" isn't configured, so chat and summarize will return 503. See docs/AI.md.`,
+    );
+  for (const w of warnings)
+    out.push("", ...leadWrap(u, ` ${u.warn(u.g.warn)} `, w));
 
   out.push(
     "",
-    u.truncate(` ${u.mute("next")}  ${u.accent("hf ws my-project")}  ${u.mute("new workspace")}`, u.width),
+    u.truncate(
+      ` ${u.mute("next")}  ${u.accent("hf ws my-project")}  ${u.mute("new workspace")}`,
+      u.width,
+    ),
     u.truncate(`       ${u.accent("hf")}  ${u.mute("all commands")}`, u.width),
-    ""
+    "",
   );
   return out;
 }
@@ -394,7 +577,18 @@ interface PinoLine {
   [key: string]: unknown;
 }
 
-const HIDDEN_KEYS = new Set(["level", "time", "pid", "hostname", "msg", "reqId", "req", "res", "responseTime", "err"]);
+const HIDDEN_KEYS = new Set([
+  "level",
+  "time",
+  "pid",
+  "hostname",
+  "msg",
+  "reqId",
+  "req",
+  "res",
+  "responseTime",
+  "err",
+]);
 
 function clock(ms: number): string {
   const d = new Date(ms);
@@ -407,15 +601,34 @@ export function formatDuration(ms: number): string {
   return ms < 10 ? `${ms.toFixed(1)}ms` : `${Math.round(ms)}ms`;
 }
 
-export function formatRequestLine(u: ConsoleUi, time: number, method: string, url: string, status: number, ms: number): string {
+export function formatRequestLine(
+  u: ConsoleUi,
+  time: number,
+  method: string,
+  url: string,
+  status: number,
+  ms: number,
+): string {
   const showTime = u.width >= 64;
   const lead = showTime ? `${u.mute(clock(time))}  ` : " ";
-  const methodCol = (method === "GET" ? u.info : method === "DELETE" ? u.err : u.accent)(method.padEnd(6));
-  const statusCol = (status >= 500 ? u.err : status >= 400 ? u.warn : status >= 300 ? u.info : u.ok)(String(status));
-  const dur = ms >= 1000 ? u.warn(formatDuration(ms)) : u.mute(formatDuration(ms));
+  const methodCol = (
+    method === "GET" ? u.info : method === "DELETE" ? u.err : u.accent
+  )(method.padEnd(6));
+  const statusCol = (
+    status >= 500
+      ? u.err
+      : status >= 400
+        ? u.warn
+        : status >= 300
+          ? u.info
+          : u.ok
+  )(String(status));
+  const dur =
+    ms >= 1000 ? u.warn(formatDuration(ms)) : u.mute(formatDuration(ms));
   const tail = `${statusCol}  ${dur}`;
   const room = u.width - visibleWidth(lead) - 7 - visibleWidth(tail) - 2;
-  if (room < 8) return `${lead}${methodCol} ${u.truncate(url, Math.max(4, u.width - visibleWidth(lead) - 12))} ${statusCol}`;
+  if (room < 8)
+    return `${lead}${methodCol} ${u.truncate(url, Math.max(4, u.width - visibleWidth(lead) - 12))} ${statusCol}`;
   const shownUrl = u.truncate(url, room);
   return `${lead}${methodCol} ${shownUrl}${" ".repeat(Math.max(0, room - visibleWidth(shownUrl)))}  ${tail}`;
 }
@@ -447,11 +660,12 @@ export function createPrettyLogStream(
   u: ConsoleUi,
   write: (text: string) => void = (text) => {
     process.stdout.write(text);
-  }
+  },
 ): PrettyLogStream {
   let buffer = "";
   const inflight = new Map<string, { method: string; url: string }>();
-  let last: { key: string; time: number; extra: number; totalMs: number } | undefined;
+  let last:
+    { key: string; time: number; extra: number; totalMs: number } | undefined;
   let timer: NodeJS.Timeout | undefined;
 
   const flush = (): void => {
@@ -461,7 +675,9 @@ export function createPrettyLogStream(
     }
     if (last && last.extra > 0) {
       const avg = formatDuration(last.totalMs / last.extra);
-      write(`   ${u.mute(`${u.g.right} same request ${u.caps.unicode ? "×" : "x"}${last.extra} (avg ${avg})`)}\n`);
+      write(
+        `   ${u.mute(`${u.g.right} same request ${u.caps.unicode ? "×" : "x"}${last.extra} (avg ${avg})`)}\n`,
+      );
     }
     last = undefined;
   };
@@ -471,13 +687,20 @@ export function createPrettyLogStream(
     const time = line.time ?? Date.now();
 
     if (msg === "incoming request" && line.reqId) {
-      if (inflight.size > 500) inflight.delete(inflight.keys().next().value as string);
-      inflight.set(line.reqId, { method: line.req?.method ?? "?", url: line.req?.url ?? "?" });
+      if (inflight.size > 500)
+        inflight.delete(inflight.keys().next().value as string);
+      inflight.set(line.reqId, {
+        method: line.req?.method ?? "?",
+        url: line.req?.url ?? "?",
+      });
       return;
     }
 
     if (msg === "request completed") {
-      const req = (line.reqId ? inflight.get(line.reqId) : undefined) ?? { method: "?", url: "?" };
+      const req = (line.reqId ? inflight.get(line.reqId) : undefined) ?? {
+        method: "?",
+        url: "?",
+      };
       if (line.reqId) inflight.delete(line.reqId);
       const status = line.res?.statusCode ?? 0;
       const ms = line.responseTime ?? 0;
@@ -497,27 +720,49 @@ export function createPrettyLogStream(
       return;
     }
 
-    if (msg.startsWith("Server listening at") || msg.startsWith("HexForge Gateway listening on")) return;
+    if (
+      msg.startsWith("Server listening at") ||
+      msg.startsWith("HexForge Gateway listening on")
+    )
+      return;
 
     flush();
     const level = line.level ?? 30;
-    const badge = level >= 50 ? u.err(`${u.g.err} error`) : level >= 40 ? u.warn(`${u.g.warn} warn `) : u.mute(level <= 20 ? "debug " : "info  ");
+    const badge =
+      level >= 50
+        ? u.err(`${u.g.err} error`)
+        : level >= 40
+          ? u.warn(`${u.g.warn} warn `)
+          : u.mute(level <= 20 ? "debug " : "info  ");
     const extras = Object.entries(line)
       .filter(([k]) => !HIDDEN_KEYS.has(k))
       .slice(0, 4)
       .map(([k, v]) => `${k}=${typeof v === "string" ? v : JSON.stringify(v)}`);
-    const text = [msg, line.err?.message ? `- ${line.err.message}` : "", ...extras].filter(Boolean).join(" ");
+    const text = [
+      msg,
+      line.err?.message ? `- ${line.err.message}` : "",
+      ...extras,
+    ]
+      .filter(Boolean)
+      .join(" ");
     const showTime = u.width >= 64;
     const lead = `${showTime ? u.mute(clock(time)) + "  " : " "}${badge}  `;
     const leadW = visibleWidth(lead);
     write(leadWrap(u, lead, text).join("\n") + "\n");
     if (level >= 50 && line.err?.stack) {
-      for (const frame of line.err.stack.split("\n").slice(1, 6)) write(`${" ".repeat(leadW)}${u.mute(u.truncate(frame.trim(), u.width - leadW))}\n`);
+      for (const frame of line.err.stack.split("\n").slice(1, 6))
+        write(
+          `${" ".repeat(leadW)}${u.mute(u.truncate(frame.trim(), u.width - leadW))}\n`,
+        );
     }
   };
 
   const stream = new Writable({
-    write(chunk: Buffer | string, _encoding: BufferEncoding, callback: (error?: Error | null) => void): void {
+    write(
+      chunk: Buffer | string,
+      _encoding: BufferEncoding,
+      callback: (error?: Error | null) => void,
+    ): void {
       buffer += chunk.toString();
       let nl: number;
       while ((nl = buffer.indexOf("\n")) >= 0) {

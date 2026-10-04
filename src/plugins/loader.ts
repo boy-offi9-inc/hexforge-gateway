@@ -8,7 +8,10 @@ import { orchestrator } from "../modules/mcp/orchestrator.js";
 import type { HexForgePlugin, PluginContext } from "./types.js";
 import { detectConsoleCaps, notice } from "../core/console-ui.js";
 
-const INSTALLED_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "installed");
+const INSTALLED_DIR = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "installed",
+);
 
 export interface LoadedPluginInfo {
   name: string;
@@ -64,7 +67,7 @@ export async function loadPlugins(app: FastifyInstance): Promise<void> {
     ? new Set(
         config.PLUGINS_ENABLED.split(",")
           .map((s) => s.trim())
-          .filter(Boolean)
+          .filter(Boolean),
       )
     : null;
 
@@ -75,19 +78,30 @@ export async function loadPlugins(app: FastifyInstance): Promise<void> {
     // in this codebase already uses (tsx/tsc both resolve it correctly);
     // this just does it dynamically since the plugin list isn't known
     // ahead of time.
-    const entryUrl = pathToFileURL(path.join(INSTALLED_DIR, dirName, "index.js")).href;
+    const entryUrl = pathToFileURL(
+      path.join(INSTALLED_DIR, dirName, "index.js"),
+    ).href;
 
     try {
       const mod = (await import(entryUrl)) as { default?: HexForgePlugin };
       const plugin = mod.default;
       if (!plugin || typeof plugin.register !== "function") {
-        throw new Error(`plugins/installed/${dirName}/index.ts must default-export a HexForgePlugin`);
+        throw new Error(
+          `plugins/installed/${dirName}/index.ts must default-export a HexForgePlugin`,
+        );
       }
 
       await plugin.register(buildContext(app, plugin.name));
-      loadedPlugins.push({ name: plugin.name, version: plugin.version, description: plugin.description });
+      loadedPlugins.push({
+        name: plugin.name,
+        version: plugin.version,
+        description: plugin.description,
+      });
       // The startup banner lists loaded plugins on a terminal, so a line per plugin would just repeat it there.
-      if (!detectConsoleCaps().pretty) console.log(`[plugins] loaded "${plugin.name}"${plugin.version ? ` v${plugin.version}` : ""}`);
+      if (!detectConsoleCaps().pretty)
+        console.log(
+          `[plugins] loaded "${plugin.name}"${plugin.version ? ` v${plugin.version}` : ""}`,
+        );
       eventBus.emit("plugin.loaded", { name: plugin.name });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

@@ -15,7 +15,9 @@ import type { CompletionRequest } from "../src/providers/ai.provider.js";
 // configured" checks actually test for (`!config.SOME_API_KEY`).
 type AiProviderModule = typeof import("../src/providers/ai.provider.js");
 
-async function loadWithEnv(env: Record<string, string>): Promise<AiProviderModule> {
+async function loadWithEnv(
+  env: Record<string, string>,
+): Promise<AiProviderModule> {
   vi.resetModules();
   for (const [key, value] of Object.entries(env)) {
     vi.stubEnv(key, value);
@@ -59,17 +61,30 @@ const req: CompletionRequest = { prompt: "hi" };
 
 describe("ai.provider - Anthropic", () => {
   it("throws without calling fetch when ANTHROPIC_API_KEY is unset", async () => {
-    const mod = await loadWithEnv({ AI_PROVIDER: "anthropic", ANTHROPIC_API_KEY: "" });
-    await expect(mod.complete(req)).rejects.toThrow(/ANTHROPIC_API_KEY is not set/);
+    const mod = await loadWithEnv({
+      AI_PROVIDER: "anthropic",
+      ANTHROPIC_API_KEY: "",
+    });
+    await expect(mod.complete(req)).rejects.toThrow(
+      /ANTHROPIC_API_KEY is not set/,
+    );
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("sends the expected request and joins multiple text blocks, skipping non-text ones", async () => {
-    const mod = await loadWithEnv({ AI_PROVIDER: "anthropic", ANTHROPIC_API_KEY: "sk-test", ANTHROPIC_MODEL: "claude-x" });
+    const mod = await loadWithEnv({
+      AI_PROVIDER: "anthropic",
+      ANTHROPIC_API_KEY: "sk-test",
+      ANTHROPIC_MODEL: "claude-x",
+    });
     fetchMock.mockResolvedValueOnce(
       jsonResponse(200, {
-        content: [{ type: "text", text: "Hello" }, { type: "tool_use" }, { type: "text", text: "world" }],
-      })
+        content: [
+          { type: "text", text: "Hello" },
+          { type: "tool_use" },
+          { type: "text", text: "world" },
+        ],
+      }),
     );
 
     const result = await mod.complete({
@@ -82,27 +97,43 @@ describe("ai.provider - Anthropic", () => {
     expect(result).toBe("Hello\nworld");
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("https://api.anthropic.com/v1/messages");
-    expect(init.headers).toMatchObject({ "x-api-key": "sk-test", "anthropic-version": "2023-06-01" });
+    expect(init.headers).toMatchObject({
+      "x-api-key": "sk-test",
+      "anthropic-version": "2023-06-01",
+    });
     expect(JSON.parse(init.body)).toEqual({
       model: "claude-x",
       max_tokens: 50,
       system: "be nice",
-      messages: [{ role: "user", content: "prev turn" }, { role: "user", content: "hi" }],
+      messages: [
+        { role: "user", content: "prev turn" },
+        { role: "user", content: "hi" },
+      ],
     });
   });
 
   it("surfaces a non-ok response as an error with status and truncated body", async () => {
-    const mod = await loadWithEnv({ AI_PROVIDER: "anthropic", ANTHROPIC_API_KEY: "sk-test" });
+    const mod = await loadWithEnv({
+      AI_PROVIDER: "anthropic",
+      ANTHROPIC_API_KEY: "sk-test",
+    });
     fetchMock.mockResolvedValueOnce(textErrorResponse(500, "internal error"));
 
-    await expect(mod.complete(req)).rejects.toThrow(/Anthropic API error \(500\).*internal error/s);
+    await expect(mod.complete(req)).rejects.toThrow(
+      /Anthropic API error \(500\).*internal error/s,
+    );
   });
 
   it("throws a clear error when the response has no text content (malformed/empty)", async () => {
-    const mod = await loadWithEnv({ AI_PROVIDER: "anthropic", ANTHROPIC_API_KEY: "sk-test" });
+    const mod = await loadWithEnv({
+      AI_PROVIDER: "anthropic",
+      ANTHROPIC_API_KEY: "sk-test",
+    });
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { content: [] }));
 
-    await expect(mod.complete(req)).rejects.toThrow(/Anthropic API returned no text content/);
+    await expect(mod.complete(req)).rejects.toThrow(
+      /Anthropic API returned no text content/,
+    );
   });
 });
 
@@ -118,8 +149,16 @@ describe("ai.provider - OpenAI-compatible shape (via Groq)", () => {
   });
 
   it("sends system+history+prompt as one messages array with a Bearer token", async () => {
-    const mod = await loadWithEnv({ AI_PROVIDER: "groq", GROQ_API_KEY: "gsk-test", GROQ_MODEL: "llama-x" });
-    fetchMock.mockResolvedValueOnce(jsonResponse(200, { choices: [{ message: { content: " Hello there " } }] }));
+    const mod = await loadWithEnv({
+      AI_PROVIDER: "groq",
+      GROQ_API_KEY: "gsk-test",
+      GROQ_MODEL: "llama-x",
+    });
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, {
+        choices: [{ message: { content: " Hello there " } }],
+      }),
+    );
 
     const result = await mod.complete({
       system: "be nice",
@@ -143,31 +182,51 @@ describe("ai.provider - OpenAI-compatible shape (via Groq)", () => {
   });
 
   it("surfaces a non-ok response as an error with status and truncated body", async () => {
-    const mod = await loadWithEnv({ AI_PROVIDER: "groq", GROQ_API_KEY: "gsk-test" });
+    const mod = await loadWithEnv({
+      AI_PROVIDER: "groq",
+      GROQ_API_KEY: "gsk-test",
+    });
     fetchMock.mockResolvedValueOnce(textErrorResponse(429, "rate limited"));
 
-    await expect(mod.complete(req)).rejects.toThrow(/Groq API error \(429\).*rate limited/s);
+    await expect(mod.complete(req)).rejects.toThrow(
+      /Groq API error \(429\).*rate limited/s,
+    );
   });
 
   it("throws a clear error when the response has no message content (malformed/empty)", async () => {
-    const mod = await loadWithEnv({ AI_PROVIDER: "groq", GROQ_API_KEY: "gsk-test" });
+    const mod = await loadWithEnv({
+      AI_PROVIDER: "groq",
+      GROQ_API_KEY: "gsk-test",
+    });
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { choices: [] }));
 
-    await expect(mod.complete(req)).rejects.toThrow(/Groq API returned no text content/);
+    await expect(mod.complete(req)).rejects.toThrow(
+      /Groq API returned no text content/,
+    );
   });
 
   it("wraps a network-level fetch failure in a friendlier reachability error", async () => {
-    const mod = await loadWithEnv({ AI_PROVIDER: "groq", GROQ_API_KEY: "gsk-test" });
+    const mod = await loadWithEnv({
+      AI_PROVIDER: "groq",
+      GROQ_API_KEY: "gsk-test",
+    });
     fetchMock.mockRejectedValueOnce(new TypeError("fetch failed"));
 
-    await expect(mod.complete(req)).rejects.toThrow(/Could not reach Groq at https:\/\/api\.groq\.com\/openai\/v1.*fetch failed/s);
+    await expect(mod.complete(req)).rejects.toThrow(
+      /Could not reach Groq at https:\/\/api\.groq\.com\/openai\/v1.*fetch failed/s,
+    );
   });
 });
 
 describe("ai.provider - openai-compatible (generic escape hatch)", () => {
   it("throws without calling fetch when OPENAI_COMPATIBLE_MODEL is unset", async () => {
-    const mod = await loadWithEnv({ AI_PROVIDER: "openai-compatible", OPENAI_COMPATIBLE_MODEL: "" });
-    await expect(mod.complete(req)).rejects.toThrow(/OPENAI_COMPATIBLE_MODEL is not set/);
+    const mod = await loadWithEnv({
+      AI_PROVIDER: "openai-compatible",
+      OPENAI_COMPATIBLE_MODEL: "",
+    });
+    await expect(mod.complete(req)).rejects.toThrow(
+      /OPENAI_COMPATIBLE_MODEL is not set/,
+    );
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -177,7 +236,9 @@ describe("ai.provider - openai-compatible (generic escape hatch)", () => {
       OPENAI_COMPATIBLE_MODEL: "local-model",
       OPENAI_COMPATIBLE_API_KEY: "",
     });
-    fetchMock.mockResolvedValueOnce(jsonResponse(200, { choices: [{ message: { content: "ok" } }] }));
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { choices: [{ message: { content: "ok" } }] }),
+    );
 
     await mod.complete(req);
 
@@ -189,15 +250,28 @@ describe("ai.provider - openai-compatible (generic escape hatch)", () => {
 
 describe("ai.provider - Gemini", () => {
   it("throws without calling fetch when GEMINI_API_KEY is unset", async () => {
-    const mod = await loadWithEnv({ AI_PROVIDER: "gemini", GEMINI_API_KEY: "" });
-    await expect(mod.complete(req)).rejects.toThrow(/GEMINI_API_KEY is not set/);
+    const mod = await loadWithEnv({
+      AI_PROVIDER: "gemini",
+      GEMINI_API_KEY: "",
+    });
+    await expect(mod.complete(req)).rejects.toThrow(
+      /GEMINI_API_KEY is not set/,
+    );
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("maps the assistant role to \"model\" and puts the API key in the URL", async () => {
-    const mod = await loadWithEnv({ AI_PROVIDER: "gemini", GEMINI_API_KEY: "g-key", GEMINI_MODEL: "gemini-x" });
+  it('maps the assistant role to "model" and puts the API key in the URL', async () => {
+    const mod = await loadWithEnv({
+      AI_PROVIDER: "gemini",
+      GEMINI_API_KEY: "g-key",
+      GEMINI_MODEL: "gemini-x",
+    });
     fetchMock.mockResolvedValueOnce(
-      jsonResponse(200, { candidates: [{ content: { parts: [{ text: "Hello" }, { text: " world" }] } }] })
+      jsonResponse(200, {
+        candidates: [
+          { content: { parts: [{ text: "Hello" }, { text: " world" }] } },
+        ],
+      }),
     );
 
     const result = await mod.complete({
@@ -208,7 +282,9 @@ describe("ai.provider - Gemini", () => {
 
     expect(result).toBe("Hello world");
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe("https://generativelanguage.googleapis.com/v1beta/models/gemini-x:generateContent?key=g-key");
+    expect(url).toBe(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-x:generateContent?key=g-key",
+    );
     const body = JSON.parse(init.body);
     expect(body.systemInstruction).toEqual({ parts: [{ text: "be nice" }] });
     expect(body.contents).toEqual([
@@ -218,24 +294,40 @@ describe("ai.provider - Gemini", () => {
   });
 
   it("surfaces a non-ok response as an error with status and truncated body", async () => {
-    const mod = await loadWithEnv({ AI_PROVIDER: "gemini", GEMINI_API_KEY: "g-key" });
+    const mod = await loadWithEnv({
+      AI_PROVIDER: "gemini",
+      GEMINI_API_KEY: "g-key",
+    });
     fetchMock.mockResolvedValueOnce(textErrorResponse(400, "bad request"));
 
-    await expect(mod.complete(req)).rejects.toThrow(/Gemini API error \(400\).*bad request/s);
+    await expect(mod.complete(req)).rejects.toThrow(
+      /Gemini API error \(400\).*bad request/s,
+    );
   });
 
   it("throws a clear error when the response has no text content (malformed/empty)", async () => {
-    const mod = await loadWithEnv({ AI_PROVIDER: "gemini", GEMINI_API_KEY: "g-key" });
+    const mod = await loadWithEnv({
+      AI_PROVIDER: "gemini",
+      GEMINI_API_KEY: "g-key",
+    });
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { candidates: [] }));
 
-    await expect(mod.complete(req)).rejects.toThrow(/Gemini API returned no text content/);
+    await expect(mod.complete(req)).rejects.toThrow(
+      /Gemini API returned no text content/,
+    );
   });
 });
 
 describe("ai.provider - Ollama", () => {
   it("omits the Authorization header when OLLAMA_API_KEY is unset (the local-model case)", async () => {
-    const mod = await loadWithEnv({ AI_PROVIDER: "ollama", OLLAMA_API_KEY: "", OLLAMA_MODEL: "llama3.3" });
-    fetchMock.mockResolvedValueOnce(jsonResponse(200, { message: { content: "ok" } }));
+    const mod = await loadWithEnv({
+      AI_PROVIDER: "ollama",
+      OLLAMA_API_KEY: "",
+      OLLAMA_MODEL: "llama3.3",
+    });
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(200, { message: { content: "ok" } }),
+    );
 
     await mod.complete(req);
 
@@ -245,24 +337,30 @@ describe("ai.provider - Ollama", () => {
     expect(JSON.parse(init.body).stream).toBe(false);
   });
 
-  it("wraps a network-level fetch failure in a friendlier \"is ollama serve running\" error", async () => {
+  it('wraps a network-level fetch failure in a friendlier "is ollama serve running" error', async () => {
     const mod = await loadWithEnv({ AI_PROVIDER: "ollama" });
     fetchMock.mockRejectedValueOnce(new TypeError("fetch failed"));
 
-    await expect(mod.complete(req)).rejects.toThrow(/Is "ollama serve" running.*fetch failed/s);
+    await expect(mod.complete(req)).rejects.toThrow(
+      /Is "ollama serve" running.*fetch failed/s,
+    );
   });
 
   it("surfaces a non-ok response as an error with status and truncated body", async () => {
     const mod = await loadWithEnv({ AI_PROVIDER: "ollama" });
     fetchMock.mockResolvedValueOnce(textErrorResponse(500, "model not found"));
 
-    await expect(mod.complete(req)).rejects.toThrow(/Ollama API error \(500\).*model not found/s);
+    await expect(mod.complete(req)).rejects.toThrow(
+      /Ollama API error \(500\).*model not found/s,
+    );
   });
 
   it("throws a clear error when the response has no message content (malformed/empty)", async () => {
     const mod = await loadWithEnv({ AI_PROVIDER: "ollama" });
     fetchMock.mockResolvedValueOnce(jsonResponse(200, {}));
 
-    await expect(mod.complete(req)).rejects.toThrow(/Ollama API returned no message content/);
+    await expect(mod.complete(req)).rejects.toThrow(
+      /Ollama API returned no message content/,
+    );
   });
 });

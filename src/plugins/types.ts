@@ -17,7 +17,10 @@ export interface PluginContext {
   /** Register a new MCP agent kind - usable in Tasks/Jobs/Workflows exactly like the built-in agents (jadx, apktool, ai, ...). */
   registerAgent(kind: string, handler: AgentHandler): void;
   /** Subscribe to any Event Bus event without importing the Event Bus module. */
-  on<K extends keyof EventMap>(event: K, listener: (payload: EventMap[K]) => void): void;
+  on<K extends keyof EventMap>(
+    event: K,
+    listener: (payload: EventMap[K]) => void,
+  ): void;
   log: {
     info(msg: string): void;
     warn(msg: string): void;

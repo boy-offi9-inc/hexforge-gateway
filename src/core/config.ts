@@ -4,7 +4,9 @@ import { z } from "zod";
 const envSchema = z.object({
   PORT: z.coerce.number().default(8080),
   HOST: z.string().default("0.0.0.0"),
-  NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+  NODE_ENV: z
+    .enum(["development", "production", "test"])
+    .default("development"),
 
   // Off by default - this Gateway has always trusted whoever can reach it
   // (adb shell, filesystem write/delete, rebuilding APKs), which is fine
@@ -28,7 +30,17 @@ const envSchema = z.object({
   STORAGE_BACKEND: z.enum(["local", "supabase"]).default("local"),
 
   AI_PROVIDER: z
-    .enum(["anthropic", "groq", "gemini", "ollama", "openai", "deepseek", "xai", "mistral", "openai-compatible"])
+    .enum([
+      "anthropic",
+      "groq",
+      "gemini",
+      "ollama",
+      "openai",
+      "deepseek",
+      "xai",
+      "mistral",
+      "openai-compatible",
+    ])
     .default("anthropic"),
   ANTHROPIC_API_KEY: z.string().optional(),
   ANTHROPIC_MODEL: z.string().default("claude-sonnet-5"),
@@ -96,7 +108,10 @@ const envSchema = z.object({
 const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {
-  console.error("❌ Invalid environment configuration:", parsed.error.flatten().fieldErrors);
+  console.error(
+    "❌ Invalid environment configuration:",
+    parsed.error.flatten().fieldErrors,
+  );
   process.exit(1);
 }
 
@@ -106,7 +121,7 @@ export const apiKeys = new Set(
   (config.API_KEYS ?? "")
     .split(",")
     .map((k) => k.trim())
-    .filter(Boolean)
+    .filter(Boolean),
 );
 
 // AUTH_ENABLED=true with no actual keys configured would lock everyone

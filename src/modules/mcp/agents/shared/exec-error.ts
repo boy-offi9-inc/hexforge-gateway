@@ -27,12 +27,23 @@ export interface ExecFailure {
  *   stderr/stdout instead, since that's almost always more useful than a
  *   generic install hint once the binary is actually found and running.
  */
-export function friendlyExecError(binaryName: string, notFoundHint: string, err: unknown): Error {
+export function friendlyExecError(
+  binaryName: string,
+  notFoundHint: string,
+  err: unknown,
+): Error {
   const failure = err as ExecFailure;
   if (failure?.code === "ENOENT") {
     return new Error(`"${binaryName}" not found on PATH. ${notFoundHint}`);
   }
-  const detail = (failure?.stderr || failure?.stdout || "").toString().trim().slice(-2000);
+  const detail = (failure?.stderr || failure?.stdout || "")
+    .toString()
+    .trim()
+    .slice(-2000);
   const baseMessage = err instanceof Error ? err.message : String(err);
-  return new Error(detail ? `${binaryName} failed: ${baseMessage}\n\n${detail}` : `${binaryName} failed: ${baseMessage}`);
+  return new Error(
+    detail
+      ? `${binaryName} failed: ${baseMessage}\n\n${detail}`
+      : `${binaryName} failed: ${baseMessage}`,
+  );
 }

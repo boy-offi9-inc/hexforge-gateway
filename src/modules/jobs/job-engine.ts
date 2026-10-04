@@ -51,7 +51,8 @@ class JobEngine {
         const corrected: Job = {
           ...job,
           status: "failed",
-          error: "Interrupted by a Gateway restart before this job finished; not resumed.",
+          error:
+            "Interrupted by a Gateway restart before this job finished; not resumed.",
           updatedAt: new Date().toISOString(),
         };
         this.jobs.set(job.id, corrected);
@@ -63,7 +64,9 @@ class JobEngine {
   }
 
   listJobsForWorkspace(workspaceId: string): Job[] {
-    return Array.from(this.jobs.values()).filter((j) => j.workspaceId === workspaceId);
+    return Array.from(this.jobs.values()).filter(
+      (j) => j.workspaceId === workspaceId,
+    );
   }
 
   submit(spec: JobSpec): Job {
@@ -76,7 +79,8 @@ class JobEngine {
       payload: spec.payload ?? {},
       status: "queued",
       attempts: 0,
-      maxAttempts: spec.maxAttempts && spec.maxAttempts > 0 ? spec.maxAttempts : 1,
+      maxAttempts:
+        spec.maxAttempts && spec.maxAttempts > 0 ? spec.maxAttempts : 1,
       createdAt: now,
       updatedAt: now,
     };
@@ -95,13 +99,19 @@ class JobEngine {
   private update(id: string, patch: Partial<Job>): Job | undefined {
     const existing = this.jobs.get(id);
     if (!existing) return undefined;
-    const updated = { ...existing, ...patch, updatedAt: new Date().toISOString() };
+    const updated = {
+      ...existing,
+      ...patch,
+      updatedAt: new Date().toISOString(),
+    };
     this.jobs.set(id, updated);
     persist(updated);
 
     eventBus.emit("job.updated", { job: updated });
-    if (updated.status === "completed") eventBus.emit("job.completed", { job: updated });
-    if (updated.status === "failed") eventBus.emit("job.failed", { job: updated });
+    if (updated.status === "completed")
+      eventBus.emit("job.completed", { job: updated });
+    if (updated.status === "failed")
+      eventBus.emit("job.failed", { job: updated });
 
     return updated;
   }
@@ -122,9 +132,15 @@ class JobEngine {
 
     this.update(jobId, { currentTaskId: task.id });
 
-    const handleTerminal = (latestTask: NonNullable<ReturnType<typeof orchestrator.getTask>>) => {
+    const handleTerminal = (
+      latestTask: NonNullable<ReturnType<typeof orchestrator.getTask>>,
+    ) => {
       if (latestTask.status === "completed") {
-        this.update(jobId, { status: "completed", result: latestTask.result, error: undefined });
+        this.update(jobId, {
+          status: "completed",
+          result: latestTask.result,
+          error: undefined,
+        });
         return true;
       }
       if (latestTask.status === "failed") {

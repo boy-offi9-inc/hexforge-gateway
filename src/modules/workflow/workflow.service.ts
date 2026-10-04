@@ -5,7 +5,9 @@ import type { Workflow } from "../../core/types.js";
 const COLLECTION = "workflows";
 
 function warnFallback(op: string, message: string) {
-  console.warn(`[workflow.service] Supabase ${op} failed, falling back to local storage: ${message}`);
+  console.warn(
+    `[workflow.service] Supabase ${op} failed, falling back to local storage: ${message}`,
+  );
 }
 
 /**

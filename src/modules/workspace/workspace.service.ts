@@ -7,10 +7,15 @@ import type { Workspace, WorkspaceStatus } from "../../core/types.js";
 const COLLECTION = "workspaces";
 
 function warnFallback(op: string, message: string) {
-  console.warn(`[workspace.service] Supabase ${op} failed, falling back to local storage: ${message}`);
+  console.warn(
+    `[workspace.service] Supabase ${op} failed, falling back to local storage: ${message}`,
+  );
 }
 
-export async function createWorkspace(name: string, targetLabel: string): Promise<Workspace> {
+export async function createWorkspace(
+  name: string,
+  targetLabel: string,
+): Promise<Workspace> {
   const now = new Date().toISOString();
   const workspace: Workspace = {
     id: nanoid(12),
@@ -39,7 +44,11 @@ export async function createWorkspace(name: string, targetLabel: string): Promis
 export async function getWorkspace(id: string): Promise<Workspace | null> {
   const supabase = getSupabase();
   if (supabase) {
-    const { data, error } = await supabase.from("workspaces").select("*").eq("id", id).single();
+    const { data, error } = await supabase
+      .from("workspaces")
+      .select("*")
+      .eq("id", id)
+      .single();
     if (!error) return data as Workspace;
     warnFallback("select", error.message);
   }
@@ -49,7 +58,10 @@ export async function getWorkspace(id: string): Promise<Workspace | null> {
 export async function listWorkspaces(): Promise<Workspace[]> {
   const supabase = getSupabase();
   if (supabase) {
-    const { data, error } = await supabase.from("workspaces").select("*").order("createdAt", { ascending: false });
+    const { data, error } = await supabase
+      .from("workspaces")
+      .select("*")
+      .order("createdAt", { ascending: false });
     if (!error) return data as Workspace[];
     warnFallback("query", error.message);
   }
@@ -57,10 +69,16 @@ export async function listWorkspaces(): Promise<Workspace[]> {
   return local.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
-export async function getWorkspaceByName(name: string): Promise<Workspace | null> {
+export async function getWorkspaceByName(
+  name: string,
+): Promise<Workspace | null> {
   const supabase = getSupabase();
   if (supabase) {
-    const { data, error } = await supabase.from("workspaces").select("*").eq("name", name).maybeSingle();
+    const { data, error } = await supabase
+      .from("workspaces")
+      .select("*")
+      .eq("name", name)
+      .maybeSingle();
     if (!error) return (data as Workspace | null) ?? null;
     warnFallback("select", error.message);
   }
@@ -74,13 +92,19 @@ export async function getWorkspaceByName(name: string): Promise<Workspace | null
  * response. `targetLabel` is only used if a new workspace is actually
  * created; it's ignored on an existing match.
  */
-export async function getOrCreateWorkspace(name: string, targetLabel: string): Promise<Workspace> {
+export async function getOrCreateWorkspace(
+  name: string,
+  targetLabel: string,
+): Promise<Workspace> {
   const existing = await getWorkspaceByName(name);
   if (existing) return existing;
   return createWorkspace(name, targetLabel);
 }
 
-export async function updateWorkspaceStatus(id: string, status: WorkspaceStatus): Promise<Workspace | null> {
+export async function updateWorkspaceStatus(
+  id: string,
+  status: WorkspaceStatus,
+): Promise<Workspace | null> {
   const supabase = getSupabase();
   const updatedAt = new Date().toISOString();
 
@@ -110,7 +134,10 @@ export async function updateWorkspaceStatus(id: string, status: WorkspaceStatus)
   }
 
   if (updated.status !== previousStatus) {
-    eventBus.emit("workspace.status_changed", { workspace: updated, previousStatus });
+    eventBus.emit("workspace.status_changed", {
+      workspace: updated,
+      previousStatus,
+    });
   }
 
   return updated;

@@ -60,13 +60,21 @@ async function run(args: string[], maxBuffer = 1024 * 1024 * 20) {
   try {
     return await execFileAsync("adb", args, { maxBuffer });
   } catch (err) {
-    throw friendlyExecError("adb", "Install Android platform-tools first (e.g. \"brew install android-platform-tools\", or see https://developer.android.com/tools/releases/platform-tools).", err);
+    throw friendlyExecError(
+      "adb",
+      'Install Android platform-tools first (e.g. "brew install android-platform-tools", or see https://developer.android.com/tools/releases/platform-tools).',
+      err,
+    );
   }
 }
 
 async function devicesHandler(): Promise<unknown> {
   const { stdout } = await run(["devices", "-l"]);
-  const lines = stdout.split("\n").slice(1).map((l) => l.trim()).filter(Boolean);
+  const lines = stdout
+    .split("\n")
+    .slice(1)
+    .map((l) => l.trim())
+    .filter(Boolean);
   const devices = lines.map((line) => {
     const [serial, state, ...rest] = line.split(/\s+/);
     return { serial, state, extra: rest.join(" ") };
@@ -90,22 +98,29 @@ async function packagesHandler(task: McpTask): Promise<unknown> {
 
 async function installHandler(task: McpTask): Promise<unknown> {
   const payload = task.payload as unknown as InstallPayload;
-  if (!payload.apkPath) throw new Error('install requires "apkPath" in the task payload');
+  if (!payload.apkPath)
+    throw new Error('install requires "apkPath" in the task payload');
 
   const apkPath = path.resolve(payload.apkPath);
-  if (!existsSync(apkPath)) throw new Error(`File not found at path: ${apkPath}`);
+  if (!existsSync(apkPath))
+    throw new Error(`File not found at path: ${apkPath}`);
 
   const args = [...deviceArgs(payload), "install"];
   if (payload.reinstall) args.push("-r");
   args.push(apkPath);
 
   const { stdout, stderr } = await run(args);
-  return { apkPath, stdoutTail: stdout.slice(-2000), stderrTail: stderr ? stderr.slice(-2000) : undefined };
+  return {
+    apkPath,
+    stdoutTail: stdout.slice(-2000),
+    stderrTail: stderr ? stderr.slice(-2000) : undefined,
+  };
 }
 
 async function uninstallHandler(task: McpTask): Promise<unknown> {
   const payload = task.payload as unknown as UninstallPayload;
-  if (!payload.packageName) throw new Error('uninstall requires "packageName" in the task payload');
+  if (!payload.packageName)
+    throw new Error('uninstall requires "packageName" in the task payload');
 
   const args = [...deviceArgs(payload), "uninstall"];
   if (payload.keepData) args.push("-k");
@@ -121,11 +136,16 @@ async function uninstallHandler(task: McpTask): Promise<unknown> {
 
 async function shellHandler(task: McpTask): Promise<unknown> {
   const payload = task.payload as unknown as ShellPayload;
-  if (!payload.command) throw new Error('shell requires "command" in the task payload');
+  if (!payload.command)
+    throw new Error('shell requires "command" in the task payload');
 
   const args = [...deviceArgs(payload), "shell", payload.command];
   const { stdout, stderr } = await run(args);
-  return { command: payload.command, stdout: stdout.slice(-4000), stderr: stderr ? stderr.slice(-2000) : undefined };
+  return {
+    command: payload.command,
+    stdout: stdout.slice(-4000),
+    stderr: stderr ? stderr.slice(-2000) : undefined,
+  };
 }
 
 async function logcatHandler(task: McpTask): Promise<unknown> {
@@ -141,19 +161,34 @@ async function logcatHandler(task: McpTask): Promise<unknown> {
   const { stdout } = await run(args, 1024 * 1024 * 50);
   const allLines = stdout.split("\n");
   const tail = allLines.slice(-lineLimit);
-  return { lineCount: tail.length, truncatedFrom: allLines.length, lines: tail };
+  return {
+    lineCount: tail.length,
+    truncatedFrom: allLines.length,
+    lines: tail,
+  };
 }
 
 async function pullHandler(task: McpTask): Promise<unknown> {
   const payload = task.payload as unknown as PullPayload;
-  if (!payload.remotePath) throw new Error('pull requires "remotePath" in the task payload');
+  if (!payload.remotePath)
+    throw new Error('pull requires "remotePath" in the task payload');
 
-  const fileName = payload.fileName?.trim() || path.basename(payload.remotePath);
-  if (fileName.includes("/") || fileName.includes("\\") || fileName.includes("..")) {
+  const fileName =
+    payload.fileName?.trim() || path.basename(payload.remotePath);
+  if (
+    fileName.includes("/") ||
+    fileName.includes("\\") ||
+    fileName.includes("..")
+  ) {
     throw new Error('"fileName" must be a plain file name, not a path');
   }
 
-  const destDir = path.resolve(config.WORKSPACES_ROOT, task.workspaceId, "adb", "pulled");
+  const destDir = path.resolve(
+    config.WORKSPACES_ROOT,
+    task.workspaceId,
+    "adb",
+    "pulled",
+  );
   await mkdir(destDir, { recursive: true });
   const destPath = path.join(destDir, fileName);
 
@@ -169,11 +204,14 @@ async function pullHandler(task: McpTask): Promise<unknown> {
 
 async function pushHandler(task: McpTask): Promise<unknown> {
   const payload = task.payload as unknown as PushPayload;
-  if (!payload.localPath) throw new Error('push requires "localPath" in the task payload');
-  if (!payload.remotePath) throw new Error('push requires "remotePath" in the task payload');
+  if (!payload.localPath)
+    throw new Error('push requires "localPath" in the task payload');
+  if (!payload.remotePath)
+    throw new Error('push requires "remotePath" in the task payload');
 
   const localPath = path.resolve(payload.localPath);
-  if (!existsSync(localPath)) throw new Error(`File not found at path: ${localPath}`);
+  if (!existsSync(localPath))
+    throw new Error(`File not found at path: ${localPath}`);
 
   const args = [...deviceArgs(payload), "push", localPath, payload.remotePath];
   const { stdout, stderr } = await run(args);
@@ -205,7 +243,7 @@ export async function adbHandler(task: McpTask): Promise<unknown> {
       return pushHandler(task);
     default:
       throw new Error(
-        `Unsupported adb operation "${task.operation}". Supported: "devices", "packages", "install", "uninstall", "shell", "logcat", "pull", "push"`
+        `Unsupported adb operation "${task.operation}". Supported: "devices", "packages", "install", "uninstall", "shell", "logcat", "pull", "push"`,
       );
   }
 }

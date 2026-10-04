@@ -1,4 +1,10 @@
-import type { McpTask, Workspace, Job, Workflow, KnowledgeEntry } from "../core/types.js";
+import type {
+  McpTask,
+  Workspace,
+  Job,
+  Workflow,
+  KnowledgeEntry,
+} from "../core/types.js";
 
 /**
  * Every event the Event Bus carries, and the payload shape for each.
@@ -7,7 +13,10 @@ import type { McpTask, Workspace, Job, Workflow, KnowledgeEntry } from "../core/
  */
 export interface EventMap {
   "workspace.created": { workspace: Workspace };
-  "workspace.status_changed": { workspace: Workspace; previousStatus: Workspace["status"] };
+  "workspace.status_changed": {
+    workspace: Workspace;
+    previousStatus: Workspace["status"];
+  };
 
   "mcp.task.created": { task: McpTask };
   // Fired on every task state transition, including creation - the

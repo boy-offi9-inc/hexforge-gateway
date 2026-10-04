@@ -30,11 +30,18 @@ export function register() {
   eventBus.on("workflow.failed", onWorkflowSettled);
 }
 
-async function onWorkflowSettled(payload: EventMap["workflow.completed"] | EventMap["workflow.failed"]) {
+async function onWorkflowSettled(
+  payload: EventMap["workflow.completed"] | EventMap["workflow.failed"],
+) {
   const { workflow } = payload;
 
   const stepLines = workflow.steps.map((step, i) => {
-    const outcome = step.status === "completed" ? "OK" : step.status === "failed" ? `FAILED (${step.error})` : step.status;
+    const outcome =
+      step.status === "completed"
+        ? "OK"
+        : step.status === "failed"
+          ? `FAILED (${step.error})`
+          : step.status;
     return `${i + 1}. [${step.agent}:${step.operation}] ${outcome}`;
   });
 
@@ -61,6 +68,9 @@ async function onWorkflowSettled(payload: EventMap["workflow.completed"] | Event
     // Indexing must never crash the process or take down the workflow
     // that triggered it - the workflow itself already completed/failed
     // and that result stands regardless of whether indexing succeeds.
-    console.error(`[knowledge-indexer] failed to index workflow ${workflow.id}:`, err);
+    console.error(
+      `[knowledge-indexer] failed to index workflow ${workflow.id}:`,
+      err,
+    );
   }
 }

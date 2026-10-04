@@ -1,5 +1,10 @@
 import type { FastifyInstance } from "fastify";
-import { config, isSupabaseConfigured, isAiConfigured, isAuthEffectivelyEnabled } from "../../core/config.js";
+import {
+  config,
+  isSupabaseConfigured,
+  isAiConfigured,
+  isAuthEffectivelyEnabled,
+} from "../../core/config.js";
 
 export async function healthRoutes(app: FastifyInstance) {
   app.get("/health", async () => {

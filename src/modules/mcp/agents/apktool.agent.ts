@@ -30,7 +30,9 @@ function resolveExistingApk(apkPath: string): string {
   }
   const ext = path.extname(resolved).toLowerCase();
   if (!ALLOWED_EXTENSIONS.includes(ext)) {
-    throw new Error(`Unsupported file type "${ext}". Expected one of: ${ALLOWED_EXTENSIONS.join(", ")}`);
+    throw new Error(
+      `Unsupported file type "${ext}". Expected one of: ${ALLOWED_EXTENSIONS.join(", ")}`,
+    );
   }
   return resolved;
 }
@@ -63,7 +65,12 @@ async function decodeHandler(task: McpTask): Promise<unknown> {
   }
   const apkPath = resolveExistingApk(payload.apkPath);
 
-  const outputDir = path.resolve(config.WORKSPACES_ROOT, task.workspaceId, "apktool", "decode");
+  const outputDir = path.resolve(
+    config.WORKSPACES_ROOT,
+    task.workspaceId,
+    "apktool",
+    "decode",
+  );
   await mkdir(path.dirname(outputDir), { recursive: true });
 
   const args = ["d", apkPath, "-o", outputDir, "-f"]; // -f: always overwrite, workspace-scoped dir is ours to manage
@@ -85,14 +92,20 @@ async function decodeHandler(task: McpTask): Promise<unknown> {
       stderrTail: stderr ? stderr.slice(-2000) : undefined,
     };
   } catch (err) {
-    throw friendlyExecError("apktool", "Install it first (e.g. via your package manager, or see https://apktool.org/docs/install).", err);
+    throw friendlyExecError(
+      "apktool",
+      "Install it first (e.g. via your package manager, or see https://apktool.org/docs/install).",
+      err,
+    );
   }
 }
 
 async function buildHandler(task: McpTask): Promise<unknown> {
   const payload = task.payload as unknown as BuildPayload;
   if (!payload.inputDir) {
-    throw new Error('build requires "inputDir" (a decoded apktool project directory) in the task payload');
+    throw new Error(
+      'build requires "inputDir" (a decoded apktool project directory) in the task payload',
+    );
   }
 
   const inputDir = path.resolve(payload.inputDir);
@@ -103,23 +116,36 @@ async function buildHandler(task: McpTask): Promise<unknown> {
   // pointing this at a random folder before wasting time on a doomed build.
   if (!existsSync(path.join(inputDir, "apktool.yml"))) {
     throw new Error(
-      `"${inputDir}" doesn't look like an apktool project (no apktool.yml found). Did you mean the output of a prior "decode" operation?`
+      `"${inputDir}" doesn't look like an apktool project (no apktool.yml found). Did you mean the output of a prior "decode" operation?`,
     );
   }
 
-  const buildDir = path.resolve(config.WORKSPACES_ROOT, task.workspaceId, "apktool", "build");
+  const buildDir = path.resolve(
+    config.WORKSPACES_ROOT,
+    task.workspaceId,
+    "apktool",
+    "build",
+  );
   await mkdir(buildDir, { recursive: true });
 
   const outputName = payload.outputName?.trim() || "rebuilt.apk";
-  if (outputName.includes("/") || outputName.includes("\\") || outputName.includes("..")) {
+  if (
+    outputName.includes("/") ||
+    outputName.includes("\\") ||
+    outputName.includes("..")
+  ) {
     throw new Error('"outputName" must be a plain file name, not a path');
   }
   const outputPath = path.join(buildDir, outputName);
 
   try {
-    const { stdout, stderr } = await execFileAsync("apktool", ["b", inputDir, "-o", outputPath], {
-      maxBuffer: 1024 * 1024 * 20,
-    });
+    const { stdout, stderr } = await execFileAsync(
+      "apktool",
+      ["b", inputDir, "-o", outputPath],
+      {
+        maxBuffer: 1024 * 1024 * 20,
+      },
+    );
 
     return {
       outputPath,
@@ -131,7 +157,11 @@ async function buildHandler(task: McpTask): Promise<unknown> {
       stderrTail: stderr ? stderr.slice(-2000) : undefined,
     };
   } catch (err) {
-    throw friendlyExecError("apktool", "Install it first (e.g. via your package manager, or see https://apktool.org/docs/install).", err);
+    throw friendlyExecError(
+      "apktool",
+      "Install it first (e.g. via your package manager, or see https://apktool.org/docs/install).",
+      err,
+    );
   }
 }
 
@@ -142,6 +172,8 @@ export async function apktoolHandler(task: McpTask): Promise<unknown> {
     case "build":
       return buildHandler(task);
     default:
-      throw new Error(`Unsupported apktool operation "${task.operation}". Supported: "decode", "build"`);
+      throw new Error(
+        `Unsupported apktool operation "${task.operation}". Supported: "decode", "build"`,
+      );
   }
 }

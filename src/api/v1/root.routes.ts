@@ -21,7 +21,9 @@ export async function rootRoutes(app: FastifyInstance) {
       docs: "See README.md and the docs/ folder in the repo for the full API reference.",
       workspaces: {
         count: workspaces.length,
-        recent: workspaces.slice(0, 10).map((w) => ({ id: w.id, name: w.name, status: w.status })),
+        recent: workspaces
+          .slice(0, 10)
+          .map((w) => ({ id: w.id, name: w.name, status: w.status })),
       },
       quickstart: [
         `curl -X PUT ${base}/workspaces/by-name/my-project -H "Content-Type: application/json" -d '{"targetLabel": "com.example.app"}'`,

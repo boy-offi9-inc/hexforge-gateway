@@ -70,11 +70,13 @@ const MAX_TIMEOUT_SECONDS = 60;
 // pull/push already do for the same reason.
 function assertSafeRemotePath(remotePath: string): void {
   if (!remotePath.startsWith("/")) {
-    throw new Error(`"remotePath" must be an absolute path on the device, got: ${remotePath}`);
+    throw new Error(
+      `"remotePath" must be an absolute path on the device, got: ${remotePath}`,
+    );
   }
   if (/['"$`\\;&|(){}<>\n]/.test(remotePath)) {
     throw new Error(
-      `"remotePath" contains characters that aren't safe to embed in a remote shell command: ${remotePath}`
+      `"remotePath" contains characters that aren't safe to embed in a remote shell command: ${remotePath}`,
     );
   }
 }
@@ -86,22 +88,38 @@ function deviceArgs(payload: DeviceScopedPayload): string[] {
   return payload.deviceSerial ? ["-D", payload.deviceSerial] : ["-U"];
 }
 
-async function runAdb(args: string[]): Promise<{ stdout: string; stderr: string }> {
+async function runAdb(
+  args: string[],
+): Promise<{ stdout: string; stderr: string }> {
   try {
     return await execFileAsync("adb", args, { maxBuffer: 1024 * 1024 * 10 });
   } catch (err) {
-    throw friendlyExecError("adb", "Install frida-tools first: \"pip install frida-tools\" (needs Python). A frida-server matching that version also needs to be running on the target device - see this agent's docs.", err);
+    throw friendlyExecError(
+      "adb",
+      'Install frida-tools first: "pip install frida-tools" (needs Python). A frida-server matching that version also needs to be running on the target device - see this agent\'s docs.',
+      err,
+    );
   }
 }
 
 async function listDevicesHandler(): Promise<unknown> {
   let stdout: string;
   try {
-    ({ stdout } = await execFileAsync("frida-ls-devices", [], { maxBuffer: 1024 * 1024 }));
+    ({ stdout } = await execFileAsync("frida-ls-devices", [], {
+      maxBuffer: 1024 * 1024,
+    }));
   } catch (err) {
-    throw friendlyExecError("frida-ls-devices", "Install frida-tools first: \"pip install frida-tools\" (needs Python). A frida-server matching that version also needs to be running on the target device - see this agent's docs.", err);
+    throw friendlyExecError(
+      "frida-ls-devices",
+      'Install frida-tools first: "pip install frida-tools" (needs Python). A frida-server matching that version also needs to be running on the target device - see this agent\'s docs.',
+      err,
+    );
   }
-  const lines = stdout.split("\n").slice(2).map((l) => l.trim()).filter(Boolean); // skip header + separator row
+  const lines = stdout
+    .split("\n")
+    .slice(2)
+    .map((l) => l.trim())
+    .filter(Boolean); // skip header + separator row
   const devices = lines.map((line) => {
     const cols = line.split(/\s{2,}/);
     return { id: cols[0], type: cols[1], name: cols[2] };
@@ -116,12 +134,22 @@ async function listProcessesHandler(task: McpTask): Promise<unknown> {
 
   let stdout: string;
   try {
-    ({ stdout } = await execFileAsync("frida-ps", args, { maxBuffer: 1024 * 1024 * 5 }));
+    ({ stdout } = await execFileAsync("frida-ps", args, {
+      maxBuffer: 1024 * 1024 * 5,
+    }));
   } catch (err) {
-    throw friendlyExecError("frida-ps", "Install frida-tools first: \"pip install frida-tools\" (needs Python). A frida-server matching that version also needs to be running on the target device - see this agent's docs.", err);
+    throw friendlyExecError(
+      "frida-ps",
+      'Install frida-tools first: "pip install frida-tools" (needs Python). A frida-server matching that version also needs to be running on the target device - see this agent\'s docs.',
+      err,
+    );
   }
 
-  const lines = stdout.split("\n").slice(2).map((l) => l.trim()).filter(Boolean);
+  const lines = stdout
+    .split("\n")
+    .slice(2)
+    .map((l) => l.trim())
+    .filter(Boolean);
   const processes = lines.map((line) => {
     const cols = line.split(/\s{2,}/);
     return payload.includeApps
@@ -133,10 +161,14 @@ async function listProcessesHandler(task: McpTask): Promise<unknown> {
 
 async function pushServerHandler(task: McpTask): Promise<unknown> {
   const payload = task.payload as unknown as PushServerPayload;
-  if (!payload.localServerPath) throw new Error('push-server requires "localServerPath" in the task payload');
+  if (!payload.localServerPath)
+    throw new Error(
+      'push-server requires "localServerPath" in the task payload',
+    );
 
   const localPath = path.resolve(payload.localServerPath);
-  if (!existsSync(localPath)) throw new Error(`File not found at path: ${localPath}`);
+  if (!existsSync(localPath))
+    throw new Error(`File not found at path: ${localPath}`);
 
   const remotePath = payload.remotePath ?? DEFAULT_REMOTE_SERVER_PATH;
   const args = payload.deviceSerial ? ["-s", payload.deviceSerial] : [];
@@ -164,7 +196,7 @@ async function startServerHandler(task: McpTask): Promise<unknown> {
     remotePath,
     stdoutTail: stdout.slice(-1000),
     stderrTail: stderr ? stderr.slice(-1000) : undefined,
-    note: "Best-effort - requires root. Verify with a \"list-devices\" or \"list-processes\" call rather than trusting this alone.",
+    note: 'Best-effort - requires root. Verify with a "list-devices" or "list-processes" call rather than trusting this alone.',
   };
 }
 
@@ -172,21 +204,39 @@ async function stopServerHandler(task: McpTask): Promise<unknown> {
   const payload = task.payload as ServerControlPayload;
   const args = payload.deviceSerial ? ["-s", payload.deviceSerial] : [];
 
-  const { stdout, stderr } = await runAdb([...args, "shell", "su -c 'pkill -f frida-server'"]);
-  return { stopped: true, stdoutTail: stdout.slice(-500), stderrTail: stderr ? stderr.slice(-500) : undefined };
+  const { stdout, stderr } = await runAdb([
+    ...args,
+    "shell",
+    "su -c 'pkill -f frida-server'",
+  ]);
+  return {
+    stopped: true,
+    stdoutTail: stdout.slice(-500),
+    stderrTail: stderr ? stderr.slice(-500) : undefined,
+  };
 }
 
 async function traceHandler(task: McpTask): Promise<unknown> {
   const payload = task.payload as unknown as TracePayload;
-  if (!payload.target) throw new Error('trace requires "target" in the task payload');
-  if (!payload.script) throw new Error('trace requires "script" (raw Frida JS) in the task payload');
+  if (!payload.target)
+    throw new Error('trace requires "target" in the task payload');
+  if (!payload.script)
+    throw new Error(
+      'trace requires "script" (raw Frida JS) in the task payload',
+    );
 
   const mode = payload.mode ?? "spawn";
-  const timeoutSeconds = payload.timeoutSeconds && payload.timeoutSeconds > 0
-    ? Math.min(payload.timeoutSeconds, MAX_TIMEOUT_SECONDS)
-    : DEFAULT_TIMEOUT_SECONDS;
+  const timeoutSeconds =
+    payload.timeoutSeconds && payload.timeoutSeconds > 0
+      ? Math.min(payload.timeoutSeconds, MAX_TIMEOUT_SECONDS)
+      : DEFAULT_TIMEOUT_SECONDS;
 
-  const scriptsDir = path.resolve(config.WORKSPACES_ROOT, task.workspaceId, "frida", "scripts");
+  const scriptsDir = path.resolve(
+    config.WORKSPACES_ROOT,
+    task.workspaceId,
+    "frida",
+    "scripts",
+  );
   await mkdir(scriptsDir, { recursive: true });
   const scriptPath = path.join(scriptsDir, `${Date.now()}.js`);
   await writeFile(scriptPath, payload.script, "utf8");
@@ -206,7 +256,14 @@ async function traceHandler(task: McpTask): Promise<unknown> {
       killSignal: "SIGTERM",
       maxBuffer: 1024 * 1024 * 10,
     });
-    return { target: payload.target, mode, scriptPath, timedOut: false, stdout, stderr };
+    return {
+      target: payload.target,
+      mode,
+      scriptPath,
+      timedOut: false,
+      stdout,
+      stderr,
+    };
   } catch (err) {
     const failure = err as ExecFailure;
     if (failure?.killed && failure?.signal === "SIGTERM") {
@@ -223,7 +280,11 @@ async function traceHandler(task: McpTask): Promise<unknown> {
         stderr: (failure.stderr ?? "").toString(),
       };
     }
-    throw friendlyExecError("frida", "Install frida-tools first: \"pip install frida-tools\" (needs Python). A frida-server matching that version also needs to be running on the target device - see this agent's docs.", err);
+    throw friendlyExecError(
+      "frida",
+      'Install frida-tools first: "pip install frida-tools" (needs Python). A frida-server matching that version also needs to be running on the target device - see this agent\'s docs.',
+      err,
+    );
   }
 }
 
@@ -244,7 +305,7 @@ export async function fridaHandler(task: McpTask): Promise<unknown> {
     default:
       throw new Error(
         `Unsupported frida operation "${task.operation}". Supported: "list-devices", "list-processes", ` +
-          `"push-server", "start-server", "stop-server", "trace"`
+          `"push-server", "start-server", "stop-server", "trace"`,
       );
   }
 }

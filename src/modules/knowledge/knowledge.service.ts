@@ -2,15 +2,23 @@ import { nanoid } from "nanoid";
 import { getSupabase } from "../../providers/supabase.client.js";
 import * as localStore from "../../providers/local-storage.provider.js";
 import { eventBus } from "../../events/event-bus.js";
-import type { KnowledgeEntry, KnowledgeEntryInput, KnowledgeEntryUpdate } from "../../core/types.js";
+import type {
+  KnowledgeEntry,
+  KnowledgeEntryInput,
+  KnowledgeEntryUpdate,
+} from "../../core/types.js";
 
 const COLLECTION = "knowledge_entries";
 
 function warnFallback(op: string, message: string) {
-  console.warn(`[knowledge.service] Supabase ${op} failed, falling back to local storage: ${message}`);
+  console.warn(
+    `[knowledge.service] Supabase ${op} failed, falling back to local storage: ${message}`,
+  );
 }
 
-export async function createEntry(input: KnowledgeEntryInput): Promise<KnowledgeEntry> {
+export async function createEntry(
+  input: KnowledgeEntryInput,
+): Promise<KnowledgeEntry> {
   const now = new Date().toISOString();
   const entry: KnowledgeEntry = {
     id: nanoid(12),
@@ -43,7 +51,11 @@ export async function createEntry(input: KnowledgeEntryInput): Promise<Knowledge
 export async function getEntry(id: string): Promise<KnowledgeEntry | null> {
   const supabase = getSupabase();
   if (supabase) {
-    const { data, error } = await supabase.from("knowledge_entries").select("*").eq("id", id).single();
+    const { data, error } = await supabase
+      .from("knowledge_entries")
+      .select("*")
+      .eq("id", id)
+      .single();
     if (!error) return data as KnowledgeEntry;
     warnFallback("select", error.message);
   }
@@ -56,23 +68,35 @@ export interface ListEntriesOptions {
 
 export async function listEntriesForWorkspace(
   workspaceId: string,
-  options: ListEntriesOptions = {}
+  options: ListEntriesOptions = {},
 ): Promise<KnowledgeEntry[]> {
   const supabase = getSupabase();
   if (supabase) {
-    let query = supabase.from("knowledge_entries").select("*").eq("workspaceId", workspaceId);
+    let query = supabase
+      .from("knowledge_entries")
+      .select("*")
+      .eq("workspaceId", workspaceId);
     if (options.type) query = query.eq("type", options.type);
-    const { data, error } = await query.order("createdAt", { ascending: false });
+    const { data, error } = await query.order("createdAt", {
+      ascending: false,
+    });
     if (!error) return data as KnowledgeEntry[];
     warnFallback("query", error.message);
   }
   const local = await localStore.listRecords<KnowledgeEntry>(COLLECTION);
   return local
-    .filter((e) => e.workspaceId === workspaceId && (!options.type || e.type === options.type))
+    .filter(
+      (e) =>
+        e.workspaceId === workspaceId &&
+        (!options.type || e.type === options.type),
+    )
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
-export async function updateEntry(id: string, patch: KnowledgeEntryUpdate): Promise<KnowledgeEntry | null> {
+export async function updateEntry(
+  id: string,
+  patch: KnowledgeEntryUpdate,
+): Promise<KnowledgeEntry | null> {
   const supabase = getSupabase();
   const updatedAt = new Date().toISOString();
 
@@ -107,7 +131,10 @@ export async function updateEntry(id: string, patch: KnowledgeEntryUpdate): Prom
 export async function deleteEntry(id: string): Promise<boolean> {
   const supabase = getSupabase();
   if (supabase) {
-    const { error } = await supabase.from("knowledge_entries").delete().eq("id", id);
+    const { error } = await supabase
+      .from("knowledge_entries")
+      .delete()
+      .eq("id", id);
     if (!error) return true;
     warnFallback("delete", error.message);
   }

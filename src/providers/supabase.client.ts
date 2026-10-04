@@ -9,9 +9,13 @@ let client: SupabaseClient | null = null;
 // need to know about STORAGE_BACKEND at all; they already fall back to
 // local storage whenever this returns null.
 if (config.STORAGE_BACKEND === "supabase" && isSupabaseConfigured) {
-  client = createClient(config.SUPABASE_URL!, config.SUPABASE_SERVICE_ROLE_KEY!, {
-    auth: { persistSession: false },
-  });
+  client = createClient(
+    config.SUPABASE_URL!,
+    config.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: { persistSession: false },
+    },
+  );
 }
 
 /**

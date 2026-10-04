@@ -1,6 +1,16 @@
 import { buildServer } from "./core/server.js";
-import { config, isAiConfigured, isAuthEffectivelyEnabled } from "./core/config.js";
-import { createConsoleUi, detectConsoleCaps, listenAddresses, packageVersion, renderBanner } from "./core/console-ui.js";
+import {
+  config,
+  isAiConfigured,
+  isAuthEffectivelyEnabled,
+} from "./core/config.js";
+import {
+  createConsoleUi,
+  detectConsoleCaps,
+  listenAddresses,
+  packageVersion,
+  renderBanner,
+} from "./core/console-ui.js";
 import type { ConsoleCaps } from "./core/console-ui.js";
 import { getLoadedPlugins } from "./plugins/loader.js";
 import * as workspaceService from "./modules/workspace/workspace.service.js";
@@ -27,12 +37,15 @@ async function printPrettyBanner(caps: ConsoleCaps) {
       addresses: listenAddresses(config.HOST, config.PORT),
       storage: `${config.STORAGE_BACKEND}${config.STORAGE_BACKEND === "local" ? ` (${config.DATA_DIR})` : ""}`,
       ai: { provider: config.AI_PROVIDER, configured: isAiConfigured },
-      auth: { enabled: isAuthEffectivelyEnabled, requested: config.AUTH_ENABLED },
+      auth: {
+        enabled: isAuthEffectivelyEnabled,
+        requested: config.AUTH_ENABLED,
+      },
       plugins: getLoadedPlugins(),
       inbox: inboxWatcher.watching,
       workspaces,
     },
-    createConsoleUi(caps)
+    createConsoleUi(caps),
   );
   console.log(["", ...lines].join("\n"));
 }
@@ -41,7 +54,8 @@ async function printPrettyBanner(caps: ConsoleCaps) {
 async function printPlainBanner(baseUrl: string) {
   // Best-effort - a Supabase hiccup here should never stop the Gateway
   // from starting, it just means the banner is a bit less helpful.
-  let workspaces: Awaited<ReturnType<typeof workspaceService.listWorkspaces>> = [];
+  let workspaces: Awaited<ReturnType<typeof workspaceService.listWorkspaces>> =
+    [];
   try {
     workspaces = await workspaceService.listWorkspaces();
   } catch {
@@ -50,11 +64,17 @@ async function printPlainBanner(baseUrl: string) {
 
   console.log("");
   console.log(`HexForge Gateway listening on ${baseUrl}`);
-  console.log(`  storage: ${config.STORAGE_BACKEND}${config.STORAGE_BACKEND === "local" ? ` (${config.DATA_DIR})` : ""}`);
+  console.log(
+    `  storage: ${config.STORAGE_BACKEND}${config.STORAGE_BACKEND === "local" ? ` (${config.DATA_DIR})` : ""}`,
+  );
   console.log(`  ai: ${config.AI_PROVIDER}`);
-  console.log(`  auth: ${isAuthEffectivelyEnabled ? "enabled" : "OPEN - anyone who can reach this port has full access"}`);
+  console.log(
+    `  auth: ${isAuthEffectivelyEnabled ? "enabled" : "OPEN - anyone who can reach this port has full access"}`,
+  );
   if (config.AUTH_ENABLED && !isAuthEffectivelyEnabled) {
-    console.log(`  WARNING: AUTH_ENABLED=true but no API_KEYS set - auth is NOT actually active. Set API_KEYS in .env.`);
+    console.log(
+      `  WARNING: AUTH_ENABLED=true but no API_KEYS set - auth is NOT actually active. Set API_KEYS in .env.`,
+    );
   }
   console.log("");
 
@@ -70,7 +90,9 @@ async function printPlainBanner(baseUrl: string) {
   }
 
   console.log("Get started:");
-  console.log(`  curl -X PUT ${baseUrl}/workspaces/by-name/my-project -d '{"targetLabel":"com.example.app"}' -H "Content-Type: application/json"`);
+  console.log(
+    `  curl -X PUT ${baseUrl}/workspaces/by-name/my-project -d '{"targetLabel":"com.example.app"}' -H "Content-Type: application/json"`,
+  );
   console.log("  ./scripts/hf.sh ws my-project");
   console.log(`  curl ${baseUrl}/          # full cheat sheet with live data`);
   console.log("  Full API and guides: README.md and docs/.");
@@ -87,7 +109,10 @@ async function main() {
     await jobEngine.hydrate();
     await workflowEngine.hydrate();
   } catch (err) {
-    app.log.warn({ err }, "Failed to hydrate Job/Workflow history from storage - starting with empty state");
+    app.log.warn(
+      { err },
+      "Failed to hydrate Job/Workflow history from storage - starting with empty state",
+    );
   }
 
   inboxWatcher.start();

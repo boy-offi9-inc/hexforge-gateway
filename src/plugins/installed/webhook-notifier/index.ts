@@ -32,12 +32,15 @@ interface NotifyBody {
 const plugin: HexForgePlugin = {
   name: "webhook-notifier",
   version: "0.1.0",
-  description: "POSTs to WEBHOOK_NOTIFIER_URL when a Job or Workflow completes or fails.",
+  description:
+    "POSTs to WEBHOOK_NOTIFIER_URL when a Job or Workflow completes or fails.",
 
   register(ctx) {
     const url = process.env.WEBHOOK_NOTIFIER_URL;
     if (!url) {
-      ctx.log.info("WEBHOOK_NOTIFIER_URL not set - loaded, but idle. Set it in .env to enable notifications.");
+      ctx.log.info(
+        "WEBHOOK_NOTIFIER_URL not set - loaded, but idle. Set it in .env to enable notifications.",
+      );
       return;
     }
 
@@ -48,14 +51,25 @@ const plugin: HexForgePlugin = {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
-        if (!res.ok) ctx.log.warn(`webhook POST returned ${res.status} for ${body.kind} ${body.id}`);
+        if (!res.ok)
+          ctx.log.warn(
+            `webhook POST returned ${res.status} for ${body.kind} ${body.id}`,
+          );
       } catch (err) {
-        ctx.log.warn(`webhook POST failed for ${body.kind} ${body.id}: ${err instanceof Error ? err.message : String(err)}`);
+        ctx.log.warn(
+          `webhook POST failed for ${body.kind} ${body.id}: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
     };
 
     ctx.on("job.completed", (payload) =>
-      post({ kind: "job", status: "completed", id: payload.job.id, agent: payload.job.agent, operation: payload.job.operation })
+      post({
+        kind: "job",
+        status: "completed",
+        id: payload.job.id,
+        agent: payload.job.agent,
+        operation: payload.job.operation,
+      }),
     );
     ctx.on("job.failed", (payload) =>
       post({
@@ -65,13 +79,24 @@ const plugin: HexForgePlugin = {
         agent: payload.job.agent,
         operation: payload.job.operation,
         error: payload.job.error,
-      })
+      }),
     );
     ctx.on("workflow.completed", (payload) =>
-      post({ kind: "workflow", status: "completed", id: payload.workflow.id, name: payload.workflow.name })
+      post({
+        kind: "workflow",
+        status: "completed",
+        id: payload.workflow.id,
+        name: payload.workflow.name,
+      }),
     );
     ctx.on("workflow.failed", (payload) =>
-      post({ kind: "workflow", status: "failed", id: payload.workflow.id, name: payload.workflow.name, error: payload.workflow.error })
+      post({
+        kind: "workflow",
+        status: "failed",
+        id: payload.workflow.id,
+        name: payload.workflow.name,
+        error: payload.workflow.error,
+      }),
     );
 
     ctx.log.info(`notifying ${url} on job/workflow completion and failure`);

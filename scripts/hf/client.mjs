@@ -9,15 +9,13 @@
  */
 
 import {
-    existsSync,
-    mkdirSync,
-    readFileSync,
-    renameSync,
-    writeFileSync
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  writeFileSync,
 } from "node:fs";
-import {
-    homedir
-} from "node:os";
+import { homedir } from "node:os";
 import path from "node:path";
 
 // --- state ----------------------------------------------------------------
@@ -29,30 +27,36 @@ import path from "node:path";
  * they never touch a real home directory.
  */
 export function stateFile(env = process.env) {
-    return path.join(env.HF_STATE_DIR || path.join(homedir(), ".hexforge"), "state.env");
+  return path.join(
+    env.HF_STATE_DIR || path.join(homedir(), ".hexforge"),
+    "state.env",
+  );
 }
 
 export function readState(env = process.env) {
-    const file = stateFile(env);
-    if (!existsSync(file)) return {};
-    const state = {};
-    for (const line of readFileSync(file, "utf8").split("\n")) {
-        const m = line.match(/^([A-Z][A-Z0-9_]*)=(?:"(.*)"|(.*))$/);
-        if (m) state[m[1]] = m[2] ?? m[3] ?? "";
-    }
-    return state;
+  const file = stateFile(env);
+  if (!existsSync(file)) return {};
+  const state = {};
+  for (const line of readFileSync(file, "utf8").split("\n")) {
+    const m = line.match(/^([A-Z][A-Z0-9_]*)=(?:"(.*)"|(.*))$/);
+    if (m) state[m[1]] = m[2] ?? m[3] ?? "";
+  }
+  return state;
 }
 
 /** Sets or removes (value === undefined) one key, preserving every other line - including ones this CLI doesn't know about. */
 export function saveState(key, value, env = process.env) {
-    const file = stateFile(env);
-    mkdirSync(path.dirname(file), {
-        recursive: true
-    });
-    const kept = existsSync(file) ?
-        readFileSync(file, "utf8").split("\n").filter((l) => l.trim() !== "" && !l.startsWith(`${key}=`)) :
-        [];
-    if (value !== undefined) kept.push(`${key}="${String(value).replace(/["\\$`]/g, "\\$&")}"`);
+  const file = stateFile(env);
+  mkdirSync(path.dirname(file), {
+    recursive: true,
+  });
+  const kept = existsSync(file)
+    ? readFileSync(file, "utf8")
+        .split("\n")
+        .filter((l) => l.trim() !== "" && !l.startsWith(`${key}=`))
+    : [];
+  if (value !== undefined)
+    kept.push(`${key}="${String(value).replace(/["\\$`]/g, "\\$&")}"`);
   const tmp = `${file}.tmp`;
   writeFileSync(tmp, kept.join("\n") + (kept.length ? "\n" : ""));
   renameSync(tmp, file);
@@ -83,7 +87,8 @@ export function describeErrorBody(body) {
   if (typeof err === "string") return err;
   if (err && typeof err === "object") {
     const parts = [...(err.formErrors ?? [])];
-    for (const [field, msgs] of Object.entries(err.fieldErrors ?? {})) parts.push(`${field}: ${[].concat(msgs).join(", ")}`);
+    for (const [field, msgs] of Object.entries(err.fieldErrors ?? {}))
+      parts.push(`${field}: ${[].concat(msgs).join(", ")}`);
     if (parts.length) return parts.join("; ");
   }
   return JSON.stringify(err).slice(0, 300);
@@ -91,7 +96,12 @@ export function describeErrorBody(body) {
 
 // --- client ---------------------------------------------------------------
 
-export function createClient({ baseUrl, apiKey, fetchImpl = globalThis.fetch, timeoutMs = 30_000 } = {}) {
+export function createClient({
+  baseUrl,
+  apiKey,
+  fetchImpl = globalThis.fetch,
+  timeoutMs = 30_000,
+} = {}) {
   const root = String(baseUrl).replace(/\/+$/, "");
 
   async function request(method, urlPath, body, { timeout = timeoutMs } = {}) {
@@ -110,36 +120,43 @@ export function createClient({ baseUrl, apiKey, fetchImpl = globalThis.fetch, ti
       });
     } catch (err) {
       if (err?.name === "TimeoutError" || err?.name === "AbortError") {
-        throw new GatewayError(`No response from ${root} within ${Math.round(timeout / 1000)}s`, { kind: "timeout", url });
+        throw new GatewayError(
+          `No response from ${root} within ${Math.round(timeout / 1000)}s`,
+          { kind: "timeout", url },
+        );
       }
-      const reason = err?.cause?.code ?? err?.cause?.message ?? err?.message ?? String(err);
-      throw new GatewayError(`Couldn't reach the Gateway at ${root} (${reason})`, { kind: "network", url });
+      const reason =
+        err?.cause?.code ?? err?.cause?.message ?? err?.message ?? String(err);
+      throw new GatewayError(
+        `Couldn't reach the Gateway at ${root} (${reason})`,
+        { kind: "network", url },
+      );
     }
 
     const text = await res.text();
     let parsed = text;
     try {
-        parsed = text === "" ? undefined : JSON.parse(text);
+      parsed = text === "" ? undefined : JSON.parse(text);
     } catch {
-        /* not JSON - keep the raw text for the error message */
+      /* not JSON - keep the raw text for the error message */
     }
 
     if (res.ok) return parsed;
     const detail = describeErrorBody(parsed);
     throw new GatewayError(detail || `HTTP ${res.status}`, {
-        kind: res.status === 401 ? "auth" : "http",
-        status: res.status,
-        body: parsed,
-        url,
+      kind: res.status === 401 ? "auth" : "http",
+      status: res.status,
+      body: parsed,
+      url,
     });
-}
+  }
 
-return {
+  return {
     baseUrl: root,
     request,
     get: (p, o) => request("GET", p, undefined, o),
     post: (p, body, o) => request("POST", p, body ?? {}, o),
     put: (p, body, o) => request("PUT", p, body, o),
     delete: (p, o) => request("DELETE", p, undefined, o),
-};
+  };
 }

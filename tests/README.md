@@ -4,10 +4,10 @@ Run with `npm test` (single run) or `npm run test:watch`. These are plain
 [Vitest](https://vitest.dev) tests - no live Gateway instance needed, unlike
 `scripts/smoke-test.sh`, which they complement rather than replace:
 
-| | covers | needs |
-|---|---|---|
-| `scripts/smoke-test.sh` | end-to-end happy paths through a real running Gateway | a live instance (CI starts one) |
-| `tests/*.test.ts` | retry/failure logic, concurrency, edge cases | nothing - pure unit tests with mocked dependencies |
+|                         | covers                                                | needs                                              |
+| ----------------------- | ----------------------------------------------------- | -------------------------------------------------- |
+| `scripts/smoke-test.sh` | end-to-end happy paths through a real running Gateway | a live instance (CI starts one)                    |
+| `tests/*.test.ts`       | retry/failure logic, concurrency, edge cases          | nothing - pure unit tests with mocked dependencies |
 
 ## What's covered so far
 
@@ -40,7 +40,7 @@ Run with `npm test` (single run) or `npm run test:watch`. These are plain
   (`src/mcp-server/protocol.ts`, used by both the stdio and Streamable
   HTTP transports): `initialize`/`tools/list`/unknown-method handling,
   notifications correctly producing no response, an unknown tool name
-  and a missing `tools/call` "name" param each erroring the *right* way
+  and a missing `tools/call` "name" param each erroring the _right_ way
   (tool result vs. JSON-RPC error - see `docs/MCP_SERVER.md`), a meta
   tool dispatching straight to its `gateway-client.ts` function, an
   agent-mapped tool resolving its workspace by name and forwarding the
@@ -63,20 +63,20 @@ Run with `npm test` (single run) or `npm run test:watch`. These are plain
 
 - **`api-routes.test.ts`** - the REST routes' request validation, on a
   bare Fastify instance driven through `app.inject()` (no real port):
-  every zod schema's rejection paths return 400 *without* touching the
+  every zod schema's rejection paths return 400 _without_ touching the
   service (empty/missing fields, `maxAttempts` at 0 / above 10 /
   non-integer / a string, empty workflow `steps`, a bad `?type=` filter,
   the PATCH "at least one field" refinement), unknown workspace/job/
   workflow/entry ids return 404, valid requests reach the right service
   with the right arguments and the right status (201/202/204), the
   chat/summarize endpoints return 503 when the AI provider isn't
-  configured (checked *before* body validation, so even an invalid body
+  configured (checked _before_ body validation, so even an invalid body
   gets 503) and 502 with the provider's message when it throws, and the
   chat transcript comes back oldest-first with `source` mapped to
   `role`.
 - **`auth.test.ts`** - `registerAuth()`: a no-op when disabled; when
   enabled, 401 with no key or a wrong key, accepted via `Authorization:
-  Bearer` or `X-API-Key`, any one of several configured keys works, the
+Bearer` or `X-API-Key`, any one of several configured keys works, the
   Bearer key takes precedence over `X-API-Key` (same as
   `mcp-server/http.ts`), `GET /health` is exempt but other methods and
   routes aren't.
@@ -89,7 +89,7 @@ Run with `npm test` (single run) or `npm run test:watch`. These are plain
   read-only ones don't), and the set of destructive tools pinned to
   exactly the four that can change the device or prior work. Guards the
   things Glama's quality score marks down; it can't check that the prose
-  is still *true*, only that it's present.
+  is still _true_, only that it's present.
 
 - **`cli.test.ts`** - the `hf` CLI's pure parts (`scripts/hf/*.mjs`, plain
   ESM with no build step): measuring/truncating/wrapping that ignores ANSI
@@ -114,7 +114,7 @@ Run with `npm test` (single run) or `npm run test:watch`. These are plain
   unconfigured AI) and staying quiet otherwise, ASCII mode emitting no
   non-ASCII; and the pino stream - a request pair becoming one line, Fastify's
   per-interface "Server listening" lines dropped, a polling burst collapsing
-  to one line plus a summary, the summary flushing *before* the next
+  to one line plus a summary, the summary flushing _before_ the next
   unrelated line, lines split across writes reassembling, non-JSON passing
   through, and every output fitting its width. The plain-mode `notice()`
   format is pinned to exactly `[tag] message`, since logs may be grepped.
@@ -122,7 +122,7 @@ Run with `npm test` (single run) or `npm run test:watch`. These are plain
 **Not covered yet**, and still relying on `scripts/smoke-test.sh` or manual
 testing: the MCP agents themselves (jadx/apktool/adb/frida/apkid/apkmcp -
 all shell out to real binaries or a real device), and the two MCP server
-*transports*' own framing (`index.ts`'s stdin buffering, `http.ts`'s
+_transports_' own framing (`index.ts`'s stdin buffering, `http.ts`'s
 routing/auth/Origin-checking - `protocol.test.ts` covers the dispatch
 logic underneath both, verified manually end-to-end for each transport
 when they were built, but not yet as an automated test), and the `hf` CLI's
@@ -153,7 +153,7 @@ also have no dedicated test.
   per test (`AI_PROVIDER` and every `*_API_KEY`/`*_MODEL` are also fixed
   at config import time). "Not configured" cases stub the relevant env
   var to `""` rather than deleting it - deleting would let
-  `dotenv/config` (which only fills in keys *absent* from `process.env`)
+  `dotenv/config` (which only fills in keys _absent_ from `process.env`)
   repopulate it from a developer's real local `.env`, silently breaking
   the test on their machine.
 - **`protocol.test.ts`** `vi.mock()`s `gateway-client.js` - the one
@@ -163,7 +163,7 @@ also have no dedicated test.
   `protocol.ts` reads config at import time.
 - **`inbox-watcher.test.ts`** combines both patterns above: `vi.mock()`s
   `workspace.service.js`/`knowledge.service.js` one layer down (same as
-  `protocol.test.ts`), *and* sets `APK_INBOX_DIR`/`WORKSPACES_ROOT` via
+  `protocol.test.ts`), _and_ sets `APK_INBOX_DIR`/`WORKSPACES_ROOT` via
   `vi.stubEnv()` + `vi.resetModules()` per test against real temp
   directories (same as `local-storage.provider.test.ts`) - the watcher
   reads both config vars at import time and does real filesystem moves,

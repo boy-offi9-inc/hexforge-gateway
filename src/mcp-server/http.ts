@@ -63,7 +63,11 @@
  * Point a Streamable-HTTP-capable MCP client at http://<host>:<port>/mcp.
  */
 
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import {
+  createServer,
+  type IncomingMessage,
+  type ServerResponse,
+} from "node:http";
 import { handleRequest, log, type JsonRpcRequest } from "./protocol.js";
 
 const HOST = process.env.MCP_HTTP_HOST ?? "127.0.0.1";
@@ -72,13 +76,13 @@ const API_KEYS = new Set(
   (process.env.MCP_HTTP_API_KEYS ?? "")
     .split(",")
     .map((k) => k.trim())
-    .filter(Boolean)
+    .filter(Boolean),
 );
 const ALLOWED_ORIGINS = new Set(
   (process.env.MCP_HTTP_ALLOWED_ORIGINS ?? "")
     .split(",")
     .map((o) => o.trim())
-    .filter(Boolean)
+    .filter(Boolean),
 );
 
 // Same order of precedence as core/auth.ts: Authorization: Bearer, then
@@ -86,14 +90,19 @@ const ALLOWED_ORIGINS = new Set(
 // perspective if it ever needs to talk to both with the same key.
 function extractApiKey(req: IncomingMessage): string | undefined {
   const header = req.headers.authorization;
-  const bearer = header?.startsWith("Bearer ") ? header.slice("Bearer ".length) : undefined;
+  const bearer = header?.startsWith("Bearer ")
+    ? header.slice("Bearer ".length)
+    : undefined;
   const xApiKey = req.headers["x-api-key"];
   return bearer ?? (typeof xApiKey === "string" ? xApiKey : undefined);
 }
 
 function sendJson(res: ServerResponse, status: number, body: unknown) {
   const text = JSON.stringify(body);
-  res.writeHead(status, { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(text) });
+  res.writeHead(status, {
+    "Content-Type": "application/json",
+    "Content-Length": Buffer.byteLength(text),
+  });
   res.end(text);
 }
 
@@ -122,7 +131,14 @@ async function handleMcpPost(req: IncomingMessage, res: ServerResponse) {
   try {
     raw = await readBody(req);
   } catch (err) {
-    sendJson(res, 413, { jsonrpc: "2.0", id: null, error: { code: -32600, message: err instanceof Error ? err.message : String(err) } });
+    sendJson(res, 413, {
+      jsonrpc: "2.0",
+      id: null,
+      error: {
+        code: -32600,
+        message: err instanceof Error ? err.message : String(err),
+      },
+    });
     return;
   }
 
@@ -133,7 +149,10 @@ async function handleMcpPost(req: IncomingMessage, res: ServerResponse) {
     sendJson(res, 400, {
       jsonrpc: "2.0",
       id: null,
-      error: { code: -32700, message: `Parse error: ${err instanceof Error ? err.message : String(err)}` },
+      error: {
+        code: -32700,
+        message: `Parse error: ${err instanceof Error ? err.message : String(err)}`,
+      },
     });
     return;
   }
@@ -163,10 +182,17 @@ function checkAuth(req: IncomingMessage): boolean {
 }
 
 async function requestListener(req: IncomingMessage, res: ServerResponse) {
-  const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
+  const url = new URL(
+    req.url ?? "/",
+    `http://${req.headers.host ?? "localhost"}`,
+  );
 
   if (url.pathname === "/health") {
-    sendJson(res, 200, { status: "ok", server: "hexforge-mcp-http", transport: "streamable-http" });
+    sendJson(res, 200, {
+      status: "ok",
+      server: "hexforge-mcp-http",
+      transport: "streamable-http",
+    });
     return;
   }
 
@@ -176,12 +202,22 @@ async function requestListener(req: IncomingMessage, res: ServerResponse) {
   }
 
   if (!checkOrigin(req)) {
-    sendJson(res, 403, { error: `Origin "${req.headers.origin}" is not in MCP_HTTP_ALLOWED_ORIGINS` });
+    sendJson(res, 403, {
+      error: `Origin "${req.headers.origin}" is not in MCP_HTTP_ALLOWED_ORIGINS`,
+    });
     return;
   }
   if (!checkAuth(req)) {
-    res.writeHead(401, { "Content-Type": "application/json", "WWW-Authenticate": "Bearer" });
-    res.end(JSON.stringify({ error: 'Missing or invalid API key. Send it as "Authorization: Bearer <key>" or "X-API-Key: <key>".' }));
+    res.writeHead(401, {
+      "Content-Type": "application/json",
+      "WWW-Authenticate": "Bearer",
+    });
+    res.end(
+      JSON.stringify({
+        error:
+          'Missing or invalid API key. Send it as "Authorization: Bearer <key>" or "X-API-Key: <key>".',
+      }),
+    );
     return;
   }
 
@@ -191,11 +227,15 @@ async function requestListener(req: IncomingMessage, res: ServerResponse) {
       return;
     case "GET":
       sendJson(res, 405, {
-        error: "This server has no server-initiated notifications to stream, so it doesn't open a standalone SSE session via GET /mcp. Use POST /mcp for tool calls.",
+        error:
+          "This server has no server-initiated notifications to stream, so it doesn't open a standalone SSE session via GET /mcp. Use POST /mcp for tool calls.",
       });
       return;
     case "DELETE":
-      sendJson(res, 405, { error: "This server never issues a session id (every tool call is a fresh, independent request), so there's no session to terminate." });
+      sendJson(res, 405, {
+        error:
+          "This server never issues a session id (every tool call is a fresh, independent request), so there's no session to terminate.",
+      });
       return;
     default:
       res.writeHead(405, { Allow: "POST" });
@@ -205,18 +245,23 @@ async function requestListener(req: IncomingMessage, res: ServerResponse) {
 
 function main() {
   if (API_KEYS.size === 0) {
-    log("WARNING: MCP_HTTP_API_KEYS is not set - this endpoint has no auth. Fine for 127.0.0.1; do not bind MCP_HTTP_HOST beyond localhost without setting it.");
+    log(
+      "WARNING: MCP_HTTP_API_KEYS is not set - this endpoint has no auth. Fine for 127.0.0.1; do not bind MCP_HTTP_HOST beyond localhost without setting it.",
+    );
   }
 
   const server = createServer((req, res) => {
     void requestListener(req, res).catch((err) => {
       log("unhandled error handling request:", err);
-      if (!res.headersSent) sendJson(res, 500, { error: "Internal server error" });
+      if (!res.headersSent)
+        sendJson(res, 500, { error: "Internal server error" });
     });
   });
 
   server.listen(PORT, HOST, () => {
-    log(`starting (streamable HTTP transport) on http://${HOST}:${PORT}/mcp, targeting Gateway at ${process.env.HEXFORGE_URL ?? "http://localhost:8080"}`);
+    log(
+      `starting (streamable HTTP transport) on http://${HOST}:${PORT}/mcp, targeting Gateway at ${process.env.HEXFORGE_URL ?? "http://localhost:8080"}`,
+    );
   });
 
   process.on("uncaughtException", (err) => {

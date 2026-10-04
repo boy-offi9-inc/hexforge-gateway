@@ -26,7 +26,10 @@ export async function workspaceRoutes(app: FastifyInstance) {
     if (!parsed.success) {
       return reply.code(400).send({ error: parsed.error.flatten() });
     }
-    const workspace = await workspaceService.createWorkspace(parsed.data.name, parsed.data.targetLabel);
+    const workspace = await workspaceService.createWorkspace(
+      parsed.data.name,
+      parsed.data.targetLabel,
+    );
     return reply.code(201).send(workspace);
   });
 
@@ -37,7 +40,8 @@ export async function workspaceRoutes(app: FastifyInstance) {
   app.get("/workspaces/:id", async (req, reply) => {
     const { id } = req.params as { id: string };
     const workspace = await workspaceService.getWorkspace(id);
-    if (!workspace) return reply.code(404).send({ error: "Workspace not found" });
+    if (!workspace)
+      return reply.code(404).send({ error: "Workspace not found" });
     return workspace;
   });
 
@@ -51,14 +55,18 @@ export async function workspaceRoutes(app: FastifyInstance) {
     if (!parsed.success) {
       return reply.code(400).send({ error: parsed.error.flatten() });
     }
-    const workspace = await workspaceService.getOrCreateWorkspace(name, parsed.data.targetLabel ?? name);
+    const workspace = await workspaceService.getOrCreateWorkspace(
+      name,
+      parsed.data.targetLabel ?? name,
+    );
     return reply.code(200).send(workspace);
   });
 
   app.post("/workspaces/:id/tasks", async (req, reply) => {
     const { id } = req.params as { id: string };
     const workspace = await workspaceService.getWorkspace(id);
-    if (!workspace) return reply.code(404).send({ error: "Workspace not found" });
+    if (!workspace)
+      return reply.code(404).send({ error: "Workspace not found" });
 
     const parsed = dispatchTaskSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -89,7 +97,8 @@ export async function workspaceRoutes(app: FastifyInstance) {
   app.get("/workspaces/:id/inbox", async (req, reply) => {
     const { id } = req.params as { id: string };
     const workspace = await workspaceService.getWorkspace(id);
-    if (!workspace) return reply.code(404).send({ error: "Workspace not found" });
+    if (!workspace)
+      return reply.code(404).send({ error: "Workspace not found" });
     const apks = await listInboxApks(id);
     return { apks };
   });

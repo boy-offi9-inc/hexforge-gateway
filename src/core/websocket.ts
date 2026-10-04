@@ -33,7 +33,10 @@ type SubscribableEvent =
 // scoped endpoint can decide whether to forward it. workspace.status_changed
 // carries the workspace's own id under `workspace.id` rather than a
 // `workspaceId` field - every other event's record already has one.
-function workspaceIdOf<K extends SubscribableEvent>(event: K, payload: EventMap[K]): string {
+function workspaceIdOf<K extends SubscribableEvent>(
+  event: K,
+  payload: EventMap[K],
+): string {
   switch (event) {
     case "mcp.task.updated":
       return (payload as EventMap["mcp.task.updated"]).task.workspaceId;
@@ -60,31 +63,59 @@ interface WsConnection {
   };
 }
 
-function attachConnection(connection: WsConnection, scopeToWorkspaceId?: string) {
-  const send = (message: Record<string, unknown>) => connection.socket.send(JSON.stringify(message));
+function attachConnection(
+  connection: WsConnection,
+  scopeToWorkspaceId?: string,
+) {
+  const send = (message: Record<string, unknown>) =>
+    connection.socket.send(JSON.stringify(message));
 
   function forwardIfInScope<K extends SubscribableEvent>(
     event: K,
     type: string,
     payload: EventMap[K],
-    extract: (p: EventMap[K]) => Record<string, unknown>
+    extract: (p: EventMap[K]) => Record<string, unknown>,
   ) {
-    if (scopeToWorkspaceId && workspaceIdOf(event, payload) !== scopeToWorkspaceId) return;
+    if (
+      scopeToWorkspaceId &&
+      workspaceIdOf(event, payload) !== scopeToWorkspaceId
+    )
+      return;
     send({ type, ...extract(payload) });
   }
 
   const onTaskUpdate = (payload: EventMap["mcp.task.updated"]) =>
-    forwardIfInScope("mcp.task.updated", "task:update", payload, (p) => ({ task: p.task }));
-  const onJobUpdate = (payload: EventMap["job.updated"]) =>
-    forwardIfInScope("job.updated", "job:update", payload, (p) => ({ job: p.job }));
-  const onWorkspaceStatusChanged = (payload: EventMap["workspace.status_changed"]) =>
-    forwardIfInScope("workspace.status_changed", "workspace:status_changed", payload, (p) => ({
-      workspace: p.workspace,
+    forwardIfInScope("mcp.task.updated", "task:update", payload, (p) => ({
+      task: p.task,
     }));
+  const onJobUpdate = (payload: EventMap["job.updated"]) =>
+    forwardIfInScope("job.updated", "job:update", payload, (p) => ({
+      job: p.job,
+    }));
+  const onWorkspaceStatusChanged = (
+    payload: EventMap["workspace.status_changed"],
+  ) =>
+    forwardIfInScope(
+      "workspace.status_changed",
+      "workspace:status_changed",
+      payload,
+      (p) => ({
+        workspace: p.workspace,
+      }),
+    );
   const onWorkflowUpdate = (payload: EventMap["workflow.updated"]) =>
-    forwardIfInScope("workflow.updated", "workflow:update", payload, (p) => ({ workflow: p.workflow }));
-  const onKnowledgeEntryCreated = (payload: EventMap["knowledge.entry_created"]) =>
-    forwardIfInScope("knowledge.entry_created", "knowledge:entry_created", payload, (p) => ({ entry: p.entry }));
+    forwardIfInScope("workflow.updated", "workflow:update", payload, (p) => ({
+      workflow: p.workflow,
+    }));
+  const onKnowledgeEntryCreated = (
+    payload: EventMap["knowledge.entry_created"],
+  ) =>
+    forwardIfInScope(
+      "knowledge.entry_created",
+      "knowledge:entry_created",
+      payload,
+      (p) => ({ entry: p.entry }),
+    );
 
   eventBus.on("mcp.task.updated", onTaskUpdate);
   eventBus.on("job.updated", onJobUpdate);

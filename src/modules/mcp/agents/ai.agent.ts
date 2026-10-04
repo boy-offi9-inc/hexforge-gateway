@@ -6,12 +6,17 @@ interface SummarizePayload {
   instructions?: string;
 }
 
-function assertSummarizePayload(payload: Record<string, unknown>): SummarizePayload {
+function assertSummarizePayload(
+  payload: Record<string, unknown>,
+): SummarizePayload {
   const content = payload.content;
   if (typeof content !== "string" || content.trim().length === 0) {
-    throw new Error('ai agent "summarize" operation requires a "content" string in the task payload');
+    throw new Error(
+      'ai agent "summarize" operation requires a "content" string in the task payload',
+    );
   }
-  const instructions = typeof payload.instructions === "string" ? payload.instructions : undefined;
+  const instructions =
+    typeof payload.instructions === "string" ? payload.instructions : undefined;
   return { content, instructions };
 }
 
@@ -30,7 +35,9 @@ const SUMMARIZE_SYSTEM_PROMPT =
  */
 export async function aiHandler(task: McpTask): Promise<unknown> {
   if (task.operation !== "summarize") {
-    throw new Error(`Unsupported ai operation "${task.operation}". Supported: "summarize"`);
+    throw new Error(
+      `Unsupported ai operation "${task.operation}". Supported: "summarize"`,
+    );
   }
 
   const { content, instructions } = assertSummarizePayload(task.payload);

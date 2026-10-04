@@ -31,24 +31,33 @@ const DEFAULT_TIMEOUT_SECONDS = 30;
 
 async function identifyHandler(task: McpTask): Promise<unknown> {
   const payload = task.payload as unknown as IdentifyPayload;
-  if (!payload.apkPath) throw new Error('identify requires "apkPath" in the task payload');
+  if (!payload.apkPath)
+    throw new Error('identify requires "apkPath" in the task payload');
 
   const apkPath = path.resolve(payload.apkPath);
-  if (!existsSync(apkPath)) throw new Error(`File not found at path: ${apkPath}`);
+  if (!existsSync(apkPath))
+    throw new Error(`File not found at path: ${apkPath}`);
 
-  const timeoutSeconds = payload.timeoutSeconds && payload.timeoutSeconds > 0 ? payload.timeoutSeconds : DEFAULT_TIMEOUT_SECONDS;
+  const timeoutSeconds =
+    payload.timeoutSeconds && payload.timeoutSeconds > 0
+      ? payload.timeoutSeconds
+      : DEFAULT_TIMEOUT_SECONDS;
 
   let stdout: string;
   try {
-    ({ stdout } = await execFileAsync("apkid", ["-j", "-t", String(timeoutSeconds), apkPath], {
-      maxBuffer: 1024 * 1024 * 10,
-    }));
+    ({ stdout } = await execFileAsync(
+      "apkid",
+      ["-j", "-t", String(timeoutSeconds), apkPath],
+      {
+        maxBuffer: 1024 * 1024 * 10,
+      },
+    ));
   } catch (err) {
     throw friendlyExecError(
       "apkid",
       'Install it with "pip install apkid" - note it needs a yara-python build with DEX support first, plain ' +
         "yara-python isn't enough. See https://github.com/rednaga/APKiD#installation.",
-      err
+      err,
     );
   }
 
@@ -66,6 +75,8 @@ export async function apkidHandler(task: McpTask): Promise<unknown> {
     case "identify":
       return identifyHandler(task);
     default:
-      throw new Error(`Unsupported apkid operation "${task.operation}". Supported: "identify"`);
+      throw new Error(
+        `Unsupported apkid operation "${task.operation}". Supported: "identify"`,
+      );
   }
 }

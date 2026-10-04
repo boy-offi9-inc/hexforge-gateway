@@ -5,7 +5,9 @@ import type { Job } from "../../core/types.js";
 const COLLECTION = "jobs";
 
 function warnFallback(op: string, message: string) {
-  console.warn(`[job.service] Supabase ${op} failed, falling back to local storage: ${message}`);
+  console.warn(
+    `[job.service] Supabase ${op} failed, falling back to local storage: ${message}`,
+  );
 }
 
 /**

@@ -9,7 +9,8 @@ import path from "node:path";
 // test - a fresh on-disk directory *and* a fresh cache - we point DATA_DIR
 // at a new temp dir and vi.resetModules() before every dynamic import
 // below, rather than importing the module once at the top of the file.
-type LocalStorageModule = typeof import("../src/providers/local-storage.provider.js");
+type LocalStorageModule =
+  typeof import("../src/providers/local-storage.provider.js");
 
 interface Widget {
   id: string;
@@ -34,15 +35,21 @@ afterEach(async () => {
 
 describe("local-storage.provider", () => {
   it("returns null for a record whose collection file doesn't exist yet", async () => {
-    await expect(store.getRecord<Widget>("widgets", "missing")).resolves.toBeNull();
+    await expect(
+      store.getRecord<Widget>("widgets", "missing"),
+    ).resolves.toBeNull();
   });
 
   it("round-trips a record through upsert / get / list", async () => {
     const record: Widget = { id: "a1", name: "First" };
     await store.upsertRecord("widgets", record);
 
-    await expect(store.getRecord<Widget>("widgets", "a1")).resolves.toEqual(record);
-    await expect(store.listRecords<Widget>("widgets")).resolves.toEqual([record]);
+    await expect(store.getRecord<Widget>("widgets", "a1")).resolves.toEqual(
+      record,
+    );
+    await expect(store.listRecords<Widget>("widgets")).resolves.toEqual([
+      record,
+    ]);
   });
 
   it("upserting the same id again overwrites rather than duplicating", async () => {
@@ -64,8 +71,12 @@ describe("local-storage.provider", () => {
     // from the in-memory collectionCache - it has to come from disk.
     vi.resetModules();
     vi.stubEnv("DATA_DIR", dataDir);
-    const reopened: LocalStorageModule = await import("../src/providers/local-storage.provider.js");
-    await expect(reopened.getRecord<Widget>("widgets", "a1")).resolves.toEqual({ id: "a1", name: "First" });
+    const reopened: LocalStorageModule =
+      await import("../src/providers/local-storage.provider.js");
+    await expect(reopened.getRecord<Widget>("widgets", "a1")).resolves.toEqual({
+      id: "a1",
+      name: "First",
+    });
   });
 
   it("deleteRecord removes an existing record and reports true", async () => {
@@ -80,23 +91,41 @@ describe("local-storage.provider", () => {
   });
 
   it("findRecord returns the first match, or null when nothing matches", async () => {
-    await store.upsertRecord<Widget>("widgets", { id: "a1", name: "First", tag: "x" });
-    await store.upsertRecord<Widget>("widgets", { id: "a2", name: "Second", tag: "y" });
-
-    await expect(store.findRecord<Widget>("widgets", (r) => r.tag === "y")).resolves.toEqual({
+    await store.upsertRecord<Widget>("widgets", {
+      id: "a1",
+      name: "First",
+      tag: "x",
+    });
+    await store.upsertRecord<Widget>("widgets", {
       id: "a2",
       name: "Second",
       tag: "y",
     });
-    await expect(store.findRecord<Widget>("widgets", (r) => r.tag === "z")).resolves.toBeNull();
+
+    await expect(
+      store.findRecord<Widget>("widgets", (r) => r.tag === "y"),
+    ).resolves.toEqual({
+      id: "a2",
+      name: "Second",
+      tag: "y",
+    });
+    await expect(
+      store.findRecord<Widget>("widgets", (r) => r.tag === "z"),
+    ).resolves.toBeNull();
   });
 
   it("keeps separate collections independent, even with overlapping ids", async () => {
     await store.upsertRecord<Widget>("widgets", { id: "a1", name: "A Widget" });
     await store.upsertRecord<Widget>("gadgets", { id: "a1", name: "A Gadget" });
 
-    await expect(store.getRecord<Widget>("widgets", "a1")).resolves.toEqual({ id: "a1", name: "A Widget" });
-    await expect(store.getRecord<Widget>("gadgets", "a1")).resolves.toEqual({ id: "a1", name: "A Gadget" });
+    await expect(store.getRecord<Widget>("widgets", "a1")).resolves.toEqual({
+      id: "a1",
+      name: "A Widget",
+    });
+    await expect(store.getRecord<Widget>("gadgets", "a1")).resolves.toEqual({
+      id: "a1",
+      name: "A Gadget",
+    });
   });
 
   it("serializes concurrent upserts to one collection instead of one clobbering another", async () => {
@@ -105,13 +134,21 @@ describe("local-storage.provider", () => {
     // all survive - not just whichever happens to write to disk last.
     const count = 20;
     await Promise.all(
-      Array.from({ length: count }, (_, i) => store.upsertRecord<Widget>("widgets", { id: `r${i}`, name: `Record ${i}` }))
+      Array.from({ length: count }, (_, i) =>
+        store.upsertRecord<Widget>("widgets", {
+          id: `r${i}`,
+          name: `Record ${i}`,
+        }),
+      ),
     );
 
     const all = await store.listRecords<Widget>("widgets");
     expect(all).toHaveLength(count);
     for (let i = 0; i < count; i++) {
-      expect(all.find((r) => r.id === `r${i}`)).toEqual({ id: `r${i}`, name: `Record ${i}` });
+      expect(all.find((r) => r.id === `r${i}`)).toEqual({
+        id: `r${i}`,
+        name: `Record ${i}`,
+      });
     }
   });
 
@@ -124,7 +161,10 @@ describe("local-storage.provider", () => {
     ]);
 
     const all = await store.listRecords<Widget>("widgets");
-    expect(all.find((r) => r.id === "new")).toEqual({ id: "new", name: "Newcomer" });
+    expect(all.find((r) => r.id === "new")).toEqual({
+      id: "new",
+      name: "Newcomer",
+    });
     expect(all.find((r) => r.id === "keep")).toBeUndefined();
   });
 });

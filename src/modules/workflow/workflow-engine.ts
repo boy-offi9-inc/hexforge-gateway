@@ -1,5 +1,9 @@
 import { nanoid } from "nanoid";
-import type { Workflow, WorkflowSpec, WorkflowStepState } from "../../core/types.js";
+import type {
+  Workflow,
+  WorkflowSpec,
+  WorkflowStepState,
+} from "../../core/types.js";
 import { eventBus } from "../../events/event-bus.js";
 import type { EventMap } from "../../events/types.js";
 import { jobEngine } from "../jobs/job-engine.js";
@@ -9,7 +13,10 @@ function persist(workflow: Workflow) {
   // Fire and forget, mirroring job-engine.ts's persist() - a failed write
   // shouldn't stall or crash the live workflow.
   void workflowService.persistWorkflow(workflow).catch((err) => {
-    console.warn(`[workflow-engine] failed to persist workflow ${workflow.id}:`, err);
+    console.warn(
+      `[workflow-engine] failed to persist workflow ${workflow.id}:`,
+      err,
+    );
   });
 }
 
@@ -46,7 +53,8 @@ class WorkflowEngine {
         const corrected: Workflow = {
           ...workflow,
           status: "failed",
-          error: "Interrupted by a Gateway restart before this workflow finished; not resumed.",
+          error:
+            "Interrupted by a Gateway restart before this workflow finished; not resumed.",
           updatedAt: new Date().toISOString(),
         };
         this.workflows.set(workflow.id, corrected);
@@ -58,7 +66,9 @@ class WorkflowEngine {
   }
 
   listWorkflowsForWorkspace(workspaceId: string): Workflow[] {
-    return Array.from(this.workflows.values()).filter((w) => w.workspaceId === workspaceId);
+    return Array.from(this.workflows.values()).filter(
+      (w) => w.workspaceId === workspaceId,
+    );
   }
 
   submit(spec: WorkflowSpec): Workflow {
@@ -71,7 +81,8 @@ class WorkflowEngine {
       agent: step.agent,
       operation: step.operation,
       payload: step.payload ?? {},
-      maxAttempts: step.maxAttempts && step.maxAttempts > 0 ? step.maxAttempts : 1,
+      maxAttempts:
+        step.maxAttempts && step.maxAttempts > 0 ? step.maxAttempts : 1,
       mergePreviousResult: step.mergePreviousResult ?? false,
       status: "pending",
     }));
@@ -101,18 +112,28 @@ class WorkflowEngine {
   private update(id: string, patch: Partial<Workflow>): Workflow | undefined {
     const existing = this.workflows.get(id);
     if (!existing) return undefined;
-    const updated = { ...existing, ...patch, updatedAt: new Date().toISOString() };
+    const updated = {
+      ...existing,
+      ...patch,
+      updatedAt: new Date().toISOString(),
+    };
     this.workflows.set(id, updated);
     persist(updated);
 
     eventBus.emit("workflow.updated", { workflow: updated });
-    if (updated.status === "completed") eventBus.emit("workflow.completed", { workflow: updated });
-    if (updated.status === "failed") eventBus.emit("workflow.failed", { workflow: updated });
+    if (updated.status === "completed")
+      eventBus.emit("workflow.completed", { workflow: updated });
+    if (updated.status === "failed")
+      eventBus.emit("workflow.failed", { workflow: updated });
 
     return updated;
   }
 
-  private updateStep(id: string, index: number, patch: Partial<WorkflowStepState>): Workflow | undefined {
+  private updateStep(
+    id: string,
+    index: number,
+    patch: Partial<WorkflowStepState>,
+  ): Workflow | undefined {
     const existing = this.workflows.get(id);
     if (!existing) return undefined;
     const steps = existing.steps.slice();
@@ -132,7 +153,9 @@ class WorkflowEngine {
     const step = workflow.steps[index];
     const previous = index > 0 ? workflow.steps[index - 1] : undefined;
     const payload =
-      step.mergePreviousResult && previous?.result && typeof previous.result === "object"
+      step.mergePreviousResult &&
+      previous?.result &&
+      typeof previous.result === "object"
         ? { ...step.payload, ...(previous.result as Record<string, unknown>) }
         : step.payload;
 
@@ -149,15 +172,27 @@ class WorkflowEngine {
 
     this.updateStep(workflowId, index, { jobId: job.id, status: "running" });
 
-    const handleTerminal = (latestJob: NonNullable<ReturnType<typeof jobEngine.getJob>>) => {
+    const handleTerminal = (
+      latestJob: NonNullable<ReturnType<typeof jobEngine.getJob>>,
+    ) => {
       if (latestJob.status === "completed") {
-        this.updateStep(workflowId, index, { status: "completed", result: latestJob.result, error: undefined });
+        this.updateStep(workflowId, index, {
+          status: "completed",
+          result: latestJob.result,
+          error: undefined,
+        });
         void this.runStep(workflowId, index + 1);
         return true;
       }
       if (latestJob.status === "failed") {
-        this.updateStep(workflowId, index, { status: "failed", error: latestJob.error });
-        this.update(workflowId, { status: "failed", error: `Step ${index} ("${step.agent}:${step.operation}") failed: ${latestJob.error}` });
+        this.updateStep(workflowId, index, {
+          status: "failed",
+          error: latestJob.error,
+        });
+        this.update(workflowId, {
+          status: "failed",
+          error: `Step ${index} ("${step.agent}:${step.operation}") failed: ${latestJob.error}`,
+        });
         return true;
       }
       return false;

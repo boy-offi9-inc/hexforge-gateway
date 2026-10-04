@@ -51,7 +51,7 @@ interface JsonRpcMessage {
 async function sendMcpMessage(
   baseUrl: string,
   message: JsonRpcMessage,
-  sessionId?: string
+  sessionId?: string,
 ): Promise<{ result?: any; error?: any; sessionId?: string }> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -69,7 +69,9 @@ async function sendMcpMessage(
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`MCP server responded ${res.status}: ${text.slice(0, 500)}`);
+    throw new Error(
+      `MCP server responded ${res.status}: ${text.slice(0, 500)}`,
+    );
   }
 
   // Notifications get no body back.
@@ -84,7 +86,8 @@ async function sendMcpMessage(
     // can't wait for it to close (res.text() would hang forever). Read
     // incrementally and stop as soon as we see a complete JSON-RPC message
     // matching this request's id.
-    if (!res.body) throw new Error("MCP server returned an event-stream with no body");
+    if (!res.body)
+      throw new Error("MCP server returned an event-stream with no body");
 
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
@@ -102,7 +105,9 @@ async function sendMcpMessage(
         buffer = events.pop() ?? "";
 
         for (const evt of events) {
-          const dataLine = evt.split("\n").find((line) => line.startsWith("data:"));
+          const dataLine = evt
+            .split("\n")
+            .find((line) => line.startsWith("data:"));
           if (!dataLine) continue;
 
           const jsonStr = dataLine.slice(5).trim();
@@ -115,7 +120,11 @@ async function sendMcpMessage(
 
           if (parsed.id === message.id) {
             await reader.cancel().catch(() => {});
-            return { result: parsed.result, error: parsed.error, sessionId: returnedSessionId };
+            return {
+              result: parsed.result,
+              error: parsed.error,
+              sessionId: returnedSessionId,
+            };
           }
         }
       }
@@ -123,11 +132,17 @@ async function sendMcpMessage(
       await reader.cancel().catch(() => {});
     }
 
-    throw new Error(`Timed out waiting for MCP response to "${message.method}" after ${timeoutMs}ms`);
+    throw new Error(
+      `Timed out waiting for MCP response to "${message.method}" after ${timeoutMs}ms`,
+    );
   }
 
   const parsed = await res.json();
-  return { result: parsed.result, error: parsed.error, sessionId: returnedSessionId };
+  return {
+    result: parsed.result,
+    error: parsed.error,
+    sessionId: returnedSessionId,
+  };
 }
 
 async function initSession(baseUrl: string): Promise<string | undefined> {
@@ -143,11 +158,17 @@ async function initSession(baseUrl: string): Promise<string | undefined> {
   });
 
   if (initResult.error) {
-    throw new Error(`MCP initialize failed: ${JSON.stringify(initResult.error)}`);
+    throw new Error(
+      `MCP initialize failed: ${JSON.stringify(initResult.error)}`,
+    );
   }
 
   const sessionId = initResult.sessionId;
-  await sendMcpMessage(baseUrl, { jsonrpc: "2.0", method: "notifications/initialized" }, sessionId);
+  await sendMcpMessage(
+    baseUrl,
+    { jsonrpc: "2.0", method: "notifications/initialized" },
+    sessionId,
+  );
   return sessionId;
 }
 
@@ -180,12 +201,17 @@ async function callTool(
   baseUrl: string,
   sessionId: string | undefined,
   toolName: string,
-  args: Record<string, unknown>
+  args: Record<string, unknown>,
 ): Promise<unknown> {
   const { result, error } = await sendMcpMessage(
     baseUrl,
-    { jsonrpc: "2.0", id: newRequestId(), method: "tools/call", params: { name: toolName, arguments: args } },
-    sessionId
+    {
+      jsonrpc: "2.0",
+      id: newRequestId(),
+      method: "tools/call",
+      params: { name: toolName, arguments: args },
+    },
+    sessionId,
   );
   if (error) throw new Error(`${toolName} failed: ${JSON.stringify(error)}`);
 
@@ -198,7 +224,9 @@ async function callTool(
   // this can read payload.error and payload.nextActions to decide what to
   // do next.
   if (result?.isError && typeof payload !== "object") {
-    throw new Error(`${toolName} reported an error: ${JSON.stringify(payload)}`);
+    throw new Error(
+      `${toolName} reported an error: ${JSON.stringify(payload)}`,
+    );
   }
 
   return payload;
@@ -235,7 +263,7 @@ export async function apkMcpHandler(task: McpTask): Promise<unknown> {
     throw new Error(
       `Could not connect to MCP server at ${baseUrl}. Make sure the APK MCP service is running and reachable from this device/network. (${
         err instanceof Error ? err.message : String(err)
-      })`
+      })`,
     );
   }
 
@@ -244,15 +272,21 @@ export async function apkMcpHandler(task: McpTask): Promise<unknown> {
       const { result, error } = await sendMcpMessage(
         baseUrl,
         { jsonrpc: "2.0", id: newRequestId(), method: "tools/list" },
-        sessionId
+        sessionId,
       );
       if (error) throw new Error(`tools/list failed: ${JSON.stringify(error)}`);
       return result;
     }
 
     case "call_tool": {
-      if (!payload.tool) throw new Error('call_tool requires a "tool" name in the payload');
-      return callTool(baseUrl, sessionId, payload.tool, payload.arguments ?? {});
+      if (!payload.tool)
+        throw new Error('call_tool requires a "tool" name in the payload');
+      return callTool(
+        baseUrl,
+        sessionId,
+        payload.tool,
+        payload.arguments ?? {},
+      );
     }
 
     case "list_available_apks": {
@@ -265,7 +299,7 @@ export async function apkMcpHandler(task: McpTask): Promise<unknown> {
     case "open": {
       if (!payload.path) {
         throw new Error(
-          'open requires a "path" - either a relative APK path under the MCP operation directory (see mt_apk_list_available_apks), or "mt://current-apk"'
+          'open requires a "path" - either a relative APK path under the MCP operation directory (see mt_apk_list_available_apks), or "mt://current-apk"',
         );
       }
       return callTool(baseUrl, sessionId, "mt_apk_open", {
@@ -275,7 +309,8 @@ export async function apkMcpHandler(task: McpTask): Promise<unknown> {
     }
 
     case "list": {
-      if (!payload.workspaceId) throw new Error('list requires "workspaceId" from a prior "open" call');
+      if (!payload.workspaceId)
+        throw new Error('list requires "workspaceId" from a prior "open" call');
       return callTool(baseUrl, sessionId, "mt_apk_list", {
         workspaceId: payload.workspaceId,
         editSessionId: payload.editSessionId ?? "",
@@ -287,7 +322,9 @@ export async function apkMcpHandler(task: McpTask): Promise<unknown> {
 
     case "outline_class": {
       if (!payload.workspaceId || !payload.locator) {
-        throw new Error('outline_class requires "workspaceId" and a "locator" like dex_class:Lcom/example/Foo;');
+        throw new Error(
+          'outline_class requires "workspaceId" and a "locator" like dex_class:Lcom/example/Foo;',
+        );
       }
       return callTool(baseUrl, sessionId, "mt_apk_outline_class", {
         workspaceId: payload.workspaceId,
@@ -299,7 +336,9 @@ export async function apkMcpHandler(task: McpTask): Promise<unknown> {
 
     case "read_text": {
       if (!payload.workspaceId || !payload.locator) {
-        throw new Error('read_text requires "workspaceId" and a "locator" (zip_entry:, axml:, dex_class:, dex_method:, or dex_field:)');
+        throw new Error(
+          'read_text requires "workspaceId" and a "locator" (zip_entry:, axml:, dex_class:, dex_method:, or dex_field:)',
+        );
       }
       return callTool(baseUrl, sessionId, "mt_apk_read_text", {
         workspaceId: payload.workspaceId,
@@ -333,12 +372,14 @@ export async function apkMcpHandler(task: McpTask): Promise<unknown> {
 
     case "close": {
       if (!payload.workspaceId) throw new Error('close requires "workspaceId"');
-      return callTool(baseUrl, sessionId, "mt_apk_close", { workspaceId: payload.workspaceId });
+      return callTool(baseUrl, sessionId, "mt_apk_close", {
+        workspaceId: payload.workspaceId,
+      });
     }
 
     default:
       throw new Error(
-        `Unsupported apkmcp operation "${task.operation}". Supported: list_tools, call_tool, list_available_apks, open, list, outline_class, read_text, search, close`
+        `Unsupported apkmcp operation "${task.operation}". Supported: list_tools, call_tool, list_available_apks, open, list, outline_class, read_text, search, close`,
       );
   }
 }

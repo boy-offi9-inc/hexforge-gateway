@@ -21,7 +21,8 @@ export async function workflowRoutes(app: FastifyInstance) {
   app.post("/workspaces/:id/workflows", async (req, reply) => {
     const { id } = req.params as { id: string };
     const workspace = await workspaceService.getWorkspace(id);
-    if (!workspace) return reply.code(404).send({ error: "Workspace not found" });
+    if (!workspace)
+      return reply.code(404).send({ error: "Workspace not found" });
 
     const parsed = submitWorkflowSchema.safeParse(req.body);
     if (!parsed.success) {

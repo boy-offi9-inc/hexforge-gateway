@@ -106,7 +106,8 @@ export interface WorkflowSpec {
   steps: WorkflowStepSpec[];
 }
 
-export type WorkflowStepStatus = "pending" | "queued" | "running" | "completed" | "failed";
+export type WorkflowStepStatus =
+  "pending" | "queued" | "running" | "completed" | "failed";
 
 export interface WorkflowStepState {
   agent: McpAgentKind;

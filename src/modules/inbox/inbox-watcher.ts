@@ -34,7 +34,14 @@
  * out of sync with what's actually on disk.
  */
 
-import { mkdir, readdir, rename, copyFile, unlink, stat } from "node:fs/promises";
+import {
+  mkdir,
+  readdir,
+  rename,
+  copyFile,
+  unlink,
+  stat,
+} from "node:fs/promises";
 import path from "node:path";
 import { config } from "../../core/config.js";
 import * as workspaceService from "../workspace/workspace.service.js";
@@ -87,14 +94,25 @@ export class InboxWatcher {
     // and where, so the two status lines below would only repeat it.
     const quiet = detectConsoleCaps().pretty;
     if (!config.APK_INBOX_DIR) {
-      if (!quiet) log("APK_INBOX_DIR not set - disabled. Set it to a folder to enable dropping APKs instead of typing full paths.");
+      if (!quiet)
+        log(
+          "APK_INBOX_DIR not set - disabled. Set it to a folder to enable dropping APKs instead of typing full paths.",
+        );
       return;
     }
     const resolved = path.resolve(config.APK_INBOX_DIR);
     this.dir = resolved;
-    if (!quiet) log(`watching ${resolved} every ${config.APK_INBOX_POLL_MS}ms for dropped .apk files`);
+    if (!quiet)
+      log(
+        `watching ${resolved} every ${config.APK_INBOX_POLL_MS}ms for dropped .apk files`,
+      );
     this.timer = setInterval(() => {
-      void this.runOnce().catch((err) => log("poll tick failed:", err instanceof Error ? err.message : String(err)));
+      void this.runOnce().catch((err) =>
+        log(
+          "poll tick failed:",
+          err instanceof Error ? err.message : String(err),
+        ),
+      );
     }, config.APK_INBOX_POLL_MS);
   }
 
@@ -120,7 +138,9 @@ export class InboxWatcher {
       throw err;
     }
 
-    const apkFiles = new Set(entries.filter((f) => f.toLowerCase().endsWith(".apk")));
+    const apkFiles = new Set(
+      entries.filter((f) => f.toLowerCase().endsWith(".apk")),
+    );
 
     // Stop tracking anything that's no longer there (removed externally
     // before it ever stabilized) so `seen` doesn't grow unbounded.
@@ -142,13 +162,20 @@ export class InboxWatcher {
       }
 
       const previous = this.seen.get(fileName);
-      if (previous && previous.size === info.size && previous.mtimeMs === info.mtimeMs) {
+      if (
+        previous &&
+        previous.size === info.size &&
+        previous.mtimeMs === info.mtimeMs
+      ) {
         this.seen.delete(fileName);
         this.claiming.add(fileName);
         try {
           await this.claim(fileName, fullPath);
         } catch (err) {
-          log(`failed to claim ${fileName}:`, err instanceof Error ? err.message : String(err));
+          log(
+            `failed to claim ${fileName}:`,
+            err instanceof Error ? err.message : String(err),
+          );
         } finally {
           this.claiming.delete(fileName);
         }
@@ -160,7 +187,10 @@ export class InboxWatcher {
 
   private async claim(fileName: string, sourcePath: string): Promise<void> {
     const workspaceName = deriveWorkspaceNameFromFilename(fileName);
-    const workspace = await workspaceService.getOrCreateWorkspace(workspaceName, workspaceName);
+    const workspace = await workspaceService.getOrCreateWorkspace(
+      workspaceName,
+      workspaceName,
+    );
 
     const destDir = path.resolve(config.WORKSPACES_ROOT, workspace.id, "inbox");
     await mkdir(destDir, { recursive: true });
@@ -180,7 +210,9 @@ export class InboxWatcher {
       }
     }
 
-    log(`claimed ${fileName} -> workspace "${workspaceName}" (${workspace.id}), moved to ${destPath}`);
+    log(
+      `claimed ${fileName} -> workspace "${workspaceName}" (${workspace.id}), moved to ${destPath}`,
+    );
 
     await knowledgeService.createEntry({
       workspaceId: workspace.id,
@@ -218,7 +250,12 @@ export async function listInboxApks(workspaceId: string): Promise<InboxApk[]> {
     const fullPath = path.join(dir, fileName);
     const s = await stat(fullPath);
     if (!s.isFile()) continue;
-    apks.push({ fileName, path: fullPath, sizeBytes: s.size, detectedAt: s.mtime.toISOString() });
+    apks.push({
+      fileName,
+      path: fullPath,
+      sizeBytes: s.size,
+      detectedAt: s.mtime.toISOString(),
+    });
   }
   return apks.sort((a, b) => b.detectedAt.localeCompare(a.detectedAt));
 }

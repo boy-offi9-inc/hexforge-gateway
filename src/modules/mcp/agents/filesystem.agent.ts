@@ -1,4 +1,11 @@
-import { readFile, writeFile, mkdir, rm, readdir, stat } from "node:fs/promises";
+import {
+  readFile,
+  writeFile,
+  mkdir,
+  rm,
+  readdir,
+  stat,
+} from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { Worker } from "node:worker_threads";
@@ -23,7 +30,9 @@ const MAX_SEARCH_RESULTS = 200;
 // call once started - see filesystem.search.worker.ts for why this runs
 // in a worker thread instead of inline.
 const SEARCH_TIMEOUT_MS = 10_000;
-const SEARCH_WORKER_PATH = fileURLToPath(new URL("./filesystem.search.worker.js", import.meta.url));
+const SEARCH_WORKER_PATH = fileURLToPath(
+  new URL("./filesystem.search.worker.js", import.meta.url),
+);
 
 interface ListPayload {
   dirPath: string;
@@ -61,10 +70,13 @@ interface SearchPayload {
 function assertWithinWorkspace(filePath: string, workspaceId: string): string {
   const workspaceRoot = path.resolve(config.WORKSPACES_ROOT, workspaceId);
   const resolved = path.resolve(filePath);
-  if (resolved !== workspaceRoot && !resolved.startsWith(workspaceRoot + path.sep)) {
+  if (
+    resolved !== workspaceRoot &&
+    !resolved.startsWith(workspaceRoot + path.sep)
+  ) {
     throw new Error(
       `Refusing to write/delete outside this workspace's directory (${workspaceRoot}). ` +
-        `Got: ${resolved}. Reads/lists/search aren't restricted this way - only destructive operations are.`
+        `Got: ${resolved}. Reads/lists/search aren't restricted this way - only destructive operations are.`,
     );
   }
   return resolved;
@@ -72,12 +84,17 @@ function assertWithinWorkspace(filePath: string, workspaceId: string): string {
 
 async function listHandler(task: McpTask): Promise<unknown> {
   const payload = task.payload as unknown as ListPayload;
-  if (!payload.dirPath) throw new Error('list requires "dirPath" in the task payload');
+  if (!payload.dirPath)
+    throw new Error('list requires "dirPath" in the task payload');
 
   const dirPath = path.resolve(payload.dirPath);
-  if (!existsSync(dirPath)) throw new Error(`Directory not found at path: ${dirPath}`);
+  if (!existsSync(dirPath))
+    throw new Error(`Directory not found at path: ${dirPath}`);
 
-  const limit = payload.limit && payload.limit > 0 ? Math.min(payload.limit, MAX_LIST_ENTRIES) : MAX_LIST_ENTRIES;
+  const limit =
+    payload.limit && payload.limit > 0
+      ? Math.min(payload.limit, MAX_LIST_ENTRIES)
+      : MAX_LIST_ENTRIES;
   const entries: { path: string; isDirectory: boolean; size: number }[] = [];
   let truncated = false;
 
@@ -110,13 +127,18 @@ async function listHandler(task: McpTask): Promise<unknown> {
 
 async function readHandler(task: McpTask): Promise<unknown> {
   const payload = task.payload as unknown as ReadPayload;
-  if (!payload.filePath) throw new Error('read requires "filePath" in the task payload');
+  if (!payload.filePath)
+    throw new Error('read requires "filePath" in the task payload');
 
   const filePath = path.resolve(payload.filePath);
-  if (!existsSync(filePath)) throw new Error(`File not found at path: ${filePath}`);
+  if (!existsSync(filePath))
+    throw new Error(`File not found at path: ${filePath}`);
 
   const s = await stat(filePath);
-  if (s.isDirectory()) throw new Error(`"${filePath}" is a directory, not a file - use "list" instead`);
+  if (s.isDirectory())
+    throw new Error(
+      `"${filePath}" is a directory, not a file - use "list" instead`,
+    );
 
   const encoding = payload.encoding ?? "utf8";
   const truncated = s.size > MAX_READ_BYTES;
@@ -128,20 +150,26 @@ async function readHandler(task: McpTask): Promise<unknown> {
     size: s.size,
     truncated,
     encoding,
-    content: encoding === "base64" ? slice.toString("base64") : slice.toString("utf8"),
+    content:
+      encoding === "base64" ? slice.toString("base64") : slice.toString("utf8"),
   };
 }
 
 async function writeHandler(task: McpTask): Promise<unknown> {
   const payload = task.payload as unknown as WritePayload;
-  if (!payload.filePath) throw new Error('write requires "filePath" in the task payload');
-  if (payload.content === undefined) throw new Error('write requires "content" in the task payload');
+  if (!payload.filePath)
+    throw new Error('write requires "filePath" in the task payload');
+  if (payload.content === undefined)
+    throw new Error('write requires "content" in the task payload');
 
   const filePath = assertWithinWorkspace(payload.filePath, task.workspaceId);
   await mkdir(path.dirname(filePath), { recursive: true });
 
   const encoding = payload.encoding ?? "utf8";
-  const buffer = encoding === "base64" ? Buffer.from(payload.content, "base64") : Buffer.from(payload.content, "utf8");
+  const buffer =
+    encoding === "base64"
+      ? Buffer.from(payload.content, "base64")
+      : Buffer.from(payload.content, "utf8");
   await writeFile(filePath, buffer);
 
   return { filePath, bytesWritten: buffer.length };
@@ -149,10 +177,12 @@ async function writeHandler(task: McpTask): Promise<unknown> {
 
 async function deleteHandler(task: McpTask): Promise<unknown> {
   const payload = task.payload as unknown as DeletePayload;
-  if (!payload.filePath) throw new Error('delete requires "filePath" in the task payload');
+  if (!payload.filePath)
+    throw new Error('delete requires "filePath" in the task payload');
 
   const filePath = assertWithinWorkspace(payload.filePath, task.workspaceId);
-  if (!existsSync(filePath)) return { filePath, deleted: false, reason: "did not exist" };
+  if (!existsSync(filePath))
+    return { filePath, deleted: false, reason: "did not exist" };
 
   await rm(filePath, { recursive: true, force: true });
   return { filePath, deleted: true };
@@ -160,7 +190,8 @@ async function deleteHandler(task: McpTask): Promise<unknown> {
 
 async function statHandler(task: McpTask): Promise<unknown> {
   const payload = task.payload as unknown as StatPayload;
-  if (!payload.filePath) throw new Error('stat requires "filePath" in the task payload');
+  if (!payload.filePath)
+    throw new Error('stat requires "filePath" in the task payload');
 
   const filePath = path.resolve(payload.filePath);
   if (!existsSync(filePath)) return { filePath, exists: false };
@@ -202,8 +233,8 @@ function runSearchWorker(data: {
       reject(
         new Error(
           `Search timed out after ${SEARCH_TIMEOUT_MS / 1000}s - the pattern may be catastrophically slow ` +
-            `(e.g. nested quantifiers like "(a+)+"). Try a simpler or more specific pattern.`
-        )
+            `(e.g. nested quantifiers like "(a+)+"). Try a simpler or more specific pattern.`,
+        ),
       );
     }, SEARCH_TIMEOUT_MS);
 
@@ -227,11 +258,14 @@ function runSearchWorker(data: {
 
 async function searchHandler(task: McpTask): Promise<unknown> {
   const payload = task.payload as unknown as SearchPayload;
-  if (!payload.dirPath) throw new Error('search requires "dirPath" in the task payload');
-  if (!payload.pattern) throw new Error('search requires "pattern" in the task payload');
+  if (!payload.dirPath)
+    throw new Error('search requires "dirPath" in the task payload');
+  if (!payload.pattern)
+    throw new Error('search requires "pattern" in the task payload');
 
   const dirPath = path.resolve(payload.dirPath);
-  if (!existsSync(dirPath)) throw new Error(`Directory not found at path: ${dirPath}`);
+  if (!existsSync(dirPath))
+    throw new Error(`Directory not found at path: ${dirPath}`);
 
   // Validate the pattern compiles before paying for a worker spin-up -
   // an invalid regex should fail fast with a clear message, not a
@@ -239,10 +273,15 @@ async function searchHandler(task: McpTask): Promise<unknown> {
   try {
     new RegExp(payload.pattern);
   } catch (err) {
-    throw new Error(`Invalid search pattern (regex): ${err instanceof Error ? err.message : String(err)}`);
+    throw new Error(
+      `Invalid search pattern (regex): ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
 
-  const maxResults = payload.maxResults && payload.maxResults > 0 ? Math.min(payload.maxResults, MAX_SEARCH_RESULTS) : MAX_SEARCH_RESULTS;
+  const maxResults =
+    payload.maxResults && payload.maxResults > 0
+      ? Math.min(payload.maxResults, MAX_SEARCH_RESULTS)
+      : MAX_SEARCH_RESULTS;
 
   return runSearchWorker({
     dirPath,
@@ -264,12 +303,21 @@ async function searchHandler(task: McpTask): Promise<unknown> {
 const SECRET_PATTERNS: { name: string; pattern: string }[] = [
   { name: "AWS Access Key", pattern: "AKIA[0-9A-Z]{16}" },
   { name: "Google API Key", pattern: "AIza[0-9A-Za-z\\-_]{35}" },
-  { name: "Private Key Header", pattern: "-----BEGIN (RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----" },
+  {
+    name: "Private Key Header",
+    pattern: "-----BEGIN (RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----",
+  },
   { name: "Slack Token", pattern: "xox[baprs]-[0-9A-Za-z-]{10,48}" },
   { name: "GitHub Token", pattern: "gh[pousr]_[A-Za-z0-9]{36,255}" },
   { name: "Stripe Live Key", pattern: "sk_live_[0-9a-zA-Z]{24,}" },
-  { name: "JWT", pattern: "eyJ[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}" },
-  { name: "Firebase Cloud Messaging Key", pattern: "AAAA[A-Za-z0-9_-]{7}:[A-Za-z0-9_-]{140}" },
+  {
+    name: "JWT",
+    pattern: "eyJ[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}",
+  },
+  {
+    name: "Firebase Cloud Messaging Key",
+    pattern: "AAAA[A-Za-z0-9_-]{7}:[A-Za-z0-9_-]{140}",
+  },
 ];
 
 interface ScanSecretsPayload {
@@ -280,12 +328,17 @@ interface ScanSecretsPayload {
 
 async function scanSecretsHandler(task: McpTask): Promise<unknown> {
   const payload = task.payload as unknown as ScanSecretsPayload;
-  if (!payload.dirPath) throw new Error('scan-secrets requires "dirPath" in the task payload');
+  if (!payload.dirPath)
+    throw new Error('scan-secrets requires "dirPath" in the task payload');
 
   const dirPath = path.resolve(payload.dirPath);
-  if (!existsSync(dirPath)) throw new Error(`Directory not found at path: ${dirPath}`);
+  if (!existsSync(dirPath))
+    throw new Error(`Directory not found at path: ${dirPath}`);
 
-  const maxResults = payload.maxResults && payload.maxResults > 0 ? Math.min(payload.maxResults, MAX_SEARCH_RESULTS) : MAX_SEARCH_RESULTS;
+  const maxResults =
+    payload.maxResults && payload.maxResults > 0
+      ? Math.min(payload.maxResults, MAX_SEARCH_RESULTS)
+      : MAX_SEARCH_RESULTS;
 
   return runSearchWorker({
     dirPath,
@@ -314,7 +367,7 @@ export async function filesystemHandler(task: McpTask): Promise<unknown> {
       return scanSecretsHandler(task);
     default:
       throw new Error(
-        `Unsupported filesystem operation "${task.operation}". Supported: "list", "read", "write", "delete", "stat", "search", "scan-secrets"`
+        `Unsupported filesystem operation "${task.operation}". Supported: "list", "read", "write", "delete", "stat", "search", "scan-secrets"`,
       );
   }
 }

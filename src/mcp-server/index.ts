@@ -32,7 +32,9 @@ function writeMessage(message: Record<string, unknown>) {
 }
 
 function main() {
-  log(`starting (stdio transport), targeting Gateway at ${process.env.HEXFORGE_URL ?? "http://localhost:8080"}`);
+  log(
+    `starting (stdio transport), targeting Gateway at ${process.env.HEXFORGE_URL ?? "http://localhost:8080"}`,
+  );
 
   // MCP's stdio transport is newline-delimited JSON, not the
   // Content-Length-prefixed framing LSP uses - one complete JSON-RPC
@@ -53,7 +55,12 @@ function main() {
       try {
         parsed = JSON.parse(trimmed);
       } catch (err) {
-        log("failed to parse incoming line as JSON:", err instanceof Error ? err.message : String(err), "-", trimmed.slice(0, 200));
+        log(
+          "failed to parse incoming line as JSON:",
+          err instanceof Error ? err.message : String(err),
+          "-",
+          trimmed.slice(0, 200),
+        );
         continue;
       }
       void handleRequest(parsed).then((response) => {

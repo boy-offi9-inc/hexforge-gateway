@@ -31,12 +31,19 @@ async function extractHandler(task: McpTask): Promise<unknown> {
     throw new Error(`File not found at path: ${filePath}`);
   }
 
-  const minLength = payload.minLength && payload.minLength > 0 ? payload.minLength : DEFAULT_MIN_LENGTH;
+  const minLength =
+    payload.minLength && payload.minLength > 0
+      ? payload.minLength
+      : DEFAULT_MIN_LENGTH;
 
   try {
-    const { stdout } = await execFileAsync("strings", ["-n", String(minLength), filePath], {
-      maxBuffer: 1024 * 1024 * 20,
-    });
+    const { stdout } = await execFileAsync(
+      "strings",
+      ["-n", String(minLength), filePath],
+      {
+        maxBuffer: 1024 * 1024 * 20,
+      },
+    );
     const lines = stdout.split("\n").filter(Boolean);
 
     return {
@@ -47,9 +54,13 @@ async function extractHandler(task: McpTask): Promise<unknown> {
     };
   } catch (err) {
     if ((err as NodeJS.ErrnoException)?.code === "ENOENT") {
-      throw new Error('"strings" executable not found on PATH (part of binutils on most Linux/macOS installs).');
+      throw new Error(
+        '"strings" executable not found on PATH (part of binutils on most Linux/macOS installs).',
+      );
     }
-    throw new Error(`strings failed: ${err instanceof Error ? err.message : String(err)}`);
+    throw new Error(
+      `strings failed: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
 }
 
@@ -58,14 +69,17 @@ async function stringsAgent(task: McpTask): Promise<unknown> {
     case "extract":
       return extractHandler(task);
     default:
-      throw new Error(`Unsupported strings operation "${task.operation}". Supported: "extract"`);
+      throw new Error(
+        `Unsupported strings operation "${task.operation}". Supported: "extract"`,
+      );
   }
 }
 
 const plugin: HexForgePlugin = {
   name: "example-strings",
   version: "0.1.0",
-  description: 'Reference plugin - runs the "strings" utility on any file via a new "strings" MCP agent.',
+  description:
+    'Reference plugin - runs the "strings" utility on any file via a new "strings" MCP agent.',
 
   register(ctx) {
     // 1. New MCP agent kind - dispatchable via /workspaces/:id/tasks,
@@ -76,8 +90,11 @@ const plugin: HexForgePlugin = {
     //    importing the Event Bus or Job Engine.
     ctx.on("job.completed", (payload) => {
       if (payload.job.agent !== "strings") return;
-      const result = payload.job.result as { filePath?: string; count?: number } | undefined;
-      ctx.log.info(`job ${payload.job.id} extracted ${result?.count ?? "?"} strings from ${result?.filePath}`);
+      const result = payload.job.result as
+        { filePath?: string; count?: number } | undefined;
+      ctx.log.info(
+        `job ${payload.job.id} extracted ${result?.count ?? "?"} strings from ${result?.filePath}`,
+      );
     });
 
     // 3. Plugin-owned route.

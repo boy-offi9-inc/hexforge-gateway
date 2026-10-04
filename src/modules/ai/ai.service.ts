@@ -93,8 +93,13 @@ export interface ChatTurn {
  * a single-operator tool, not a data-loss risk (worst case is one
  * imperfectly-paired turn near the trim boundary, not corruption).
  */
-function buildChatHistory(recentEntriesNewestFirst: KnowledgeEntry[]): ChatMessage[] {
-  const candidates = recentEntriesNewestFirst.slice(0, MAX_CHAT_HISTORY_TURNS * 2);
+function buildChatHistory(
+  recentEntriesNewestFirst: KnowledgeEntry[],
+): ChatMessage[] {
+  const candidates = recentEntriesNewestFirst.slice(
+    0,
+    MAX_CHAT_HISTORY_TURNS * 2,
+  );
   const picked: ChatMessage[] = [];
   let remainingBudget = MAX_CHAT_HISTORY_CHARS;
 
@@ -118,8 +123,14 @@ function buildChatHistory(recentEntriesNewestFirst: KnowledgeEntry[]): ChatMessa
 
     if (pairLength > remainingBudget) break;
 
-    picked.push({ role: newer.source === "user" ? "user" : "assistant", content: newerContent });
-    picked.push({ role: older.source === "user" ? "user" : "assistant", content: olderContent });
+    picked.push({
+      role: newer.source === "user" ? "user" : "assistant",
+      content: newerContent,
+    });
+    picked.push({
+      role: older.source === "user" ? "user" : "assistant",
+      content: olderContent,
+    });
     remainingBudget -= pairLength;
   }
 
@@ -140,8 +151,13 @@ function buildChatHistory(recentEntriesNewestFirst: KnowledgeEntry[]): ChatMessa
  * clients (the CLI, a future web UI) share one conversation per
  * workspace rather than each keeping their own.
  */
-export async function chat(workspaceId: string, message: string): Promise<{ reply: string; entryId: string }> {
-  const recent = await knowledgeService.listEntriesForWorkspace(workspaceId, { type: "chat" });
+export async function chat(
+  workspaceId: string,
+  message: string,
+): Promise<{ reply: string; entryId: string }> {
+  const recent = await knowledgeService.listEntriesForWorkspace(workspaceId, {
+    type: "chat",
+  });
   const history = buildChatHistory(recent);
 
   await knowledgeService.createEntry({

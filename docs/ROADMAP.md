@@ -11,6 +11,7 @@ System, local storage, and CI. This page tracks what's still open.
 
 ## Done
 
+- [x] Evidence-backed findings (`src/findings/`): a claim with `status`, `confidence` and `evidence[]` citing artifacts. Evidence is validated on save (the artifact must exist in the same workspace) and a finding can't be `confirmed` without any. See `docs/ARCHITECTURE.md`
 - [x] Artifact recorder (`src/artifacts/`): finished tasks whose operation declares an output (`jadx.decompile`, `apktool.decode`, `apktool.build`, plus plugin agents) are recorded as artifacts with the run that produced them and the versions of the backend tools behind it, listed by `GET /workspaces/:id/artifacts`. See `docs/ARCHITECTURE.md`
 - [x] Capability registry (`src/capabilities/`): agents can describe what they do (capability ids, operations, payload keys, backends, permissions) through an optional descriptor on `registerAgent`; all eight built-in agents do, and `GET /capabilities` lists them. See `docs/AGENTS.md` and `docs/PLUGINS.md`
 - [x] Gateway console output (`src/core/console-ui.ts`): on a terminal, a startup box with every address/storage/AI/auth/plugins/inbox plus targeted warnings (auth requested but no keys, open port reachable from the network, unconfigured AI), and one readable line per request with polling bursts collapsed, instead of four duplicate "listening" lines and raw JSON per request. Piped/systemd/Docker output is unchanged JSON (`LOG_FORMAT=json` forces it). See `docs/SETUP.md`

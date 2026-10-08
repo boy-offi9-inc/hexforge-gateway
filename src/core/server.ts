@@ -9,6 +9,7 @@ import { knowledgeRoutes } from "../api/v1/knowledge.routes.js";
 import { pluginIntrospectionRoutes } from "../api/v1/plugin.routes.js";
 import { capabilityRoutes } from "../api/v1/capability.routes.js";
 import { artifactRoutes } from "../api/v1/artifact.routes.js";
+import { findingRoutes } from "../api/v1/finding.routes.js";
 import { register as registerKnowledgeIndexer } from "../modules/knowledge/knowledge-indexer.js";
 import { register as registerArtifactRecorder } from "../artifacts/recorder.js";
 import { loadPlugins } from "../plugins/loader.js";
@@ -44,6 +45,7 @@ export async function buildServer() {
   await app.register(pluginIntrospectionRoutes);
   await app.register(capabilityRoutes);
   await app.register(artifactRoutes);
+  await app.register(findingRoutes);
   await registerWebsocketGateway(app);
 
   // Background listener, not a route - turns finished workflow runs into

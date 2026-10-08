@@ -184,3 +184,34 @@ fails the recording. Backends with no local probe, like `frida-server` on the
 device, are listed without one. Every task triggered through
 a Job or Workflow is covered too, since they dispatch through the same
 orchestrator.
+
+## Findings
+
+`src/findings/` stores claims about the target together with the evidence
+behind them: a `Finding` has a `claim`, a `status` (`unverified`, `confirmed`
+or `contradicted`), an optional `confidence` (`low`/`medium`/`high`) and
+`reasoning`, a `source` (`user`, `ai` or `system`, so it is clear who made the
+claim) and `evidence[]`. Each piece of evidence is an `artifactId` plus an
+optional `location` (e.g. `com/acme/Api.java:12`) and `note`; the tool,
+version, run and time come from the artifact's own record
+([Artifacts](#artifacts)) rather than being copied.
+
+The rules are enforced when a finding is saved, in `finding.service.ts`:
+
+- every cited artifact must exist **and** belong to the same workspace, so a
+  finding can't cite something that isn't there or came from another target;
+- a finding can't be `confirmed` without at least one piece of evidence -
+  creating it that way, or patching it to `confirmed`, is rejected;
+- an update re-checks the rules against the result, so replacing evidence with
+  an unknown artifact fails and leaves the finding as it was.
+
+Violations raise `EvidenceError`, which the routes return as a `400`. Findings
+are stored in local storage only for now (no Supabase table yet) and emit
+`finding.created` / `finding.updated`.
+
+Endpoints:
+
+- `POST /workspaces/:id/findings` — create (`{ claim, status?, confidence?, reasoning?, evidence?, source? }`)
+- `GET /workspaces/:id/findings?status=confirmed` — list, newest first, optional `status` filter
+- `GET /findings/:findingId` — fetch one
+- `PATCH /findings/:findingId` — update `status`, `confidence`, `reasoning` or `evidence`

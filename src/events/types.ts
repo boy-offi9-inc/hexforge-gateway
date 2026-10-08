@@ -1,4 +1,5 @@
 import type { McpTask, Workspace, Job, Workflow, KnowledgeEntry } from "../core/types.js";
+import type { Artifact } from "../artifacts/types.js";
 
 /**
  * Every event the Event Bus carries, and the payload shape for each.
@@ -36,6 +37,9 @@ export interface EventMap {
 
   "knowledge.entry_created": { entry: KnowledgeEntry };
   "knowledge.entry_updated": { entry: KnowledgeEntry };
+
+  "artifact.created": { artifact: Artifact };
+  "artifact.updated": { artifact: Artifact };
 
   "plugin.loaded": { name: string };
   "plugin.failed": { name: string; error: string };

@@ -147,3 +147,32 @@ Endpoints:
 - `POST /knowledge/:entryId/summarize` — see AI Provider Layer above
 - `POST /workspaces/:id/chat` / `GET /workspaces/:id/chat` — see AI Provider Layer above
 
+## Artifacts
+
+`src/artifacts/` records what finished tasks produced, so decompiled sources,
+a decoded APK project or a rebuilt APK can be listed and found again instead
+of being re-derived from a task's raw result. Three parts:
+
+- **`artifact.service.ts`** — CRUD over local storage (`artifacts`
+  collection; there is no Supabase table for it yet, so
+  `STORAGE_BACKEND=supabase` does not change this). Producing the same kind at
+  the same path again (jadx re-decompiling into its output directory) updates
+  the existing record instead of adding a duplicate: id and `createdAt` stay,
+  `source` points at the latest run. Emits `artifact.created` /
+  `artifact.updated`.
+- **`recorder.ts`** — a background listener on `mcp.task.completed`, the same
+  decoupled pattern as the knowledge indexer, registered once via
+  `registerArtifactRecorder()` in `core/server.ts`. It reads the agent's
+  capability descriptor ([AGENTS](AGENTS.md#capabilities)): an operation that
+  declares exactly one output kind and whose result carries `outputDir` (a
+  directory) or `outputPath` (a file) produces one artifact. Today that is
+  `jadx.decompile`, `apktool.decode` and `apktool.build`; plugin agents join
+  by declaring `outputs` in their descriptor. Anything else records nothing
+  rather than guessing. A failure is logged and never affects the task.
+- **`GET /workspaces/:id/artifacts?kind=apk`** — list, newest first, optional
+  `kind` filter. **`GET /artifacts/:artifactId`** — fetch one.
+
+An artifact carries `kind`, `path`, `pathType` (`file` or `directory`) and a
+`source` (task id, agent, operation, capability). Every task triggered through
+a Job or Workflow is covered too, since they dispatch through the same
+orchestrator.

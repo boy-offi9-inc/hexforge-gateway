@@ -8,7 +8,9 @@ import { workflowRoutes } from "../api/v1/workflow.routes.js";
 import { knowledgeRoutes } from "../api/v1/knowledge.routes.js";
 import { pluginIntrospectionRoutes } from "../api/v1/plugin.routes.js";
 import { capabilityRoutes } from "../api/v1/capability.routes.js";
+import { artifactRoutes } from "../api/v1/artifact.routes.js";
 import { register as registerKnowledgeIndexer } from "../modules/knowledge/knowledge-indexer.js";
+import { register as registerArtifactRecorder } from "../artifacts/recorder.js";
 import { loadPlugins } from "../plugins/loader.js";
 import { registerWebsocketGateway } from "./websocket.js";
 import { registerAuth } from "./auth.js";
@@ -41,11 +43,16 @@ export async function buildServer() {
   await app.register(knowledgeRoutes);
   await app.register(pluginIntrospectionRoutes);
   await app.register(capabilityRoutes);
+  await app.register(artifactRoutes);
   await registerWebsocketGateway(app);
 
   // Background listener, not a route - turns finished workflow runs into
   // Knowledge Engine entries via the Event Bus (see knowledge-indexer.ts).
   registerKnowledgeIndexer();
+
+  // Records the directories/files finished tasks produced, using the agents'
+  // capability descriptors (see artifacts/recorder.ts).
+  registerArtifactRecorder();
 
   // Loaded last so plugin-registered routes/agents/listeners land on a
   // fully-formed Gateway (all core routes and indexers already active).

@@ -241,5 +241,6 @@ curl http://localhost:8080/capabilities
 `adapters` carries each agent's full descriptor: backend tools, permissions,
 and each operation's required/optional payload keys and declared outputs. It
 is read-only introspection - dispatching still goes through
-`POST /workspaces/:id/tasks`. Plugins join the same list by passing a
+`POST /workspaces/:id/tasks`. An operation's declared `outputs` also decide
+which results are recorded as [artifacts](ARCHITECTURE.md#artifacts). Plugins join the same list by passing a
 descriptor to `ctx.registerAgent` (see [PLUGINS](PLUGINS.md)).

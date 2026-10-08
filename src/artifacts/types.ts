@@ -1,3 +1,5 @@
+import type { ToolProvenance } from "../capabilities/types.js";
+
 /**
  * An artifact is a tracked output of a task: a directory or file an agent
  * produced (decompiled sources, a decoded APK project, a rebuilt APK),
@@ -20,8 +22,13 @@ export interface Artifact {
     /** Capability the operation provides, from the descriptor. */
     capability: string;
   };
+  /** Backend tools behind the producing adapter, with versions where they could be read. */
+  tools?: ToolProvenance[];
   createdAt: string;
   updatedAt: string;
 }
 
-export type ArtifactInput = Pick<Artifact, "workspaceId" | "kind" | "path" | "pathType" | "source">;
+export type ArtifactInput = Pick<
+  Artifact,
+  "workspaceId" | "kind" | "path" | "pathType" | "source" | "tools"
+>;

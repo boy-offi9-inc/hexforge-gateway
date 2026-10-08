@@ -1,6 +1,7 @@
 import { eventBus } from "../events/event-bus.js";
 import type { EventMap } from "../events/types.js";
 import { capabilityRegistry, type CapabilityRegistry } from "../capabilities/registry.js";
+import { resolveToolVersions } from "../capabilities/tool-versions.js";
 import type { McpTask } from "../core/types.js";
 import * as artifactService from "./artifact.service.js";
 import type { ArtifactInput } from "./types.js";
@@ -64,8 +65,13 @@ export function register() {
 
 async function onTaskCompleted({ task }: EventMap["mcp.task.completed"]) {
   try {
-    for (const input of extractArtifacts(task)) {
-      await artifactService.recordArtifact(input);
+    const inputs = extractArtifacts(task);
+    if (inputs.length === 0) return;
+
+    // Which versions of the backend tools were installed when this was produced.
+    const tools = await resolveToolVersions(capabilityRegistry.getAdapter(task.agent)?.backends);
+    for (const input of inputs) {
+      await artifactService.recordArtifact(tools ? { ...input, tools } : input);
     }
   } catch (err) {
     console.warn(

@@ -98,7 +98,7 @@ export const builtinDescriptors = {
   },
   frida: {
     description: "Frida device/process listing, server control and bounded tracing.",
-    backends: [{ tool: "frida-tools" }, { tool: "frida-server" }],
+    backends: [{ tool: "frida" }, { tool: "frida-server" }],
     permissions: ["device:adb"],
     operations: [
       { name: "list-devices", capability: "instrument.devices" },

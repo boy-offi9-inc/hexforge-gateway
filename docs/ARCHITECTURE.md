@@ -172,7 +172,15 @@ of being re-derived from a task's raw result. Three parts:
 - **`GET /workspaces/:id/artifacts?kind=apk`** — list, newest first, optional
   `kind` filter. **`GET /artifacts/:artifactId`** — fetch one.
 
-An artifact carries `kind`, `path`, `pathType` (`file` or `directory`) and a
-`source` (task id, agent, operation, capability). Every task triggered through
+An artifact carries `kind`, `path`, `pathType` (`file` or `directory`), a
+`source` (task id, agent, operation, capability) and `tools`: the adapter's
+backend tools with the versions installed when it was produced.
+`capabilities/tool-versions.ts` reads those by running each tool's version
+command (`jadx --version`, `apktool --version`, `apkid --version`,
+`adb version`, `frida --version`) with a 5 second timeout. A version found
+is remembered for the process; a probe that fails (tool missing, timeout) is
+retried next time and simply leaves that tool without a version - it never
+fails the recording. Backends with no local probe, like `frida-server` on the
+device, are listed without one. Every task triggered through
 a Job or Workflow is covered too, since they dispatch through the same
 orchestrator.

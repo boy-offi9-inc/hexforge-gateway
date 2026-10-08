@@ -11,7 +11,7 @@ const COLLECTION = "artifacts";
  * Records an artifact. Producing the same kind at the same path again (a
  * re-run of jadx overwrites its output directory) updates the existing
  * record instead of piling up duplicates: the id and createdAt stay, the
- * source points at the latest run.
+ * source and tools describe the latest run.
  */
 export async function recordArtifact(input: ArtifactInput): Promise<Artifact> {
   const now = new Date().toISOString();
@@ -21,7 +21,7 @@ export async function recordArtifact(input: ArtifactInput): Promise<Artifact> {
   );
 
   if (existing) {
-    const updated: Artifact = { ...existing, ...input, updatedAt: now };
+    const updated: Artifact = { ...existing, ...input, tools: input.tools, updatedAt: now };
     await localStore.upsertRecord(COLLECTION, updated);
     eventBus.emit("artifact.updated", { artifact: updated });
     return updated;

@@ -70,6 +70,16 @@ describe("artifact.service", () => {
     expect(await service.listArtifactsForWorkspace("ws1")).toHaveLength(1);
   });
 
+  it("keeps tool provenance and refreshes it when the same path is produced again", async () => {
+    const tools = (version: string) => [{ tool: "jadx", version }];
+
+    const first = await service.recordArtifact(input({ tools: tools("1.5.0") }));
+    expect(first.tools).toEqual(tools("1.5.0"));
+
+    const second = await service.recordArtifact(input({ tools: tools("1.5.1") }));
+    expect(second.tools).toEqual(tools("1.5.1"));
+  });
+
   it("returns null for an unknown id", async () => {
     await expect(service.getArtifact("nope")).resolves.toBeNull();
   });

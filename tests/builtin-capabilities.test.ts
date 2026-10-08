@@ -46,6 +46,12 @@ describe("built-in capability descriptors", () => {
     const withOutputs = entries.flatMap(([kind, descriptor]) =>
       descriptor.operations.filter((op) => op.outputs?.length).map((op) => `${kind}.${op.name}`),
     );
-    expect(withOutputs.sort()).toEqual(["apktool.build", "apktool.decode", "jadx.decompile"]);
+    expect(withOutputs.sort()).toEqual([
+      "apktool.build",
+      "apktool.decode",
+      "filesystem.scan-secrets",
+      "frida.trace",
+      "jadx.decompile",
+    ]);
   });
 });

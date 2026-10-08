@@ -190,7 +190,7 @@ export const AGENT_TOOLS: AgentToolSpec[] = [
   {
     name: "scan_secrets",
     description:
-      "Recursively scan a directory (typically decompile_apk or decode_apk output) for likely hardcoded secrets: AWS access keys, Google API keys, private key headers, Slack/GitHub/Stripe tokens, JWTs, and Firebase Cloud Messaging keys. A curated high-precision starting set, not exhaustive, and not a replacement for a maintained secret scanner. Only reads files; skips files over 2 MB. Returns { dirPath, filesScanned, matchCount, matches: [{ file, line, text, name }], truncated } where name is the secret type, file is relative to dirPath, line is 1-based, and text is the trimmed line (max 300 chars). For your own patterns use search_code.",
+      "Recursively scan a directory (typically decompile_apk or decode_apk output) for likely hardcoded secrets: AWS access keys, Google API keys, private key headers, Slack/GitHub/Stripe tokens, JWTs, and Firebase Cloud Messaging keys. A curated high-precision starting set, not exhaustive, and not a replacement for a maintained secret scanner. Only reads files; skips files over 2 MB. Returns { dirPath, filesScanned, matchCount, matches: [{ file, line, text, name }], truncated } where name is the secret type, file is relative to dirPath, line is 1-based, and text is the trimmed line (max 300 chars). For your own patterns use search_code. The full result is also saved as a JSON file in the workspace and its path returned as outputPath, so it can be cited as evidence.",
     agent: "filesystem",
     operation: "scan-secrets",
     annotations: {
@@ -465,7 +465,7 @@ export const AGENT_TOOLS: AgentToolSpec[] = [
   {
     name: "frida_trace",
     description:
-      "Spawn or attach to a process on a device, inject a Frida script, and capture whatever it prints within a fixed time window - not an interactive Frida session: it runs the script, waits timeoutSeconds, then kills the session. Hitting the timeout is the normal way a trace ends (timedOut: true), not a failure. The script runs inside the target app and can modify its behavior and state, and spawn mode launches the app. Returns { target, mode, scriptPath, timedOut, stdout, stderr } where stdout is whatever the script printed (e.g. console.log output) and scriptPath is where the script was saved in the workspace. Find targets with frida_list_processes. Requires frida-tools and a matching frida-server on the device.",
+      "Spawn or attach to a process on a device, inject a Frida script, and capture whatever it prints within a fixed time window - not an interactive Frida session: it runs the script, waits timeoutSeconds, then kills the session. Hitting the timeout is the normal way a trace ends (timedOut: true), not a failure. The script runs inside the target app and can modify its behavior and state, and spawn mode launches the app. Returns { target, mode, scriptPath, timedOut, stdout, stderr } where stdout is whatever the script printed (e.g. console.log output) and scriptPath is where the script was saved in the workspace. The full result is also saved as a JSON file in the workspace and its path returned as outputPath, so it can be cited as evidence. Find targets with frida_list_processes. Requires frida-tools and a matching frida-server on the device.",
     agent: "frida",
     operation: "trace",
     annotations: {

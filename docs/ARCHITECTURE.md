@@ -166,11 +166,21 @@ of being re-derived from a task's raw result. Three parts:
   capability descriptor ([AGENTS](AGENTS.md#capabilities)): an operation that
   declares exactly one output kind and whose result carries `outputDir` (a
   directory) or `outputPath` (a file) produces one artifact. Today that is
-  `jadx.decompile`, `apktool.decode` and `apktool.build`; plugin agents join
-  by declaring `outputs` in their descriptor. Anything else records nothing
+  `jadx.decompile`, `apktool.decode`, `apktool.build`, `filesystem.scan-secrets`
+  and `frida.trace`; plugin agents join by declaring `outputs` in their
+  descriptor. Anything else records nothing
   rather than guessing. A failure is logged and never affects the task.
 - **`GET /workspaces/:id/artifacts?kind=apk`** — list, newest first, optional
   `kind` filter. **`GET /artifacts/:artifactId`** — fetch one.
+
+`scan-secrets` and `trace` save their full result with `withSavedOutput()`
+(`modules/mcp/agents/task-output.ts`), one JSON file per task id under the
+workspace, and return its path as `outputPath`. Because each run writes its own
+file, an artifact for one of these never changes after it is recorded, which
+keeps a [finding](#findings) that cites it stable. (`jadx` and `apktool`
+re-use their output directory, so re-running them updates that artifact in
+place.) If the file can't be written the operation still succeeds, just
+without an `outputPath` and so without an artifact.
 
 An artifact carries `kind`, `path`, `pathType` (`file` or `directory`), a
 `source` (task id, agent, operation, capability) and `tools`: the adapter's

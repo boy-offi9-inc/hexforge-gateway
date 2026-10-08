@@ -37,6 +37,14 @@ positives low over generic ones like `password=...` that would flood
 results with test fixtures. Not a replacement for a maintained
 secret-scanner (gitleaks, trufflehog) on anything that actually matters.
 
+`scan-secrets` also saves its full result (matched lines included) as
+`WORKSPACES_ROOT/<id>/filesystem/scan-secrets/<taskId>.json` and returns the
+path as `outputPath`, so a scan can be recorded as an
+[artifact](ARCHITECTURE.md#artifacts) and cited as evidence. Each run gets its
+own file; earlier scans are never overwritten. If the file can't be written
+the scan still succeeds, just without an `outputPath`. Treat that file like
+the decompiled sources it was scanned from - it contains the matched lines.
+
 `search`'s pattern is user-supplied (and `scan-secrets`' built-in
 patterns are still regexes) and regex engines can be tricked into
 catastrophic backtracking (e.g. `(a+)+` against a non-matching input can
@@ -106,6 +114,9 @@ Timing out isn't a failure - it's the expected way `trace` ends, since a
 script has no way to signal "I'm done" back to this agent. The
 response's `timedOut` field tells you which happened; `stdout`/`stderr`
 contain whatever the script emitted before the window closed either way.
+The full result is also saved as `WORKSPACES_ROOT/<id>/frida/traces/<taskId>.json`
+and its path returned as `outputPath`, so a trace can be recorded as an
+[artifact](ARCHITECTURE.md#artifacts) and cited as evidence.
 Non-root devices need Frida's Gadget-based injection instead of a
 `frida-server` push, which this agent doesn't implement.
 

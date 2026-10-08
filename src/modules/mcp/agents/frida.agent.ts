@@ -5,6 +5,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { McpTask } from "../../../core/types.js";
 import { config } from "../../../core/config.js";
+import { withSavedOutput } from "./task-output.js";
 import { friendlyExecError, type ExecFailure } from "./shared/exec-error.js";
 
 const execFileAsync = promisify(execFile);
@@ -237,14 +238,14 @@ async function traceHandler(task: McpTask): Promise<unknown> {
       killSignal: "SIGTERM",
       maxBuffer: 1024 * 1024 * 10,
     });
-    return {
+    return withSavedOutput(task, "frida/traces", {
       target: payload.target,
       mode,
       scriptPath,
       timedOut: false,
       stdout,
       stderr,
-    };
+    });
   } catch (err) {
     const failure = err as ExecFailure;
     if (failure?.killed && failure?.signal === "SIGTERM") {
@@ -252,14 +253,14 @@ async function traceHandler(task: McpTask): Promise<unknown> {
       // "trace" call ends, since the script has no way to signal "I'm
       // done" back to this agent. Whatever it emitted before the kill is
       // still real and useful.
-      return {
+      return withSavedOutput(task, "frida/traces", {
         target: payload.target,
         mode,
         scriptPath,
         timedOut: true,
         stdout: (failure.stdout ?? "").toString(),
         stderr: (failure.stderr ?? "").toString(),
-      };
+      });
     }
     throw friendlyExecError(
       "frida",

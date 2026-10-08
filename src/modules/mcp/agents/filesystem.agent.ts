@@ -5,6 +5,7 @@ import { Worker } from "node:worker_threads";
 import { fileURLToPath } from "node:url";
 import type { McpTask } from "../../../core/types.js";
 import { config } from "../../../core/config.js";
+import { withSavedOutput } from "./task-output.js";
 
 // Trust model: "list"/"read"/"stat"/"search" accept any absolute path,
 // same as jadx/apktool already trust an arbitrary "apkPath" - this is a
@@ -312,13 +313,14 @@ async function scanSecretsHandler(task: McpTask): Promise<unknown> {
       ? Math.min(payload.maxResults, MAX_SEARCH_RESULTS)
       : MAX_SEARCH_RESULTS;
 
-  return runSearchWorker({
+  const result = await runSearchWorker({
     dirPath,
     patterns: SECRET_PATTERNS,
     caseSensitive: true, // these patterns rely on specific casing (AKIA, AIza, sk_live_) - case-insensitive would just add false positives
     extensions: payload.extensions,
     maxResults,
   });
+  return withSavedOutput(task, "filesystem/scan-secrets", result);
 }
 
 export async function filesystemHandler(task: McpTask): Promise<unknown> {

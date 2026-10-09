@@ -202,9 +202,11 @@ behind them: a `Finding` has a `claim`, a `status` (`unverified`, `confirmed`
 or `contradicted`), an optional `confidence` (`low`/`medium`/`high`) and
 `reasoning`, a `source` (`user`, `ai` or `system`, so it is clear who made the
 claim) and `evidence[]`. Each piece of evidence is an `artifactId` plus an
-optional `location` (e.g. `com/acme/Api.java:12`) and `note`; the tool,
-version, run and time come from the artifact's own record
-([Artifacts](#artifacts)) rather than being copied.
+optional `location` (e.g. `com/acme/Api.java:12`), `note` and `entityId`; the
+tool, version, run and time come from the artifact's own record
+([Artifacts](#artifacts)) rather than being copied. `entityId` says which thing
+in the [knowledge graph](#knowledge-graph) the evidence is about, e.g. the
+class `com.acme.Api` cited together with the decompile it was found in.
 
 The rules are enforced when a finding is saved, in `finding.service.ts`:
 
@@ -212,6 +214,10 @@ The rules are enforced when a finding is saved, in `finding.service.ts`:
   finding can't cite something that isn't there or came from another target;
 - a finding can't be `confirmed` without at least one piece of evidence -
   creating it that way, or patching it to `confirmed`, is rejected;
+- a cited `entityId` must be an entity of the same workspace **and** must have
+  been observed in the artifact it is cited with (that artifact is in the
+  entity's `artifactIds`), so "this class, in this decompile" is something
+  that was really recorded;
 - an update re-checks the rules against the result, so replacing evidence with
   an unknown artifact fails and leaves the finding as it was.
 
@@ -222,7 +228,7 @@ are stored in local storage only for now (no Supabase table yet) and emit
 Endpoints:
 
 - `POST /workspaces/:id/findings` — create (`{ claim, status?, confidence?, reasoning?, evidence?, source? }`)
-- `GET /workspaces/:id/findings?status=confirmed` — list, newest first, optional `status` filter
+- `GET /workspaces/:id/findings?status=confirmed&entityId=...` — list, newest first, optional `status` filter and `entityId` (findings whose evidence cites that graph entity)
 - `GET /findings/:findingId` — fetch one
 - `PATCH /findings/:findingId` — update `status`, `confidence`, `reasoning` or `evidence`
 

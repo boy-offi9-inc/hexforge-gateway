@@ -13,6 +13,7 @@ const confidenceSchema = z.enum(["low", "medium", "high"]) as z.ZodType<FindingC
 
 const evidenceSchema = z.object({
   artifactId: z.string().min(1),
+  entityId: z.string().min(1).optional(),
   location: z.string().min(1).optional(),
   note: z.string().min(1).optional(),
 });
@@ -39,6 +40,7 @@ const updateFindingSchema = z
 
 const listQuerySchema = z.object({
   status: statusSchema.optional(),
+  entityId: z.string().min(1).optional(),
 });
 
 export async function findingRoutes(app: FastifyInstance) {
@@ -71,7 +73,7 @@ export async function findingRoutes(app: FastifyInstance) {
     if (!parsed.success) {
       return reply.code(400).send({ error: parsed.error.flatten() });
     }
-    return findingService.listFindingsForWorkspace(id, parsed.data.status);
+    return findingService.listFindingsForWorkspace(id, parsed.data);
   });
 
   app.get("/findings/:findingId", async (req, reply) => {

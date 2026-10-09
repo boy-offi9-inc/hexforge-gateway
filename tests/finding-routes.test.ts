@@ -43,7 +43,10 @@ async function buildApp(opts: { workspaceExists?: boolean } = {}) {
 describe("finding routes", () => {
   it("POST /workspaces/:id/findings creates (201) and passes the body through", async () => {
     const { app, service } = await buildApp();
-    const body = { claim: "Hardcoded API key", evidence: [{ artifactId: "ar1" }] };
+    const body = {
+      claim: "Hardcoded API key",
+      evidence: [{ artifactId: "ar1", entityId: "e1", location: "com/acme/Api.java:12" }],
+    };
     const res = await app.inject({
       method: "POST",
       url: "/workspaces/ws1/findings",
@@ -78,14 +81,17 @@ describe("finding routes", () => {
     expect(res404.statusCode).toBe(404);
   });
 
-  it("GET /workspaces/:id/findings filters by status and rejects a bad one", async () => {
+  it("GET /workspaces/:id/findings filters by status and entity, not a bad status", async () => {
     const { app, service } = await buildApp();
     const ok = await app.inject({
       method: "GET",
-      url: "/workspaces/ws1/findings?status=confirmed",
+      url: "/workspaces/ws1/findings?status=confirmed&entityId=e1",
     });
     expect(ok.statusCode).toBe(200);
-    expect(service.listFindingsForWorkspace).toHaveBeenCalledWith("ws1", "confirmed");
+    expect(service.listFindingsForWorkspace).toHaveBeenCalledWith("ws1", {
+      status: "confirmed",
+      entityId: "e1",
+    });
 
     const bad = await app.inject({
       method: "GET",

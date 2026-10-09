@@ -1,4 +1,5 @@
 import type { Artifact } from "../artifacts/types.js";
+import type { GraphEntity } from "../graph/types.js";
 
 export type FindingStatus = "unverified" | "confirmed" | "contradicted";
 export type FindingConfidence = "low" | "medium" | "high";
@@ -7,9 +8,15 @@ export type FindingConfidence = "low" | "medium" | "high";
  * One piece of support for a claim. It points at an artifact in the same
  * workspace; tool, version, run and time all come from that artifact's own
  * provenance rather than being copied here.
+ *
+ * `entityId` additionally says which thing in the knowledge graph the
+ * evidence is about (a class, a URL...). The entity must have been observed
+ * in the cited artifact, so "this class, in this decompile" is something that
+ * was actually recorded.
  */
 export interface Evidence {
   artifactId: Artifact["id"];
+  entityId?: GraphEntity["id"];
   /** Where inside the artifact, e.g. "com/acme/Login.java:142". */
   location?: string;
   note?: string;

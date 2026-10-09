@@ -9,10 +9,14 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# Glama's introspection check spawns this over stdio and talks JSON-RPC
-# (initialize + tools/list) - it does not need a live Gateway behind it,
-# real APK tooling (jadx/apktool/adb/frida), or a device to answer that
-# handshake, since tools/list is served from the static table in
-# src/mcp-server/tools.ts. Only `tools/call` would need a running
-# Gateway (see docs/MCP_SERVER.md) - out of scope for this check.
+# For a local `docker build` / `docker run` of the MCP server over stdio.
+# Glama does not use this file: it generates its own Dockerfile from the
+# Build steps and CMD arguments set on the server's admin page, and runs
+# that under mcp-proxy. Keep the two in step: `npm ci && npm run build`,
+# then `node dist/mcp-server/index.js`.
+#
+# Introspection (initialize + tools/list) needs no live Gateway, real APK
+# tooling (jadx/apktool/adb/frida) or device, since tools/list is served
+# from the static table in src/mcp-server/tools.ts. Only `tools/call` needs
+# a running Gateway (see docs/MCP_SERVER.md).
 CMD ["node", "dist/mcp-server/index.js"]

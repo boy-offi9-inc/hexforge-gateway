@@ -1,0 +1,12 @@
+# Keep the build context to what `npm ci && npm run build` needs, so a local
+# `docker build` never copies the host's installed modules, build output,
+# secrets or local data over the image's own.
+node_modules/
+dist/
+.git/
+.github/
+.env
+*.log
+.DS_Store
+/data/
+.hexforge/

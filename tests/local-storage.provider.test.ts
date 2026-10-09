@@ -155,4 +155,41 @@ describe("local-storage.provider", () => {
     });
     expect(all.find((r) => r.id === "keep")).toBeUndefined();
   });
+
+  it("upsertRecords stores many records and overwrites existing ids in one go", async () => {
+    await store.upsertRecord<Widget>("widgets", { id: "a", name: "Old" });
+
+    const written = await store.upsertRecords<Widget>("widgets", [
+      { id: "a", name: "New" },
+      { id: "b", name: "Second" },
+      { id: "c", name: "Third" },
+    ]);
+
+    expect(written).toHaveLength(3);
+    const all = await store.listRecords<Widget>("widgets");
+    expect(all.map((r) => r.name).sort()).toEqual(["New", "Second", "Third"]);
+    // A fresh module instance (cold cache) reads the same thing back from disk.
+    vi.resetModules();
+    const fresh = await import("../src/providers/local-storage.provider.js");
+    await expect(fresh.listRecords<Widget>("widgets")).resolves.toHaveLength(3);
+  });
+
+  it("upsertRecords with nothing to write leaves no file behind", async () => {
+    await store.upsertRecords<Widget>("widgets", []);
+
+    await expect(readFile(path.join(dataDir, "widgets.json"), "utf-8")).rejects.toThrow(/ENOENT/);
+  });
+
+  it("upsertRecords is serialized with single upserts on the same collection", async () => {
+    await Promise.all([
+      store.upsertRecords<Widget>("widgets", [
+        { id: "b1", name: "Bulk 1" },
+        { id: "b2", name: "Bulk 2" },
+      ]),
+      store.upsertRecord<Widget>("widgets", { id: "s1", name: "Single" }),
+    ]);
+
+    const ids = (await store.listRecords<Widget>("widgets")).map((r) => r.id).sort();
+    expect(ids).toEqual(["b1", "b2", "s1"]);
+  });
 });

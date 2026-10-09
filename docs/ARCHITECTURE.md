@@ -225,3 +225,69 @@ Endpoints:
 - `GET /workspaces/:id/findings?status=confirmed` — list, newest first, optional `status` filter
 - `GET /findings/:findingId` — fetch one
 - `PATCH /findings/:findingId` — update `status`, `confidence`, `reasoning` or `evidence`
+
+## Knowledge graph
+
+`src/graph/` holds typed things observed about the target and the
+relationships between them, next to the free-text [Knowledge Engine](#knowledge-engine).
+It is a schema and an API, plus one indexer for decompiled Java
+([below](#populating-it)).
+
+An **entity** has a `type` (`package`, `class`, `method`, `native-function`,
+`resource`, `url`, `secret-candidate`, `runtime-event`, `traffic-event`), a
+`name`, primitive `attributes` and `artifactIds` - the [artifacts](#artifacts)
+it was observed in. Names identify an entity within a workspace (fully
+qualified for code, e.g. `com.acme.Login`) and must never be a secret value.
+Its id is derived from workspace + type + name, so reporting the same thing
+again merges into the existing entity instead of duplicating it: attributes
+are overlaid (new values win) and artifact ids are unioned.
+
+An **edge** is directed, with a `relation` (`contains`, `calls`, `invokes`,
+`maps-to`, `accesses`, `observed-by`, `supports`). Its id is derived from
+workspace + from + relation + to, so adding an existing edge changes nothing.
+
+Rules enforced in `graph.service.ts`:
+
+- cited artifacts must exist in the same workspace;
+- both ends of an edge must be entities of that workspace, and can't be the
+  same entity;
+- violations raise `GraphError`, which the routes return as a `400`.
+
+Because ids are derived, creating and merging are single lookups; the list
+endpoints still scan the whole collection (the storage layer has no queries),
+which is fine for hundreds or low thousands of records but is the thing to
+revisit before indexing a full app. Local storage only for now, like
+artifacts and findings. Emits `graph.entity_upserted` and `graph.edge_created`.
+
+Endpoints:
+
+- `POST /workspaces/:id/graph/entities` — upsert (`{ type, name, attributes?, artifactIds? }`); `201` if new, `200` if merged
+- `GET /workspaces/:id/graph/entities?type=class&q=login` — list by name, optional `type` and name-substring `q`
+- `GET /graph/entities/:entityId` — the entity and every edge touching it
+- `POST /workspaces/:id/graph/edges` — add (`{ from, to, relation }`); `201` if new, `200` if it already existed
+- `GET /workspaces/:id/graph/edges?entityId=...&relation=calls` — list; `entityId` matches either end
+
+### Populating it
+
+`graph/java-indexer.ts` listens for recorded artifacts (`artifact.created` and
+`artifact.updated`, registered once in `core/server.ts` like the artifact
+recorder) and, for a `java-sources` directory - what `jadx.decompile`
+produces - reads the decompiled files and creates:
+
+- a `class` entity per `.java` file, named from its path
+  (`com/acme/Login.java` is `com.acme.Login`), with the source `file` as an
+  attribute so a finding can cite it as a location;
+- a `package` entity per directory that holds classes, with a `classCount`;
+- a `contains` edge from each package to its classes.
+
+It reads jadx's `sources/` folder (a sibling `resources/` is ignored), or the
+artifact directory itself when there is no `sources/`. Files that aren't
+`.java`, and `package-info` / `module-info`, are skipped; a class at the top
+level has no package. Re-indexing the same decompile merges rather than
+duplicates, and `apktool` projects are not indexed.
+
+It goes through `graphService.indexBatch`, which does the whole job with one
+write per collection and one `graph.indexed` event, because every write
+rewrites the whole collection file. Even so, a decompile with more than
+20,000 classes is cut to the first 20,000 (in path order) and a warning says
+so. Indexing failures are logged and never affect the decompile.

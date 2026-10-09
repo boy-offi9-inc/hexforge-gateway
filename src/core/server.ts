@@ -10,8 +10,10 @@ import { pluginIntrospectionRoutes } from "../api/v1/plugin.routes.js";
 import { capabilityRoutes } from "../api/v1/capability.routes.js";
 import { artifactRoutes } from "../api/v1/artifact.routes.js";
 import { findingRoutes } from "../api/v1/finding.routes.js";
+import { graphRoutes } from "../api/v1/graph.routes.js";
 import { register as registerKnowledgeIndexer } from "../modules/knowledge/knowledge-indexer.js";
 import { register as registerArtifactRecorder } from "../artifacts/recorder.js";
+import { register as registerGraphIndexer } from "../graph/java-indexer.js";
 import { loadPlugins } from "../plugins/loader.js";
 import { registerWebsocketGateway } from "./websocket.js";
 import { registerAuth } from "./auth.js";
@@ -46,6 +48,7 @@ export async function buildServer() {
   await app.register(capabilityRoutes);
   await app.register(artifactRoutes);
   await app.register(findingRoutes);
+  await app.register(graphRoutes);
   await registerWebsocketGateway(app);
 
   // Background listener, not a route - turns finished workflow runs into
@@ -55,6 +58,10 @@ export async function buildServer() {
   // Records the directories/files finished tasks produced, using the agents'
   // capability descriptors (see artifacts/recorder.ts).
   registerArtifactRecorder();
+
+  // Turns decompiled java-sources artifacts into package/class entities and
+  // contains edges in the knowledge graph (see graph/java-indexer.ts).
+  registerGraphIndexer();
 
   // Loaded last so plugin-registered routes/agents/listeners land on a
   // fully-formed Gateway (all core routes and indexers already active).

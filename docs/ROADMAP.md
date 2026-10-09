@@ -11,6 +11,7 @@ System, local storage, and CI. This page tracks what's still open.
 
 ## Done
 
+- [x] Typed knowledge graph (`src/graph/`): entities (package, class, method, native function, resource, URL, ...) and directed edges, merged by derived ids so re-reporting never duplicates, with cited artifacts and edge ends validated. Decompiled Java is indexed automatically into packages, classes and `contains` edges (capped at 20,000 classes per decompile). See `docs/ARCHITECTURE.md`
 - [x] Evidence-backed findings (`src/findings/`): a claim with `status`, `confidence` and `evidence[]` citing artifacts. Evidence is validated on save (the artifact must exist in the same workspace) and a finding can't be `confirmed` without any. See `docs/ARCHITECTURE.md`
 - [x] Artifact recorder (`src/artifacts/`): finished tasks whose operation declares an output (`jadx.decompile`, `apktool.decode`, `apktool.build`, `filesystem.scan-secrets`, `frida.trace`, plus plugin agents) are recorded as artifacts with the run that produced them and the versions of the backend tools behind it, listed by `GET /workspaces/:id/artifacts`. See `docs/ARCHITECTURE.md`
 - [x] Capability registry (`src/capabilities/`): agents can describe what they do (capability ids, operations, payload keys, backends, permissions) through an optional descriptor on `registerAgent`; all eight built-in agents do, and `GET /capabilities` lists them. See `docs/AGENTS.md` and `docs/PLUGINS.md`

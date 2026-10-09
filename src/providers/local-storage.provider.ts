@@ -129,6 +129,25 @@ export async function upsertRecord<T extends { id: string }>(
   });
 }
 
+/**
+ * Upserts many records with a single read and a single write. Every write
+ * rewrites the whole collection file, so adding thousands of records one
+ * upsertRecord at a time (e.g. indexing a decompiled app) would rewrite a
+ * growing file thousands of times.
+ */
+export async function upsertRecords<T extends { id: string }>(
+  collection: string,
+  records: T[],
+): Promise<T[]> {
+  if (records.length === 0) return records;
+  return withCollectionLock(collection, async () => {
+    const data = await readCollection<T>(collection);
+    for (const record of records) data[record.id] = record;
+    await writeCollection(collection, data);
+    return records;
+  });
+}
+
 export async function deleteRecord(collection: string, id: string): Promise<boolean> {
   return withCollectionLock(collection, async () => {
     const data = await readCollection(collection);

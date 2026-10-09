@@ -1,6 +1,7 @@
 import type { McpTask, Workspace, Job, Workflow, KnowledgeEntry } from "../core/types.js";
 import type { Artifact } from "../artifacts/types.js";
 import type { Finding } from "../findings/types.js";
+import type { GraphEdge, GraphEntity } from "../graph/types.js";
 
 /**
  * Every event the Event Bus carries, and the payload shape for each.
@@ -44,6 +45,15 @@ export interface EventMap {
 
   "finding.created": { finding: Finding };
   "finding.updated": { finding: Finding };
+
+  "graph.entity_upserted": { entity: GraphEntity; created: boolean };
+  "graph.edge_created": { edge: GraphEdge };
+  "graph.indexed": {
+    workspaceId: string;
+    artifactId: string;
+    entities: { created: number; updated: number };
+    edges: { created: number; existing: number };
+  };
 
   "plugin.loaded": { name: string };
   "plugin.failed": { name: string; error: string };

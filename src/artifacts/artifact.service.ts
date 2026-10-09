@@ -46,3 +46,13 @@ export async function listArtifactsForWorkspace(
     .filter((a) => a.workspaceId === workspaceId && (!kind || a.kind === kind))
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
+
+/** The ids in `ids` that aren't artifacts of this workspace (missing, or from another one). */
+export async function missingArtifactIds(workspaceId: string, ids: string[]): Promise<string[]> {
+  const missing: string[] = [];
+  for (const id of new Set(ids)) {
+    const artifact = await getArtifact(id);
+    if (!artifact || artifact.workspaceId !== workspaceId) missing.push(id);
+  }
+  return missing;
+}

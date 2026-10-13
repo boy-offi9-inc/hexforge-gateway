@@ -79,6 +79,55 @@ export async function listKnowledge(workspaceId: string, type?: string): Promise
   return request<unknown[]>("GET", `/workspaces/${workspaceId}/knowledge${qs}`);
 }
 
+/** `?a=1&b=2` from the defined values only, or an empty string. */
+function queryString(params: Record<string, string | undefined>): string {
+  const pairs = Object.entries(params).filter((e): e is [string, string] => e[1] !== undefined);
+  return pairs.length > 0 ? `?${new URLSearchParams(pairs).toString()}` : "";
+}
+
+export async function listCapabilities(): Promise<unknown> {
+  return request<unknown>("GET", "/capabilities");
+}
+
+export async function listArtifacts(workspaceId: string, kind?: string): Promise<unknown[]> {
+  return request<unknown[]>("GET", `/workspaces/${workspaceId}/artifacts${queryString({ kind })}`);
+}
+
+export async function listGraphEntities(
+  workspaceId: string,
+  filter: { type?: string; q?: string } = {},
+): Promise<unknown[]> {
+  return request<unknown[]>(
+    "GET",
+    `/workspaces/${workspaceId}/graph/entities${queryString(filter)}`,
+  );
+}
+
+export async function getGraphEntity(entityId: string): Promise<unknown> {
+  return request<unknown>("GET", `/graph/entities/${encodeURIComponent(entityId)}`);
+}
+
+export async function listFindings(
+  workspaceId: string,
+  filter: { status?: string; entityId?: string } = {},
+): Promise<unknown[]> {
+  return request<unknown[]>("GET", `/workspaces/${workspaceId}/findings${queryString(filter)}`);
+}
+
+export async function createFinding(
+  workspaceId: string,
+  body: Record<string, unknown>,
+): Promise<unknown> {
+  return request<unknown>("POST", `/workspaces/${workspaceId}/findings`, body);
+}
+
+export async function updateFinding(
+  findingId: string,
+  body: Record<string, unknown>,
+): Promise<unknown> {
+  return request<unknown>("PATCH", `/findings/${encodeURIComponent(findingId)}`, body);
+}
+
 export interface InboxApk {
   fileName: string;
   path: string;

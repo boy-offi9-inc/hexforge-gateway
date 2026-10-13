@@ -4,6 +4,7 @@ import {
   ALL_TOOL_DEFINITIONS,
   META_TOOL_DEFINITIONS,
 } from "../src/mcp-server/tools.js";
+import { ENTITY_TYPES } from "../src/graph/types.js";
 
 // tools.ts is pure data with no dependencies, so there's nothing to mock -
 // these tests exist to stop the tool definitions quietly regressing. Glama's
@@ -97,5 +98,68 @@ describe("tool definitions", () => {
       expect(tool.agent, tool.name).toBeTruthy();
       expect(tool.operation, tool.name).toBeTruthy();
     }
+  });
+
+  describe("capability, artifact, graph and finding tools", () => {
+    const tool = (name: string) => {
+      const found = ALL_TOOL_DEFINITIONS.find((t) => t.name === name);
+      if (!found) throw new Error(`no tool named ${name}`);
+      return found;
+    };
+
+    it("are all exposed", () => {
+      const names = ALL_TOOL_DEFINITIONS.map((t) => t.name);
+      expect(names).toEqual(
+        expect.arrayContaining([
+          "list_capabilities",
+          "list_artifacts",
+          "list_graph_entities",
+          "get_graph_entity",
+          "list_findings",
+          "create_finding",
+          "update_finding",
+        ]),
+      );
+    });
+
+    it("only create_finding and update_finding write, and neither is destructive", () => {
+      const readOnly = [
+        "list_capabilities",
+        "list_artifacts",
+        "list_graph_entities",
+        "get_graph_entity",
+        "list_findings",
+      ];
+      for (const name of readOnly) expect(tool(name).annotations?.readOnlyHint, name).toBe(true);
+      for (const name of ["create_finding", "update_finding"]) {
+        expect(tool(name).annotations).toMatchObject({
+          readOnlyHint: false,
+          destructiveHint: false,
+        });
+      }
+    });
+
+    it("keep the entity type list in step with the graph's own", () => {
+      const schema = tool("list_graph_entities").inputSchema.properties.type as { enum: string[] };
+      expect(schema.enum).toEqual([...ENTITY_TYPES]);
+    });
+
+    it("document every field of an evidence item and require its artifactId", () => {
+      for (const name of ["create_finding", "update_finding"]) {
+        const evidence = tool(name).inputSchema.properties.evidence as {
+          items: { properties: Record<string, { description?: string }>; required: string[] };
+        };
+        expect(evidence.items.required, name).toEqual(["artifactId"]);
+        for (const [field, schema] of Object.entries(evidence.items.properties)) {
+          expect(schema.description, `${name} evidence.${field}`).toBeTruthy();
+        }
+      }
+    });
+
+    it("require what the Gateway requires", () => {
+      expect(tool("create_finding").inputSchema.required).toEqual(["claim"]);
+      expect(tool("update_finding").inputSchema.required).toEqual(["findingId"]);
+      expect(tool("get_graph_entity").inputSchema.required).toEqual(["entityId"]);
+    });
   });
 });

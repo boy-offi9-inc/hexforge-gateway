@@ -56,6 +56,11 @@ Run with `npm test` (single run) or `npm run test:watch`. These are plain
   HTTP transports): `initialize`/`tools/list`/unknown-method handling,
   notifications correctly producing no response, an unknown tool name
   and a missing `tools/call` "name" param each erroring the _right_ way
+  and the capability/artifact/graph/finding tools: each reaches the right
+  gateway-client function with its filters, `create_finding` always sends
+  `source: "ai"` (a caller-supplied `source` is ignored), required ids and
+  claims are checked before any call, and a rejected finding comes back as
+  an error result carrying the Gateway's reason
   (tool result vs. JSON-RPC error - see `docs/MCP_SERVER.md`), a meta
   tool dispatching straight to its `gateway-client.ts` function, an
   agent-mapped tool resolving its workspace by name and forwarding the
@@ -102,7 +107,11 @@ Bearer` or `X-API-Key`, any one of several configured keys works, the
   documented, `required` only naming real parameters, every tool
   annotated (write tools also declare `destructiveHint`/`idempotentHint`,
   read-only ones don't), and the set of destructive tools pinned to
-  exactly the four that can change the device or prior work. Guards the
+  exactly the four that can change the device or prior work. For the
+  capability/artifact/graph/finding tools it also pins which ones write
+  (only `create_finding`, `update_finding`, and not destructively), keeps
+  the `list_graph_entities` type enum in step with the graph's own
+  `ENTITY_TYPES`, and checks every field of an evidence item is documented. Guards the
   things Glama's quality score marks down; it can't check that the prose
   is still _true_, only that it's present.
 

@@ -102,6 +102,62 @@ async function callTool(
         const entries = await gateway.listKnowledge(ws.id, args.type as string | undefined);
         return toolTextResult(JSON.stringify(entries));
       }
+      case "list_capabilities": {
+        return toolTextResult(JSON.stringify(await gateway.listCapabilities()));
+      }
+      case "list_artifacts": {
+        const ws = await gateway.getOrCreateWorkspace(workspaceName);
+        const artifacts = await gateway.listArtifacts(ws.id, args.kind as string | undefined);
+        return toolTextResult(JSON.stringify(artifacts));
+      }
+      case "list_graph_entities": {
+        const ws = await gateway.getOrCreateWorkspace(workspaceName);
+        const entities = await gateway.listGraphEntities(ws.id, {
+          type: args.type as string | undefined,
+          q: args.q as string | undefined,
+        });
+        return toolTextResult(JSON.stringify(entities));
+      }
+      case "get_graph_entity": {
+        const entityId = args.entityId as string;
+        if (!entityId) return toolTextResult('"entityId" is required', true);
+        return toolTextResult(JSON.stringify(await gateway.getGraphEntity(entityId)));
+      }
+      case "list_findings": {
+        const ws = await gateway.getOrCreateWorkspace(workspaceName);
+        const findings = await gateway.listFindings(ws.id, {
+          status: args.status as string | undefined,
+          entityId: args.entityId as string | undefined,
+        });
+        return toolTextResult(JSON.stringify(findings));
+      }
+      case "create_finding": {
+        const claim = args.claim as string;
+        if (!claim) return toolTextResult('"claim" is required', true);
+        const ws = await gateway.getOrCreateWorkspace(workspaceName);
+        // `source` is fixed rather than a parameter: a finding made through MCP
+        // is the AI's claim, and the caller shouldn't be able to label it otherwise.
+        const finding = await gateway.createFinding(ws.id, {
+          claim,
+          status: args.status,
+          confidence: args.confidence,
+          reasoning: args.reasoning,
+          evidence: args.evidence,
+          source: "ai",
+        });
+        return toolTextResult(JSON.stringify(finding));
+      }
+      case "update_finding": {
+        const findingId = args.findingId as string;
+        if (!findingId) return toolTextResult('"findingId" is required', true);
+        const finding = await gateway.updateFinding(findingId, {
+          status: args.status,
+          confidence: args.confidence,
+          reasoning: args.reasoning,
+          evidence: args.evidence,
+        });
+        return toolTextResult(JSON.stringify(finding));
+      }
       case "get_inbox_apks": {
         const ws = await gateway.getOrCreateWorkspace(workspaceName);
         const apks = await gateway.listInboxApks(ws.id);

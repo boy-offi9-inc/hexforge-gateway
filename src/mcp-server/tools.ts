@@ -540,6 +540,37 @@ export const AGENT_TOOLS: AgentToolSpec[] = [
 ];
 
 /** Tools with bespoke logic (workspace management, knowledge, chat) instead of a straight agent-job mapping. */
+const findingStatusEnum = ["unverified", "confirmed", "contradicted"];
+const findingConfidenceEnum = ["low", "medium", "high"];
+
+// What each piece of a finding's evidence looks like - shared by create_finding
+// and update_finding, since both validate it the same way.
+const evidenceProp = {
+  type: "array",
+  description:
+    "Evidence for the claim. Each item cites an artifact from list_artifacts and can add the graph entity it is about, where in the artifact, and a note. Every cited artifact and entity must exist in this workspace, and an entity must have been observed in the artifact it is cited with.",
+  items: {
+    type: "object",
+    properties: {
+      artifactId: {
+        type: "string",
+        description: "Id of an artifact in this workspace, from list_artifacts.",
+      },
+      entityId: {
+        type: "string",
+        description:
+          "Optional id of a graph entity (from list_graph_entities) that this evidence is about, e.g. a class. It must have been observed in the cited artifact.",
+      },
+      location: {
+        type: "string",
+        description: 'Optional place inside the artifact, e.g. "com/acme/Api.java:12".',
+      },
+      note: { type: "string", description: "Optional short note on what this evidence shows." },
+    },
+    required: ["artifactId"],
+  },
+};
+
 export const META_TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: "list_workspaces",
@@ -636,6 +667,192 @@ export const META_TOOL_DEFINITIONS: ToolDefinition[] = [
         },
       },
       required: ["message"],
+    },
+  },
+  {
+    name: "list_capabilities",
+    description:
+      "List what this Gateway can do: each capability (for example java.decompile, android.rebuild or instrument.trace) with the agents that provide it and the operations they offer for it, plus every agent's descriptor (backend tools, permissions, payload keys, declared outputs). Only reads, and needs no workspace. Use it to discover what is available, for example when a plugin might provide something the other tools don't.",
+    annotations: {
+      title: "List capabilities",
+      readOnlyHint: true,
+      openWorldHint: false,
+    },
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "list_artifacts",
+    description:
+      "List the artifacts recorded in a workspace: directories and files that finished tasks produced (decompiled sources, a decoded APK project, a rebuilt APK, secret-scan and Frida trace results), newest first. Returns an array of { id, kind, path, pathType, source: { taskId, agent, operation, capability }, tools?, createdAt, updatedAt }; tools lists the backend tool versions behind it. Artifact ids are what create_finding evidence cites. Only reads, apart from creating the workspace if it doesn't exist.",
+    annotations: {
+      title: "List artifacts",
+      readOnlyHint: true,
+      openWorldHint: false,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        workspace: workspaceProp,
+        kind: {
+          type: "string",
+          description:
+            "Only return artifacts of this kind, e.g. java-sources, apktool-project, apk, secret-scan or frida-trace. Omit to return every kind.",
+        },
+      },
+    },
+  },
+  {
+    name: "list_graph_entities",
+    description:
+      "List the typed entities in a workspace's knowledge graph, sorted by name: packages and classes indexed automatically from a jadx decompile, plus anything added through the Gateway API. Returns an array of { id, type, name, attributes, artifactIds, createdAt, updatedAt }; class entities keep their source file in attributes.file. Use get_graph_entity for one entity's relationships, and an entity id as entityId in a finding's evidence. Only reads, apart from creating the workspace if it doesn't exist.",
+    annotations: {
+      title: "List graph entities",
+      readOnlyHint: true,
+      openWorldHint: false,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        workspace: workspaceProp,
+        type: {
+          type: "string",
+          enum: [
+            "package",
+            "class",
+            "method",
+            "native-function",
+            "resource",
+            "url",
+            "secret-candidate",
+            "runtime-event",
+            "traffic-event",
+          ],
+          description: "Only return entities of this type. Omit to return every type.",
+        },
+        q: {
+          type: "string",
+          description: 'Case-insensitive substring of the entity name, e.g. "login" or "com.acme".',
+        },
+      },
+    },
+  },
+  {
+    name: "get_graph_entity",
+    description:
+      "Get one knowledge-graph entity together with every edge touching it (a package containing a class, calls, invokes, accesses and so on), by entity id from list_graph_entities. Returns { entity, edges: [{ id, from, to, relation, createdAt }] }, where from and to are entity ids. Only reads. Errors if the entity doesn't exist.",
+    annotations: {
+      title: "Get a graph entity",
+      readOnlyHint: true,
+      openWorldHint: false,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        entityId: {
+          type: "string",
+          description: "Entity id, from list_graph_entities.",
+        },
+      },
+      required: ["entityId"],
+    },
+  },
+  {
+    name: "list_findings",
+    description:
+      "List a workspace's findings - claims about the target with their status, confidence and evidence - newest first. Returns an array of { id, claim, status, confidence?, reasoning?, evidence: [{ artifactId, entityId?, location?, note? }], source, createdAt, updatedAt }. Check it before create_finding so you don't record the same claim twice. Only reads, apart from creating the workspace if it doesn't exist.",
+    annotations: {
+      title: "List findings",
+      readOnlyHint: true,
+      openWorldHint: false,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        workspace: workspaceProp,
+        status: {
+          type: "string",
+          enum: findingStatusEnum,
+          description: "Only return findings with this status. Omit to return every status.",
+        },
+        entityId: {
+          type: "string",
+          description: "Only return findings whose evidence cites this graph entity id.",
+        },
+      },
+    },
+  },
+  {
+    name: "create_finding",
+    description:
+      'Record a claim about the target together with the evidence behind it. The Gateway checks the evidence: an artifact or entity that doesn\'t exist in this workspace is rejected with an explanation, and a finding can\'t be confirmed without at least one piece of evidence - so cite artifacts from list_artifacts, and say where (for example "com/acme/Api.java:12"). It is saved as unverified unless you set a status, and with source "ai". Returns the created finding; change it later with update_finding. Creates the workspace if it doesn\'t exist.',
+    annotations: {
+      title: "Record a finding",
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        workspace: workspaceProp,
+        claim: {
+          type: "string",
+          description:
+            'The claim, one clear statement, e.g. "The login request sends the password over cleartext HTTP". Must not be empty.',
+        },
+        status: {
+          type: "string",
+          enum: findingStatusEnum,
+          description:
+            'Defaults to "unverified". "confirmed" needs at least one piece of evidence.',
+        },
+        confidence: {
+          type: "string",
+          enum: findingConfidenceEnum,
+          description: "How sure you are. Optional.",
+        },
+        reasoning: {
+          type: "string",
+          description: "Why the evidence supports the claim. Optional.",
+        },
+        evidence: evidenceProp,
+      },
+      required: ["claim"],
+    },
+  },
+  {
+    name: "update_finding",
+    description:
+      "Change a finding: its status (confirm it once the evidence supports it, or mark it contradicted), confidence, reasoning or evidence. Evidence given here replaces the finding's existing evidence rather than adding to it, and is checked the same way as in create_finding; a finding can't be confirmed without evidence. Provide at least one field besides findingId. Returns the updated finding. Errors if the finding doesn't exist or the change is rejected, in which case it is left as it was.",
+    annotations: {
+      title: "Update a finding",
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        findingId: {
+          type: "string",
+          description: "Id of the finding, from list_findings or create_finding.",
+        },
+        status: {
+          type: "string",
+          enum: findingStatusEnum,
+          description: "New status. confirmed needs at least one piece of evidence.",
+        },
+        confidence: {
+          type: "string",
+          enum: findingConfidenceEnum,
+          description: "New confidence.",
+        },
+        reasoning: { type: "string", description: "New reasoning." },
+        evidence: evidenceProp,
+      },
+      required: ["findingId"],
     },
   },
 ];

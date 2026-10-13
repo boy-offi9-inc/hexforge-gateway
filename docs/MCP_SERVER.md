@@ -119,19 +119,52 @@ stdio's "reachable by whoever can spawn this process":
 
 ## Tools exposed
 
-(`src/mcp-server/tools.ts`, shared by both transports) - a curated ~20,
+(`src/mcp-server/tools.ts`, shared by both transports) - a curated 27,
 not a 1:1 mirror of every agent operation, picked for what's useful to
 drive directly: `list_workspaces`, `get_or_create_workspace`,
 `list_knowledge`, `get_inbox_apks`, `chat_with_workspace`, `decompile_apk`, `decode_apk`,
 `build_apk`, `identify_packer`, `scan_secrets`, `search_code`,
 `read_file`, `list_files`, `adb_devices`, `adb_shell`, `adb_install`,
-`adb_logcat`, `frida_list_processes`, `frida_trace`, `summarize_text`.
+`adb_logcat`, `frida_list_processes`, `frida_trace`, `summarize_text`,
+`list_capabilities`, `list_artifacts`, `list_graph_entities`, `get_graph_entity`,
+`list_findings`, `create_finding`, `update_finding`.
 Every workspace-scoped tool takes an optional `workspace` name argument
 (not an id) defaulting to `"default"`, resolved through the Gateway's
 get-or-create-by-name endpoint - the calling AI never needs to know or
 track a workspace id. `get_inbox_apks` is the direct payoff of that
 combined with `docs/INBOX.md`'s watched folder: drop an APK, then the AI
 can resolve a real `apkPath` for it by name without anyone typing one.
+
+### Capabilities, artifacts, the graph and findings
+
+Seven tools expose the Gateway's evidence side (the model is in
+[ARCHITECTURE](ARCHITECTURE.md#artifacts)), so an AI client can record what it
+finds and tie it to what was actually produced, instead of only reading it
+back over REST:
+
+- `list_capabilities` - what the Gateway can do and which agents provide it.
+- `list_artifacts` - what finished tasks produced (decompiled sources, a
+  rebuilt APK, scan and trace results), optionally by `kind`. The ids are what
+  evidence cites.
+- `list_graph_entities` / `get_graph_entity` - the knowledge graph: packages
+  and classes from a decompile, filterable by `type` and a name substring `q`,
+  and one entity with every edge touching it.
+- `list_findings` - claims recorded so far, by `status` or by a cited
+  `entityId`.
+- `create_finding` / `update_finding` - record a claim with evidence, and
+  later confirm, contradict or revise it. The Gateway validates the evidence
+  (the artifact, and any cited entity, must exist in the workspace, and a
+  finding can't be confirmed without evidence); a rejection comes back as an
+  error result with the reason, so the model can fix the citation and retry.
+
+Two choices worth knowing: `create_finding` always saves the finding with
+`source: "ai"` and has no parameter to change that, so a finding made through
+MCP can't be labelled as a human's; and `update_finding`'s `evidence`
+**replaces** the existing evidence rather than adding to it. Neither tool is
+flagged `destructiveHint`, for the same reason as the workspace bookkeeping
+above: they edit the Gateway's own records, not the files or device being
+analyzed. `get_graph_entity` and `update_finding` take an id and no
+`workspace`; `list_capabilities` takes no arguments.
 
 ### Tool annotations and descriptions
 
@@ -157,7 +190,7 @@ things worth knowing before editing them:
   `tests/tools.test.ts` checks that annotations and parameter descriptions
   stay complete; it can't check that the prose is still true.
 
-The full tool list is about 25 KB of JSON, which a client loads into context
+The full tool list is about 34 KB of JSON, which a client loads into context
 once per session - worth keeping in mind before making descriptions longer.
 
 ## Implementation notes

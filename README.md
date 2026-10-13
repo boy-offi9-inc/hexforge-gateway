@@ -49,7 +49,8 @@ Core endpoints (request/response shapes are in the linked docs):
 - `GET /plugins` ([PLUGINS](docs/PLUGINS.md))
 - `GET /capabilities` - what the Gateway can do and which agents provide it ([AGENTS](docs/AGENTS.md#capabilities))
 - `GET /workspaces/:id/artifacts` / `GET /artifacts/:id` - directories and files finished tasks produced, with the run that made them ([ARCHITECTURE](docs/ARCHITECTURE.md#artifacts))
-- `POST`/`GET /workspaces/:id/findings`, `GET`/`PATCH /findings/:id` - claims with evidence checked against real artifacts ([ARCHITECTURE](docs/ARCHITECTURE.md#findings))
+- `POST`/`GET /workspaces/:id/findings` (filter by `status` or a cited `entityId`), `GET`/`PATCH /findings/:id` - claims with evidence checked against real artifacts and graph entities ([ARCHITECTURE](docs/ARCHITECTURE.md#findings))
+- `POST`/`GET /workspaces/:id/graph/entities`, `GET /graph/entities/:id`, `POST`/`GET /workspaces/:id/graph/edges` - typed entities and relationships observed about the target ([ARCHITECTURE](docs/ARCHITECTURE.md#knowledge-graph))
 - `WS /ws` - real-time `task:update`, `job:update`, `workflow:update`, `knowledge:entry_created`, `workspace:status_changed` for every workspace
 - `WS /ws/workspaces/:id` - same events, filtered to one workspace
 

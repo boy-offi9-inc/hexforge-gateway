@@ -9,3 +9,10 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
+    ignore:
+      # TypeScript 7 runs a per-platform native binary that doesn't exist for
+      # Termux/Android, where this project is developed, so `tsc` can't start
+      # there (CI on Linux would still pass). Stay on 5.x: patch and minor
+      # updates still come through, major ones don't.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]

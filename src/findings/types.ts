@@ -54,3 +54,30 @@ export interface FindingInput {
 export type FindingUpdate = Partial<
   Pick<Finding, "status" | "confidence" | "reasoning" | "evidence">
 >;
+
+export type VerificationStatus = "verified" | "unverified" | "failed";
+
+/** The result of checking one piece of a finding's evidence against the files it cites. */
+export interface EvidenceCheck {
+  /** Position in the finding's `evidence` array. */
+  index: number;
+  artifactId: Evidence["artifactId"];
+  entityId?: Evidence["entityId"];
+  location?: Evidence["location"];
+  status: VerificationStatus;
+  reason: string;
+}
+
+/**
+ * What `verifyFinding` returns. `summary` is `failed` if any item failed,
+ * `verified` if every item verified, `partial` if some verified and the rest
+ * could not be checked, and `unverified` if none verified (including no
+ * evidence at all). It describes the evidence only - it never changes the
+ * finding's own status.
+ */
+export interface VerificationReport {
+  findingId: Finding["id"];
+  checkedAt: string;
+  summary: VerificationStatus | "partial";
+  items: EvidenceCheck[];
+}

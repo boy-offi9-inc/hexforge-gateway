@@ -28,16 +28,25 @@ async function buildApp(opts: { workspaceExists?: boolean } = {}) {
     getFinding: vi.fn().mockImplementation(async (id: string) => (id === "f1" ? finding : null)),
     updateFinding: vi.fn().mockImplementation(async (id: string) => (id === "f1" ? finding : null)),
   };
+  const verifier = {
+    verifyFinding: vi.fn().mockResolvedValue({
+      findingId: "f1",
+      checkedAt: "now",
+      summary: "verified",
+      items: [],
+    }),
+  };
   const workspaces = {
     getWorkspace: vi.fn().mockResolvedValue(opts.workspaceExists === false ? null : { id: "ws1" }),
   };
   vi.doMock("../src/modules/workspace/workspace.service.js", () => workspaces);
   vi.doMock("../src/findings/finding.service.js", () => service);
+  vi.doMock("../src/findings/verifier.js", () => verifier);
 
   const { findingRoutes } = await import("../src/api/v1/finding.routes.js");
   const app = Fastify();
   await app.register(findingRoutes);
-  return { app, service };
+  return { app, service, verifier };
 }
 
 describe("finding routes", () => {
@@ -133,5 +142,18 @@ describe("finding routes", () => {
 
     const empty = await app.inject({ method: "PATCH", url: "/findings/f1", payload: {} });
     expect(empty.statusCode).toBe(400);
+  });
+
+  it("GET /findings/:findingId/verification reports the check, or 404s", async () => {
+    const { app, verifier } = await buildApp();
+    const ok = await app.inject({ method: "GET", url: "/findings/f1/verification" });
+
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json()).toMatchObject({ findingId: "f1", summary: "verified" });
+    expect(verifier.verifyFinding).toHaveBeenCalledWith(finding);
+
+    const missing = await app.inject({ method: "GET", url: "/findings/zzz/verification" });
+    expect(missing.statusCode).toBe(404);
+    expect(verifier.verifyFinding).toHaveBeenCalledTimes(1);
   });
 });

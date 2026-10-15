@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import * as workspaceService from "../../modules/workspace/workspace.service.js";
 import * as findingService from "../../findings/finding.service.js";
+import * as verifier from "../../findings/verifier.js";
 import type { FindingConfidence, FindingStatus } from "../../findings/types.js";
 
 const statusSchema = z.enum([
@@ -81,6 +82,14 @@ export async function findingRoutes(app: FastifyInstance) {
     const finding = await findingService.getFinding(findingId);
     if (!finding) return reply.code(404).send({ error: "Finding not found" });
     return finding;
+  });
+
+  // Read-only: checks the evidence against the cited files, changes nothing.
+  app.get("/findings/:findingId/verification", async (req, reply) => {
+    const { findingId } = req.params as { findingId: string };
+    const finding = await findingService.getFinding(findingId);
+    if (!finding) return reply.code(404).send({ error: "Finding not found" });
+    return verifier.verifyFinding(finding);
   });
 
   app.patch("/findings/:findingId", async (req, reply) => {

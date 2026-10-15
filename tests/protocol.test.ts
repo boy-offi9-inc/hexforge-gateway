@@ -20,6 +20,7 @@ vi.mock("../src/mcp-server/gateway-client.js", () => ({
   listFindings: vi.fn(),
   createFinding: vi.fn(),
   updateFinding: vi.fn(),
+  verifyFinding: vi.fn(),
 }));
 
 import * as gateway from "../src/mcp-server/gateway-client.js";
@@ -46,6 +47,7 @@ beforeEach(() => {
     gateway.listFindings,
     gateway.createFinding,
     gateway.updateFinding,
+    gateway.verifyFinding,
   ]) {
     mocked(fn).mockReset();
   }
@@ -433,5 +435,19 @@ describe("protocol - capability, artifact, graph and finding tools", () => {
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("Evidence cites artifact(s)");
+  });
+
+  it("verify_finding needs a findingId, then returns the Gateway's report", async () => {
+    const missing = await call("verify_finding", {});
+    expect(missing.isError).toBe(true);
+    expect(missing.content[0].text).toContain('"findingId" is required');
+    expect(gateway.verifyFinding).not.toHaveBeenCalled();
+
+    mocked(gateway.verifyFinding).mockResolvedValue({ findingId: "f1", summary: "partial" });
+    const ok = await call("verify_finding", { findingId: "f1" });
+
+    expect(gateway.verifyFinding).toHaveBeenCalledWith("f1");
+    expect(getOrCreateWorkspace).not.toHaveBeenCalled();
+    expect(JSON.parse(ok.content[0].text)).toEqual({ findingId: "f1", summary: "partial" });
   });
 });

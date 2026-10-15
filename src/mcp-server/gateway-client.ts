@@ -128,6 +128,10 @@ export async function updateFinding(
   return request<unknown>("PATCH", `/findings/${encodeURIComponent(findingId)}`, body);
 }
 
+export async function verifyFinding(findingId: string): Promise<unknown> {
+  return request<unknown>("GET", `/findings/${encodeURIComponent(findingId)}/verification`);
+}
+
 export interface InboxApk {
   fileName: string;
   path: string;

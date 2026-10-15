@@ -11,6 +11,7 @@ System, local storage, and CI. This page tracks what's still open.
 
 ## Done
 
+- [x] Evidence verification (`src/findings/verifier.ts`): re-checks a finding's cited locations (`file.java:12`) against the artifact's files - the file exists, the line is within it, nothing outside the artifact is read - via `GET /findings/:id/verification` and the `verify_finding` MCP tool. Reports only; never changes a finding's status. See `docs/ARCHITECTURE.md`
 - [x] MCP tools for the evidence side (`src/mcp-server/`): `list_capabilities`, `list_artifacts`, `list_graph_entities`, `get_graph_entity`, `list_findings`, `create_finding` (always saved as the AI's, evidence validated by the Gateway) and `update_finding`, so an AI client can record findings tied to real artifacts. See `docs/MCP_SERVER.md`
 - [x] Typed knowledge graph (`src/graph/`): entities (package, class, method, native function, resource, URL, ...) and directed edges, merged by derived ids so re-reporting never duplicates, with cited artifacts and edge ends validated. Decompiled Java is indexed automatically into packages, classes and `contains` edges (capped at 20,000 classes per decompile). See `docs/ARCHITECTURE.md`
 - [x] Evidence-backed findings (`src/findings/`): a claim with `status`, `confidence` and `evidence[]` citing artifacts. Evidence is validated on save (the artifact must exist in the same workspace, and a cited graph entity must have been observed in that artifact) and a finding can't be `confirmed` without any. See `docs/ARCHITECTURE.md`

@@ -231,6 +231,36 @@ Endpoints:
 - `GET /workspaces/:id/findings?status=confirmed&entityId=...` — list, newest first, optional `status` filter and `entityId` (findings whose evidence cites that graph entity)
 - `GET /findings/:findingId` — fetch one
 - `PATCH /findings/:findingId` — update `status`, `confidence`, `reasoning` or `evidence`
+- `GET /findings/:findingId/verification` — check the evidence against the files it cites ([below](#verifying-evidence))
+
+### Verifying evidence
+
+Saving a finding checks that its evidence *refers* to things that exist.
+`verifyFinding` (`findings/verifier.ts`) goes one step further and checks the
+files: for each evidence item with a `location` such as
+`com/acme/Api.java:12`, `:12-20` or `:12:5` (a column is ignored), it confirms
+the file exists inside the cited artifact and that the line or range is within
+it. A location is relative to the artifact directory, or to its `sources/`
+folder for a jadx decompile - the same paths the graph indexer records.
+
+Each item comes back `verified`, `failed` or `unverified` with a reason, and the
+report has a `summary`: `failed` if anything failed, `verified` if everything
+did, `partial` if some verified and the rest couldn't be checked, `unverified`
+if nothing verified (including a finding with no evidence).
+
+- **failed**: the file isn't in the artifact, the line is past the end of the
+  file, the range is backwards or starts below 1, the location points outside
+  the artifact, or the cited artifact no longer exists.
+- **unverified**: no location was given (only the artifact's existence was
+  checked), the artifact is a single file such as a rebuilt APK, its directory
+  is missing on disk, or the file is over 5 MB and the line wasn't read.
+
+Two things it deliberately does not do. It never reads outside the artifact
+directory - parent paths, absolute paths and symlinks that lead out are
+rejected. And it never changes the finding: `verified` means the cited place
+exists, not that the claim about it is true, so a finding's `status` stays
+whatever someone or something set it to. The check is computed on demand and
+not stored, so it can't go stale.
 
 ## Knowledge graph
 

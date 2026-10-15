@@ -118,6 +118,7 @@ describe("tool definitions", () => {
           "list_findings",
           "create_finding",
           "update_finding",
+          "verify_finding",
         ]),
       );
     });
@@ -129,6 +130,7 @@ describe("tool definitions", () => {
         "list_graph_entities",
         "get_graph_entity",
         "list_findings",
+        "verify_finding",
       ];
       for (const name of readOnly) expect(tool(name).annotations?.readOnlyHint, name).toBe(true);
       for (const name of ["create_finding", "update_finding"]) {
@@ -160,6 +162,7 @@ describe("tool definitions", () => {
       expect(tool("create_finding").inputSchema.required).toEqual(["claim"]);
       expect(tool("update_finding").inputSchema.required).toEqual(["findingId"]);
       expect(tool("get_graph_entity").inputSchema.required).toEqual(["entityId"]);
+      expect(tool("verify_finding").inputSchema.required).toEqual(["findingId"]);
     });
   });
 });

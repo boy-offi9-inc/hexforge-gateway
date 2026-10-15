@@ -158,6 +158,11 @@ async function callTool(
         });
         return toolTextResult(JSON.stringify(finding));
       }
+      case "verify_finding": {
+        const findingId = args.findingId as string;
+        if (!findingId) return toolTextResult('"findingId" is required', true);
+        return toolTextResult(JSON.stringify(await gateway.verifyFinding(findingId)));
+      }
       case "get_inbox_apks": {
         const ws = await gateway.getOrCreateWorkspace(workspaceName);
         const apks = await gateway.listInboxApks(ws.id);

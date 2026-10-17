@@ -17,7 +17,7 @@ const getOrCreateWorkspaceSchema = z.object({
 const dispatchTaskSchema = z.object({
   agent: z.string().min(1) as z.ZodType<McpAgentKind>,
   operation: z.string().min(1),
-  payload: z.record(z.unknown()).optional(),
+  payload: z.record(z.string(), z.unknown()).optional(),
 });
 
 export async function workspaceRoutes(app: FastifyInstance) {

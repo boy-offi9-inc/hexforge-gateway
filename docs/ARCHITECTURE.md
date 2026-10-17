@@ -266,8 +266,8 @@ not stored, so it can't go stale.
 
 `src/graph/` holds typed things observed about the target and the
 relationships between them, next to the free-text [Knowledge Engine](#knowledge-engine).
-It is a schema and an API, plus one indexer for decompiled Java
-([below](#populating-it)).
+It is a schema and an API, plus indexers for decompiled Java and
+decoded smali ([below](#populating-it)).
 
 An **entity** has a `type` (`package`, `class`, `method`, `native-function`,
 `resource`, `url`, `secret-candidate`, `runtime-event`, `traffic-event`), a
@@ -320,10 +320,34 @@ It reads jadx's `sources/` folder (a sibling `resources/` is ignored), or the
 artifact directory itself when there is no `sources/`. Files that aren't
 `.java`, and `package-info` / `module-info`, are skipped; a class at the top
 level has no package. Re-indexing the same decompile merges rather than
-duplicates, and `apktool` projects are not indexed.
+duplicates.
 
 It goes through `graphService.indexBatch`, which does the whole job with one
 write per collection and one `graph.indexed` event, because every write
 rewrites the whole collection file. Even so, a decompile with more than
 20,000 classes is cut to the first 20,000 (in path order) and a warning says
 so. Indexing failures are logged and never affect the decompile.
+
+#### Smali
+
+`graph/smali-indexer.ts` does the same for an `apktool-project` directory - what
+`apktool.decode` produces. It reads every smali directory (`smali`,
+`smali_classes2`, `smali_classes3`, ...; `res/`, the manifest and the rest are
+ignored) and creates the same kinds of entities and edges, named from the path:
+`smali/com/acme/Login.smali` is the class `com.acme.Login`. Smali keeps an inner
+class in its own file, so `Outer$Inner.smali` is its own entity, with an
+`Outer` -> `Outer$Inner` `contains` edge when `Outer` was decoded too. A decode
+with `noSrc` has no smali, so nothing is indexed.
+
+Because the names match, a class that both jadx and apktool saw is **one
+entity**, enriched rather than duplicated: it keeps jadx's `file`
+(`com/acme/Login.java`) and gains `smaliFile` (`smali/com/acme/Login.smali`),
+and its `artifactIds` list both artifacts. The smali side writes its own
+attribute names (`smaliFile`, `smaliClassCount`) so it never overwrites the Java
+side's `file` and `classCount`. `smaliFile` is relative to the artifact, so it
+can be cited as a finding's `location` (`smali/com/acme/Login.smali:12`) and
+checked by [verification](#verifying-evidence).
+
+The same cap applies - 20,000 classes per decode, counted separately from the
+Java index - and the same batch path (one write per collection). A class that
+appears in two dex directories keeps its first copy.

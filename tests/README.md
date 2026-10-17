@@ -43,6 +43,7 @@ Run with `npm test` (single run) or `npm run test:watch`. These are plain
 - **`capability-routes.test.ts`** - `GET /capabilities` on a bare Fastify instance (same approach as `api-routes.test.ts`, without its mocking, since the route only reads the registry singleton): providers come back ordered by priority with their operation names, and the `isAvailable` probe never reaches the JSON.
 - **`graph-service.test.ts`** - real local storage in a throwaway `DATA_DIR` next to the real artifact service: an entity created then merged on the same type + name (stable id, attributes overlaid, artifact ids unioned), type and workspace keeping same-named entities apart, unknown or foreign artifacts rejected with nothing saved, listing sorted with the type and name filters; edges idempotent, direction and relation part of identity, self edges and missing or foreign ends rejected, and edge listing by either end; plus `indexBatch`: entities and edges added in one call with created/updated counts, merging into existing ones, repeats within a batch collapsed, and bad batches (foreign artifact, edge end not in the batch, self edge) rejected with nothing written.
 - **`java-indexer.test.ts`** - the decompiled-sources indexer: `parseJavaSources` (pure) makes classes, packages with a class count, and `contains` edges, records each class's source file, handles top-level classes, skips non-java files and `package-info`/`module-info`, and flags truncation at the cap; `listFiles` returns sorted relative paths and honours its limit; and `indexJavaArtifact` runs end to end on a real temp directory with real storage - jadx's `sources/` layout (a sibling `resources/` ignored), the flat fallback, and idempotence on a second run.
+- **`smali-indexer.test.ts`** - the apktool-smali indexer: `parseSmaliSources` (pure) makes classes named from their paths, packages with a `smaliClassCount`, and `contains` edges; records the artifact-relative `smaliFile`; reads every `smali*` directory and ignores other folders and non-smali files; keeps the first copy of a class in two dex directories; links `Outer$Inner` to `Outer` only when `Outer` is present; and flags truncation at the cap. `indexSmaliArtifact` runs on a real temp directory with real storage: all smali directories indexed with `res/` ignored, `null` and nothing written for a `noSrc` decode, idempotence on a second run, and the key one - a class jadx already indexed becomes one entity carrying both `file` and `smaliFile` and both artifact ids, with the package's `classCount` and `smaliClassCount` side by side.
 - **`graph-routes.test.ts`** - the five graph routes on a bare Fastify instance with both services mocked (`GraphError` kept real, since the routes branch on `instanceof`): 201 vs 200 for created vs merged, 400 for bad bodies, attribute shapes and graph errors, 404 for an unknown workspace or entity, and the filters passed through.
 - **`finding-service.test.ts`** - real local storage in a throwaway `DATA_DIR` next to the real artifact service, so evidence is checked against artifacts that were actually recorded: a default unverified finding, valid evidence accepted, an unknown artifact or one from another workspace rejected (nothing saved), `confirmed` refused without evidence on create and on update, replaced evidence re-checked and the old evidence kept on failure, per-workspace listing with the status filter, and evidence that cites a graph entity: accepted when the entity was observed in the cited artifact, rejected when it is unknown, from another workspace, or wasn't observed there, re-checked on update, and findings listed by the entity they cite.
 - **`finding-verifier.test.ts`** - `parseLocation` (path, `:line`, `:a-b`, a trailing column, colons that aren't line numbers), `summarize` (failed beats everything, partial, unverified for none or empty), and `checkLocation` on a real temp directory: files with and without lines, resolution against the artifact directory then `sources/`, line counting with and without a trailing newline, lines past the end or backwards or zero, missing files, parent paths / absolute paths / a symlink out of the artifact all refused, single-file and missing-directory artifacts left unverified, and the size limit. `verifyFinding` runs against real local storage with a fresh module graph per test: per-item results, the summaries, evidence whose artifact is gone or from another workspace, and a finding with no evidence.
@@ -64,4 +65,144 @@ Run with `npm test` (single run) or `npm run test:watch`. These are plain
   an error result carrying the Gateway's reason, and `verify_finding` requires a findingId and returns the Gateway's report without touching workspaces
   (tool result vs. JSON-RPC error - see `docs/MCP_SERVER.md`), a meta
   tool dispatching straight to its `gateway-client.ts` function, an
-  agent                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+  agent-mapped tool resolving its workspace by name and forwarding the
+  rest of its arguments as the job payload, a failed job surfacing as
+  `isError: true` rather than a protocol error, and a thrown/rejected
+  gateway call getting caught the same way rather than crashing the
+  request.
+- **`inbox-watcher.test.ts`** - the inbox watcher (`docs/INBOX.md`)
+  against real temp directories: a file isn't claimed on its first
+  sighting, only once a later poll sees it byte-for-byte unchanged; it
+  then gets moved into `<WORKSPACES_ROOT>/<workspaceId>/inbox/` (and is
+  gone from the inbox dir) with exactly one `source: "inbox"` knowledge
+  entry written; a file that's still growing between polls (still being
+  written/copied) is correctly left unclaimed until it actually
+  stabilizes; a file removed before it ever stabilizes is cleaned up
+  without being claimed or throwing; a missing inbox directory is
+  created rather than erroring; non-`.apk` files are ignored entirely;
+  and `listInboxApks()` reflects real directory contents rather than any
+  separately-tracked state.
+
+- **`api-routes.test.ts`** - the REST routes' request validation, on a
+  bare Fastify instance driven through `app.inject()` (no real port):
+  every zod schema's rejection paths return 400 _without_ touching the
+  service (empty/missing fields, `maxAttempts` at 0 / above 10 /
+  non-integer / a string, empty workflow `steps`, a bad `?type=` filter,
+  the PATCH "at least one field" refinement), unknown workspace/job/
+  workflow/entry ids return 404, valid requests reach the right service
+  with the right arguments and the right status (201/202/204), the
+  chat/summarize endpoints return 503 when the AI provider isn't
+  configured (checked _before_ body validation, so even an invalid body
+  gets 503) and 502 with the provider's message when it throws, and the
+  chat transcript comes back oldest-first with `source` mapped to
+  `role`.
+- **`auth.test.ts`** - `registerAuth()`: a no-op when disabled; when
+  enabled, 401 with no key or a wrong key, accepted via `Authorization:
+Bearer` or `X-API-Key`, any one of several configured keys works, the
+  Bearer key takes precedence over `X-API-Key` (same as
+  `mcp-server/http.ts`), `GET /health` is exempt but other methods and
+  routes aren't.
+
+- **`tools.test.ts`** - the MCP tool definitions (`src/mcp-server/tools.ts`),
+  which are pure data so nothing is mocked: no duplicate names, every
+  description long enough to say what a tool returns, every parameter
+  documented, `required` only naming real parameters, every tool
+  annotated (write tools also declare `destructiveHint`/`idempotentHint`,
+  read-only ones don't), and the set of destructive tools pinned to
+  exactly the four that can change the device or prior work. For the
+  capability/artifact/graph/finding tools it also pins which ones write
+  (only `create_finding`, `update_finding`, and not destructively), keeps
+  the `list_graph_entities` type enum in step with the graph's own
+  `ENTITY_TYPES`, and checks every field of an evidence item is documented. Guards the
+  things Glama's quality score marks down; it can't check that the prose
+  is still _true_, only that it's present.
+
+- **`cli.test.ts`** - the `hf` CLI's pure parts (`scripts/hf/*.mjs`, plain
+  ESM with no build step): measuring/truncating/wrapping that ignores ANSI
+  codes and counts CJK as two cells; box rows all exactly the terminal
+  width; cards and markdown never overflowing, down to 24 columns;
+  **ASCII mode never emitting a non-ASCII byte** across every component;
+  color-off dropping color but keeping layout; `detectCaps` (TTY vs pipe,
+  `--json`/`--plain`/`HF_PLAIN`, `NO_COLOR`, `FORCE_COLOR`, `TERM=dumb`,
+  locale and `HF_ASCII`); argument and payload parsing (`key=value` is
+  never type-guessed, `key:=json` is); the state file (round trip, other
+  keys preserved, bash-sourceable, escaping); and the HTTP client mapping
+  statuses and failures to error kinds, including zod validation bodies.
+  Needs no mocks - the modules take their inputs as parameters.
+
+- **`console-ui.test.ts`** - the Gateway's own terminal output
+  (`src/core/console-ui.ts`), all pure functions fed inputs directly: when it
+  goes pretty (`LOG_FORMAT`, TTY vs pipe, `TERM=dumb`, `NO_COLOR`/`FORCE_COLOR`,
+  locale/`HF_ASCII`); the listen addresses for a wildcard vs specific bind,
+  including the numeric address family older Node 18 builds report; the banner
+  fitting every width from 24 to 100 columns, each warning firing only in its
+  situation (auth requested but no keys, open port reachable from the network,
+  unconfigured AI) and staying quiet otherwise, ASCII mode emitting no
+  non-ASCII; and the pino stream - a request pair becoming one line, Fastify's
+  per-interface "Server listening" lines dropped, a polling burst collapsing
+  to one line plus a summary, the summary flushing _before_ the next
+  unrelated line, lines split across writes reassembling, non-JSON passing
+  through, and every output fitting its width. The plain-mode `notice()`
+  format is pinned to exactly `[tag] message`, since logs may be grepped.
+
+**Not covered yet**, and still relying on `scripts/smoke-test.sh` or manual
+testing: the MCP agents themselves (jadx/apktool/adb/frida/apkid/apkmcp -
+all shell out to real binaries or a real device), and the two MCP server
+_transports_' own framing (`index.ts`'s stdin buffering, `http.ts`'s
+routing/auth/Origin-checking - `protocol.test.ts` covers the dispatch
+logic underneath both, verified manually end-to-end for each transport
+when they were built, but not yet as an automated test), and the `hf` CLI's
+interactive parts - the live job spinner, the in-place workflow redraw, the
+readline chat REPL, and Ctrl+C handling - which need a real terminal; those
+were exercised by hand against a fake Gateway inside a pseudo-terminal at
+several widths (50 / 40 / 30 columns, ASCII and `NO_COLOR` modes) rather
+than as an automated test. `root.routes.ts`
+and `plugin.routes.ts` (a cheat-sheet and a one-line introspection route)
+also have no dedicated test.
+
+## Why the mocking looks the way it does
+
+- **`job-engine.test.ts`** / **`workflow-engine.test.ts`** `vi.mock()` the
+  module one layer down (`orchestrator.js`, `job-engine.js` respectively)
+  and drive state transitions by emitting real events on the real
+  `eventBus` - that's the actual seam these engines communicate through in
+  production (see `docs/ARCHITECTURE.md`), so it's what a test should
+  drive too, rather than reaching into private state.
+- **`local-storage.provider.test.ts`** sets `DATA_DIR` via `vi.stubEnv()`
+  and calls `vi.resetModules()` before every dynamic `import()` of the
+  module under test. `DATA_DIR` and the module's `collectionCache` are
+  both computed/created once at import time (see the module's own doc
+  comment), so re-importing fresh is what actually gets a clean slate per
+  test rather than sharing state across them.
+- **`ai-provider.test.ts`** stubs global `fetch` with `vi.stubGlobal()`
+  and, like `local-storage.provider.test.ts`, re-imports the module fresh
+  per test (`AI_PROVIDER` and every `*_API_KEY`/`*_MODEL` are also fixed
+  at config import time). "Not configured" cases stub the relevant env
+  var to `""` rather than deleting it - deleting would let
+  `dotenv/config` (which only fills in keys _absent_ from `process.env`)
+  repopulate it from a developer's real local `.env`, silently breaking
+  the test on their machine.
+- **`protocol.test.ts`** `vi.mock()`s `gateway-client.js` - the one
+  module `protocol.ts` actually talks to the Gateway through - the same
+  one-layer-down approach as the Job/Workflow Engine tests. No env/module
+  reset dance needed here: unlike the modules above, nothing in
+  `protocol.ts` reads config at import time.
+- **`inbox-watcher.test.ts`** combines both patterns above: `vi.mock()`s
+  `workspace.service.js`/`knowledge.service.js` one layer down (same as
+  `protocol.test.ts`), _and_ sets `APK_INBOX_DIR`/`WORKSPACES_ROOT` via
+  `vi.stubEnv()` + `vi.resetModules()` per test against real temp
+  directories (same as `local-storage.provider.test.ts`) - the watcher
+  reads both config vars at import time and does real filesystem moves,
+  so it needed the isolation both existing patterns handle separately.
+- **`api-routes.test.ts`** / **`auth.test.ts`** build a bare Fastify
+  instance rather than calling `buildServer()` - that wires up the
+  websocket plugin, auth, the plugin loader, and the knowledge indexer,
+  none of which is what a route-validation test is about. Services are
+  mocked one layer down with `vi.doMock()` inside a helper (rather than a
+  hoisted `vi.mock()`) so each test can get a fresh module graph with
+  the value it needs - `ai.service`'s `isAiConfigured` is a plain exported
+  constant, so covering both its 200 and 503 paths means building the app
+  twice with different values, and `auth.ts` reads `apiKeys` /
+  `isAuthEffectivelyEnabled` from config at import time. `config.js` is
+  mocked too, rather than driven via env vars, since the routes only need
+  three or four of its exports.

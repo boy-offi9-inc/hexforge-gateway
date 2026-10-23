@@ -197,12 +197,12 @@ in [`MT_MANAGER.md`](MT_MANAGER.md)). Default target
 |---|---|---|
 | `list_tools` | — | `tools/list` |
 | `list_available_apks` | `prefix?`, `limit?` | `mt_apk_list_available_apks` |
-| `open` | `path`, `temporary?` | `mt_apk_open` |
+| `open` | `path`, `temporary?` | `mt_apk_workspace_open` (older MT: `mt_apk_open`) |
 | `list` | `workspaceId`, `view?`, `prefix?`, `limit?` | `mt_apk_list` |
-| `outline_class` | `workspaceId`, `locator` | `mt_apk_outline_class` |
+| `outline_class` | `workspaceId`, `locator` | `mt_apk_dex_read_class_outline` (older MT: `mt_apk_outline_class`) |
 | `read_text` | `workspaceId`, `locator` | `mt_apk_read_text` |
 | `search` | `workspaceId`, `query`, `target?` | `mt_apk_search` |
-| `close` | `workspaceId` | `mt_apk_close` |
+| `close` | `workspaceId`, `force?` | `mt_apk_workspace_delete` (older MT: `mt_apk_close`) |
 | `call_tool` | `tool`, `arguments` | escape hatch for anything else |
 
 ```bash
@@ -216,14 +216,32 @@ curl -X POST http://localhost:8080/workspaces/<workspaceId>/tasks \
   -d '{"agent": "apkmcp", "operation": "list", "payload": {"workspaceId": "<mtWorkspaceId>", "view": "dex_classes"}}'
 ```
 
-Note: MT's `path` must be **relative** to its configured "MCP operation
-directory" - absolute paths are rejected. Use `list_available_apks` if
-unsure of the relative path.
+MT renames tools between versions, so `open`, `outline_class` and `close` use
+whichever name MT's `tools/list` reports, newest first (the list is read once
+per server and remembered for a minute). If MT has none of the names, the
+error says which were tried and what MT does offer; if `tools/list` can't be
+read, the newest name is tried.
 
-`mt_apk_edit_*` and `mt_apk_build` (which can modify and re-sign an APK)
-aren't wrapped in a convenience operation - use `call_tool` directly, and
-only point them at apps you own or are authorized to modify.
+`open`'s `path` can be a Home-relative path from `list_available_apks`,
+`mt://current-apk`, `mt://workspace/<id>` with `temporary: false` to reopen a
+saved workspace, or an absolute path that MT's access policy allows (the
+`mt_file_get_access_policy` tool shows it). Use `temporary: true` for a
+one-time workspace you'll delete when done.
 
+`close` is `mt_apk_workspace_delete` on current MT, which deletes the
+workspace and every edit session under it. MT's guidance is to keep saved
+(non-temporary) workspaces, so `close` **refuses to delete one** unless the
+payload has `"force": true`, and refuses too if MT can't say whether the
+workspace is saved. Temporary workspaces are deleted without it.
+
+MT's edit, patch and build tools (`mt_apk_edit_text`, `mt_apk_resource_edit`,
+`mt_apk_resource_add`, `mt_apk_patch_bytes`, `mt_apk_native_patch_*`,
+`mt_apk_delete_target`, `mt_apk_copy_entry`, `mt_apk_build`) can modify and
+re-sign an APK, and the `mt_file_*` and `mt_zip_*` tools can write, move and
+delete files and archives. None of them has a convenience operation - use
+`call_tool` directly, and only point them at apps and files you own or are
+authorized to modify. [`MT_TOOLS.md`](MT_TOOLS.md) lists all 57 MT tools and
+which can change things.
 
 ## Capabilities
 

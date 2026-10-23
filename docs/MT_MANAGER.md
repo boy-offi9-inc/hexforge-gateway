@@ -3,7 +3,9 @@
 Setup for the `apkmcp` agent - HexForge's client for MT Manager's built-in
 "APK MCP" service (Android only). Written against MT Manager's actual UI;
 if your version's wording differs, [MT Manager's official
-site](https://mt2.cn/) is the source of truth over this page.
+site](https://mt2.cn/) is the source of truth over this page. MT's tool list changes between releases:
+[`MT_TOOLS.md`](MT_TOOLS.md) has the current 57 tools, and the `list_tools`
+operation shows what your install offers.
 
 Typical setup: Gateway (in Termux) and MT Manager run on the same phone and
 talk over loopback. For the rest of the Android setup, see
@@ -31,7 +33,7 @@ changed while APK MCP is running:
 
 | Setting | What to do |
 |---|---|
-| **MCP operation directory** | The root for every `path` the `apkmcp` agent sends. `open` / `list_available_apks` paths are **relative to this directory**; absolute paths are rejected ([details](AGENTS.md#apkmcp)). Point it at your APKs, e.g. `/storage/emulated/0/MT2/apks`. Tap `...` to browse. |
+| **MCP operation directory** | The root for every `path` the `apkmcp` agent sends. `open` / `list_available_apks` paths are **relative to this directory**; MT also accepts an absolute path if its access policy allows it ([details](AGENTS.md#apkmcp)). Point it at your APKs, e.g. `/storage/emulated/0/MT2/apks`. Tap `...` to browse. |
 | **Enable floating ball** | **Turn this on** for anything beyond a quick one-off call. Off by default. See the note below. |
 | **Port** | Default `8787`, matching the agent's default `baseUrl` (`http://127.0.0.1:8787/mcp`). Leave it unless you have a real conflict - changing it means setting `baseUrl` in every `apkmcp` task payload. |
 | **Recently used workspaces to retain** | Default `5`. How many opened APKs MT keeps warm. Unrelated to HexForge workspaces - same name, different apps. |
@@ -75,6 +77,6 @@ curl -X POST http://localhost:8080/workspaces/<id>/tasks \
 | Symptom | Check |
 |---|---|
 | Connection refused, but APK MCP shows as running on the phone | Enable the **floating ball** (step 2) before debugging the Gateway config. |
-| Path rejected on `open` | Use a path **relative** to the MCP operation directory; `list_available_apks` shows valid ones. |
+| Path rejected on `open` | Use a path from `list_available_apks` (relative to the MCP operation directory), `mt://current-apk`, or an absolute path MT's access policy allows (`call_tool` with `mt_file_get_access_policy` shows it). |
 | Can't change the operation directory | Tap **STOP** first - it's locked while the service runs. |
 | Port changed and calls now fail | Set `baseUrl` in each `apkmcp` task payload, or set the port back to `8787`. |

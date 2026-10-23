@@ -12,18 +12,27 @@ import type { McpTask } from "../../../core/types.js";
  *   - "list_tools"           -> generic: lists all tools the server exposes
  *   - "call_tool"             -> generic escape hatch: { tool, arguments }
  *   - "list_available_apks"   -> mt_apk_list_available_apks
- *   - "open"                  -> mt_apk_open
+ *   - "open"                  -> mt_apk_workspace_open (older MT: mt_apk_open)
  *   - "list"                  -> mt_apk_list (zip_entries | dex_classes | resource_table)
- *   - "outline_class"         -> mt_apk_outline_class
+ *   - "outline_class"         -> mt_apk_dex_read_class_outline (older MT: mt_apk_outline_class)
  *   - "read_text"             -> mt_apk_read_text
  *   - "search"                -> mt_apk_search
- *   - "close"                 -> mt_apk_close
+ *   - "close"                 -> mt_apk_workspace_delete (older MT: mt_apk_close)
  *
- * Anything involving edits or builds (mt_apk_edit_*, mt_apk_build) is
- * intentionally NOT wrapped with a convenience operation - those mutate and
- * re-sign the APK, so callers should use "call_tool" directly and pass
- * MT's full argument shape explicitly. That capability should only be
- * pointed at apps you own or are authorized to modify.
+ * MT has renamed tools between versions, so the three operations above carry
+ * a list of names, newest first, and use whichever one MT's `tools/list`
+ * reports (see TOOL_NAMES and resolveToolName).
+ *
+ * `close` is mt_apk_workspace_delete on current MT, which deletes the workspace
+ * and everything saved under it - so it refuses to delete a saved
+ * (non-temporary) workspace unless the payload says `force: true`.
+ *
+ * Anything involving edits, builds, or the file and zip tools (mt_apk_*edit*,
+ * mt_apk_patch_*, mt_apk_build, mt_file_*, mt_zip_*) is intentionally NOT
+ * wrapped with a convenience operation - those mutate APKs and files, so
+ * callers should use "call_tool" directly and pass MT's full argument shape
+ * explicitly. That capability should only be pointed at apps and files you own
+ * or are authorized to modify. docs/MT_TOOLS.md lists every tool.
  */
 
 const DEFAULT_BASE_URL = "http://127.0.0.1:8787/mcp";
@@ -219,6 +228,118 @@ async function callTool(
   return payload;
 }
 
+/**
+ * MT Manager's tool names for the operations it has renamed, newest first.
+ * Operations not listed here (list_available_apks, list, read_text, search)
+ * have kept their names and are called directly.
+ */
+export const TOOL_NAMES = {
+  open: ["mt_apk_workspace_open", "mt_apk_open"],
+  outline_class: ["mt_apk_dex_read_class_outline", "mt_apk_outline_class"],
+  close: ["mt_apk_workspace_delete", "mt_apk_close"],
+} as const;
+
+const TOOL_LIST_TTL_MS = 60_000;
+const toolLists = new Map<string, { names: Set<string>; at: number }>();
+
+/** Forgets the cached tool lists. Only tests need this. */
+export function clearToolListCache(): void {
+  toolLists.clear();
+}
+
+/** The first of `candidates` that `available` contains, or undefined. */
+export function pickToolName(
+  candidates: readonly string[],
+  available: ReadonlySet<string>,
+): string | undefined {
+  return candidates.find((name) => available.has(name));
+}
+
+/** The tool names MT offers, from `tools/list`, remembered for a minute per server. */
+async function availableTools(
+  baseUrl: string,
+  sessionId: string | undefined,
+): Promise<Set<string> | undefined> {
+  const cached = toolLists.get(baseUrl);
+  if (cached && Date.now() - cached.at < TOOL_LIST_TTL_MS) return cached.names;
+
+  const { result, error } = await sendMcpMessage(
+    baseUrl,
+    { jsonrpc: "2.0", id: newRequestId(), method: "tools/list" },
+    sessionId,
+  );
+  if (error || !Array.isArray(result?.tools)) return undefined;
+
+  const names = new Set<string>(
+    result.tools
+      .map((t: { name?: unknown }) => t?.name)
+      .filter((n: unknown) => typeof n === "string"),
+  );
+  toolLists.set(baseUrl, { names, at: Date.now() });
+  return names;
+}
+
+/**
+ * Picks the tool name this MT version uses. If `tools/list` can't be read the
+ * newest name is tried; if it can and none of the candidates is there, the
+ * error says which names were tried and what MT does offer, instead of
+ * surfacing a bare "unknown tool".
+ */
+async function resolveToolName(
+  baseUrl: string,
+  sessionId: string | undefined,
+  operation: string,
+  candidates: readonly string[],
+): Promise<string> {
+  const available = await availableTools(baseUrl, sessionId);
+  if (!available) return candidates[0] as string;
+
+  const picked = pickToolName(candidates, available);
+  if (picked) return picked;
+
+  const offered = [...available].filter((n) => n.startsWith("mt_apk_")).sort();
+  const examples = offered.length > 0 ? `, e.g. ${offered.slice(0, 8).join(", ")}` : "";
+  throw new Error(
+    `This MT Manager has no tool for "${operation}": looked for ${candidates.join(" or ")}. ` +
+      `It offers ${offered.length} mt_apk_* tools${examples} - ` +
+      `run the list_tools operation for the full list, and use call_tool for anything newer.`,
+  );
+}
+
+/**
+ * Closing a workspace is mt_apk_workspace_delete on current MT, which deletes
+ * it and all its edit sessions. MT says to keep ordinary (non-temporary)
+ * workspaces for reuse, so refuse to delete one unless the caller said force.
+ * If MT can't say whether it's saved, refuse too.
+ */
+async function assertSafeToDelete(
+  baseUrl: string,
+  sessionId: string | undefined,
+  workspaceId: string,
+): Promise<void> {
+  let saved: unknown;
+  try {
+    saved = await callTool(baseUrl, sessionId, "mt_apk_workspace_list", {});
+  } catch (err) {
+    throw new Error(
+      `close would delete workspace ${workspaceId}, and MT couldn't confirm it is temporary (${
+        err instanceof Error ? err.message : String(err)
+      }). Pass "force": true to delete it anyway.`,
+    );
+  }
+  const items = (saved as { data?: { items?: { workspaceId?: string }[] } })?.data?.items;
+  if (!Array.isArray(items)) {
+    throw new Error(
+      `close would delete workspace ${workspaceId}, and MT's saved-workspace list wasn't readable. Pass "force": true to delete it anyway.`,
+    );
+  }
+  if (items.some((item) => item?.workspaceId === workspaceId)) {
+    throw new Error(
+      `Workspace ${workspaceId} is a saved (non-temporary) workspace; close would permanently delete it and its edit sessions. Pass "force": true to delete it anyway, or open APKs with "temporary": true when you only need them for a moment.`,
+    );
+  }
+}
+
 interface ApkMcpPayload {
   baseUrl?: string;
   tool?: string;
@@ -227,6 +348,7 @@ interface ApkMcpPayload {
   path?: string;
   temporary?: boolean;
   workspaceId?: string;
+  force?: boolean; // close: allow deleting a saved (non-temporary) workspace
   editSessionId?: string;
   view?: "zip_entries" | "dex_classes" | "resource_table";
   prefix?: string;
@@ -280,10 +402,11 @@ export async function apkMcpHandler(task: McpTask): Promise<unknown> {
     case "open": {
       if (!payload.path) {
         throw new Error(
-          'open requires a "path" - either a relative APK path under the MCP operation directory (see mt_apk_list_available_apks), or "mt://current-apk"',
+          'open requires a "path": a Home-relative APK path from list_available_apks, "mt://current-apk", "mt://workspace/<id>" (with temporary: false) to reopen a saved workspace, or an absolute path MT allows',
         );
       }
-      return callTool(baseUrl, sessionId, "mt_apk_open", {
+      const tool = await resolveToolName(baseUrl, sessionId, "open", TOOL_NAMES.open);
+      return callTool(baseUrl, sessionId, tool, {
         path: payload.path,
         temporary: payload.temporary ?? false,
       });
@@ -307,7 +430,13 @@ export async function apkMcpHandler(task: McpTask): Promise<unknown> {
           'outline_class requires "workspaceId" and a "locator" like dex_class:Lcom/example/Foo;',
         );
       }
-      return callTool(baseUrl, sessionId, "mt_apk_outline_class", {
+      const tool = await resolveToolName(
+        baseUrl,
+        sessionId,
+        "outline_class",
+        TOOL_NAMES.outline_class,
+      );
+      return callTool(baseUrl, sessionId, tool, {
         workspaceId: payload.workspaceId,
         editSessionId: payload.editSessionId ?? "",
         locator: payload.locator,
@@ -353,7 +482,11 @@ export async function apkMcpHandler(task: McpTask): Promise<unknown> {
 
     case "close": {
       if (!payload.workspaceId) throw new Error('close requires "workspaceId"');
-      return callTool(baseUrl, sessionId, "mt_apk_close", {
+      const tool = await resolveToolName(baseUrl, sessionId, "close", TOOL_NAMES.close);
+      if (tool === "mt_apk_workspace_delete" && !payload.force) {
+        await assertSafeToDelete(baseUrl, sessionId, payload.workspaceId);
+      }
+      return callTool(baseUrl, sessionId, tool, {
         workspaceId: payload.workspaceId,
       });
     }

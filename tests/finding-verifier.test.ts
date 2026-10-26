@@ -2,7 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { checkLocation, parseLocation, summarize } from "../src/findings/verifier.js";
+import {
+  checkLocation,
+  combineChecks,
+  parseLocation,
+  summarize,
+} from "../src/findings/verifier.js";
 import type { EvidenceCheck, Finding } from "../src/findings/types.js";
 
 describe("parseLocation", () => {
@@ -46,6 +51,36 @@ describe("summarize", () => {
   it("is unverified when nothing verified, including no evidence at all", () => {
     expect(summarize([item("unverified")])).toBe("unverified");
     expect(summarize([])).toBe("unverified");
+  });
+});
+
+describe("combineChecks", () => {
+  const ok = { status: "verified" as const, reason: "location ok" };
+  const entityOk = { status: "verified" as const, reason: "entity ok" };
+
+  it("is the location's result when there is no entity", () => {
+    expect(combineChecks(ok, undefined)).toEqual(ok);
+  });
+
+  it("fails if either side failed, naming each failure", () => {
+    const bad = { status: "failed" as const, reason: "line past the end" };
+    const badEntity = { status: "failed" as const, reason: "entity gone" };
+
+    expect(combineChecks(bad, entityOk)).toEqual({ status: "failed", reason: "line past the end" });
+    expect(combineChecks(ok, badEntity)).toEqual({ status: "failed", reason: "entity gone" });
+    expect(combineChecks(bad, badEntity).reason).toBe("line past the end; entity gone");
+  });
+
+  it("verifies when both are fine, and never upgrades a location nobody checked", () => {
+    expect(combineChecks(ok, entityOk)).toEqual({
+      status: "verified",
+      reason: "location ok; entity ok",
+    });
+    const unchecked = { status: "unverified" as const, reason: "no location" };
+    expect(combineChecks(unchecked, entityOk)).toEqual({
+      status: "unverified",
+      reason: "no location; entity ok",
+    });
   });
 });
 
@@ -157,6 +192,7 @@ describe("verifyFinding", () => {
   async function setup() {
     const artifacts = await import("../src/artifacts/artifact.service.js");
     const verifier = await import("../src/findings/verifier.js");
+    const graph = await import("../src/graph/graph.service.js");
     const artifact = await artifacts.recordArtifact({
       workspaceId: "ws1",
       kind: "java-sources",
@@ -174,13 +210,16 @@ describe("verifyFinding", () => {
       createdAt: "",
       updatedAt: "",
     });
-    return { artifact, verifier, finding };
+    const entity = async (artifactIds: string[], name = "com.acme.Api", workspaceId = "ws1") =>
+      (await graph.upsertEntity({ workspaceId, type: "class", name, artifactIds })).entity;
+    return { artifacts, artifact, verifier, finding, entity };
   }
 
   it("reports every evidence item and a summary, and leaves the finding alone", async () => {
-    const { artifact, verifier, finding } = await setup();
+    const { artifact, verifier, finding, entity } = await setup();
+    const api = await entity([artifact.id]);
     const f = finding([
-      { artifactId: artifact.id, entityId: "e1", location: "com/acme/Api.java:2" },
+      { artifactId: artifact.id, entityId: api.id, location: "com/acme/Api.java:2" },
       { artifactId: artifact.id, location: "com/acme/Api.java:50" },
       { artifactId: artifact.id },
     ]);
@@ -189,7 +228,7 @@ describe("verifyFinding", () => {
 
     expect(report).toMatchObject({ findingId: "f1", summary: "failed" });
     expect(report.items.map((i) => i.status)).toEqual(["verified", "failed", "unverified"]);
-    expect(report.items[0]).toMatchObject({ index: 0, artifactId: artifact.id, entityId: "e1" });
+    expect(report.items[0]).toMatchObject({ index: 0, artifactId: artifact.id, entityId: api.id });
     expect(f.status).toBe("confirmed");
   });
 
@@ -231,5 +270,67 @@ describe("verifyFinding", () => {
       summary: "unverified",
       items: [],
     });
+  });
+
+  it("also checks a cited entity: it exists and was observed in the cited artifact", async () => {
+    const { artifact, verifier, finding, entity } = await setup();
+    const api = await entity([artifact.id]);
+
+    const report = await verifier.verifyFinding(
+      finding([{ artifactId: artifact.id, entityId: api.id, location: "com/acme/Api.java:2" }]),
+    );
+
+    expect(report.summary).toBe("verified");
+    expect(report.items[0]?.reason).toContain(
+      "the entity com.acme.Api exists and was observed in it",
+    );
+  });
+
+  it("fails an entity that isn't recorded as observed in the cited artifact", async () => {
+    const { artifacts, artifact, verifier, finding, entity } = await setup();
+    const other = await artifacts.recordArtifact({
+      workspaceId: "ws1",
+      kind: "apk",
+      path: "/ws/ws1/out.apk",
+      pathType: "file",
+      source: { taskId: "t2", agent: "apktool", operation: "build", capability: "android.rebuild" },
+    });
+    const elsewhere = await entity([other.id]);
+
+    const report = await verifier.verifyFinding(
+      finding([
+        { artifactId: artifact.id, entityId: elsewhere.id, location: "com/acme/Api.java:2" },
+      ]),
+    );
+
+    expect(report.summary).toBe("failed");
+    expect(report.items[0]?.reason).toContain("not recorded as observed in the cited artifact");
+  });
+
+  it("fails an entity that is missing or belongs to another workspace", async () => {
+    const { artifact, verifier, finding, entity } = await setup();
+    const foreign = await entity([], "com.acme.Api", "ws2");
+
+    const report = await verifier.verifyFinding(
+      finding([
+        { artifactId: artifact.id, entityId: "ghost", location: "com/acme/Api.java:1" },
+        { artifactId: artifact.id, entityId: foreign.id, location: "com/acme/Api.java:1" },
+      ]),
+    );
+
+    expect(report.items.map((i) => i.status)).toEqual(["failed", "failed"]);
+    expect(report.items[0]?.reason).toContain("the cited entity no longer exists");
+  });
+
+  it("doesn't let a good entity make up for a location that wasn't given", async () => {
+    const { artifact, verifier, finding, entity } = await setup();
+    const api = await entity([artifact.id]);
+
+    const report = await verifier.verifyFinding(
+      finding([{ artifactId: artifact.id, entityId: api.id }]),
+    );
+
+    expect(report.items[0]?.status).toBe("unverified");
+    expect(report.summary).toBe("unverified");
   });
 });

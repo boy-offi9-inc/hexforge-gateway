@@ -2,7 +2,14 @@ import { readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { getArtifact } from "../artifacts/artifact.service.js";
 import type { Artifact } from "../artifacts/types.js";
-import type { EvidenceCheck, Finding, VerificationReport, VerificationStatus } from "./types.js";
+import { getEntity } from "../graph/graph.service.js";
+import type {
+  Evidence,
+  EvidenceCheck,
+  Finding,
+  VerificationReport,
+  VerificationStatus,
+} from "./types.js";
 
 /** Files larger than this are not read, so a line in them stays unverified. */
 export const MAX_FILE_BYTES = 5 * 1024 * 1024;
@@ -126,6 +133,41 @@ export async function checkLocation(
   return { status: "failed", reason: `no such file in the artifact: ${relative}` };
 }
 
+/**
+ * Checks that a cited graph entity still exists in the workspace and is still
+ * recorded as observed in the artifact it is cited with. Nothing but a
+ * hand-edited record can break the second part (an entity's artifact ids only
+ * grow), so this mostly guards against stored data drifting.
+ */
+async function checkEntity(workspaceId: string, evidence: Evidence): Promise<Check | undefined> {
+  if (!evidence.entityId) return undefined;
+  const entity = await getEntity(evidence.entityId);
+  if (!entity || entity.workspaceId !== workspaceId) {
+    return { status: "failed", reason: "the cited entity no longer exists" };
+  }
+  if (!entity.artifactIds.includes(evidence.artifactId)) {
+    return {
+      status: "failed",
+      reason: `the entity ${entity.name} is not recorded as observed in the cited artifact`,
+    };
+  }
+  return { status: "verified", reason: `the entity ${entity.name} exists and was observed in it` };
+}
+
+/**
+ * One result for an evidence item that has both a location and an entity. A
+ * failure in either fails the item. A location that couldn't be checked stays
+ * unverified - a good entity doesn't make up for a place nobody looked at.
+ */
+export function combineChecks(location: Check, entity: Check | undefined): Check {
+  if (!entity) return location;
+  const failed = [location, entity].filter((c) => c.status === "failed");
+  if (failed.length > 0) {
+    return { status: "failed", reason: failed.map((c) => c.reason).join("; ") };
+  }
+  return { status: location.status, reason: `${location.reason}; ${entity.reason}` };
+}
+
 export function summarize(items: EvidenceCheck[]): VerificationReport["summary"] {
   if (items.some((i) => i.status === "failed")) return "failed";
   const verified = items.filter((i) => i.status === "verified").length;
@@ -150,15 +192,16 @@ export async function verifyFinding(finding: Finding): Promise<VerificationRepor
     const artifact = await getArtifact(evidence.artifactId);
     if (!artifact || artifact.workspaceId !== finding.workspaceId) {
       items.push({ ...base, status: "failed", reason: "the cited artifact no longer exists" });
-    } else if (!evidence.location) {
-      items.push({
-        ...base,
-        status: "unverified",
-        reason: "no location was given, so only the artifact's existence was checked",
-      });
-    } else {
-      items.push({ ...base, ...(await checkLocation(artifact, evidence.location)) });
+      continue;
     }
+    const location: Check = evidence.location
+      ? await checkLocation(artifact, evidence.location)
+      : {
+          status: "unverified",
+          reason: "no location was given, so only the artifact's existence was checked",
+        };
+    const entity = await checkEntity(finding.workspaceId, evidence);
+    items.push({ ...base, ...combineChecks(location, entity) });
   }
   return {
     findingId: finding.id,

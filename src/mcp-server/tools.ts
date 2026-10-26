@@ -858,7 +858,7 @@ export const META_TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: "verify_finding",
     description:
-      'Check a finding\'s evidence against the files it cites. For each evidence item with a location such as "com/acme/Api.java:12" it confirms the file exists in the artifact and the line (or range) is within it; items without a location, or in a single-file artifact, are reported as unverified. Returns { findingId, checkedAt, summary: verified | partial | unverified | failed, items: [{ index, artifactId, entityId?, location?, status, reason }] }. "verified" means the cited place exists - it does not prove the claim is true, so still read the code. It never changes the finding\'s status; use update_finding for that. Only reads. Errors if the finding doesn\'t exist.',
+      'Check a finding\'s evidence against the files it cites. For each evidence item with a location such as "com/acme/Api.java:12" it confirms the file exists in the artifact and the line (or range) is within it; items without a location, or in a single-file artifact, are reported as unverified. A cited entityId is checked too: it must still exist in the workspace and be recorded as observed in the cited artifact. Returns { findingId, checkedAt, summary: verified | partial | unverified | failed, items: [{ index, artifactId, entityId?, location?, status, reason }] }. "verified" means the cited place exists - it does not prove the claim is true, so still read the code. It never changes the finding\'s status; use update_finding for that. Only reads. Errors if the finding doesn\'t exist.',
     annotations: {
       title: "Verify a finding's evidence",
       readOnlyHint: true,

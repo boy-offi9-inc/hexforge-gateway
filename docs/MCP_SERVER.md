@@ -157,7 +157,8 @@ back over REST:
   finding can't be confirmed without evidence); a rejection comes back as an
   error result with the reason, so the model can fix the citation and retry.
 - `verify_finding` - re-check a finding's evidence against the files it cites:
-  the file exists in the artifact and the line is within it. `verified` means
+  the file exists in the artifact, the line is within it, and any cited entity
+  still exists and was observed in that artifact. `verified` means
   the cited place exists, not that the claim is true, and it never changes the
   finding's status.
 

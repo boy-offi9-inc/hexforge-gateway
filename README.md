@@ -70,6 +70,7 @@ running Gateway - see `tests/README.md` for the split.
 | [`docs/SETUP.md`](docs/SETUP.md) | Requirements, auth, storage backend, running on PC and Android/Termux |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Event Bus, Job Engine, Workflow Engine, Knowledge Engine |
 | [`docs/AGENTS.md`](docs/AGENTS.md) | Every MCP agent - operations and examples |
+| [`docs/EVIDENCE.md`](docs/EVIDENCE.md) | From a task's output to a finding with evidence, and checking it - step by step |
 | [`docs/AI.md`](docs/AI.md) | The AI provider layer (9 providers), the `ai` agent, Terminal chat |
 | [`docs/MCP_SERVER.md`](docs/MCP_SERVER.md) | Registering HexForge's agents as native tools in Claude Desktop/Code/Cursor |
 | [`docs/PLUGINS.md`](docs/PLUGINS.md) | The Plugin System - contract, loader, reference plugins |

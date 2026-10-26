@@ -235,6 +235,9 @@ Endpoints:
 
 ### Verifying evidence
 
+A step-by-step example of the whole chain, from a decompile to a verified finding,
+is in [`EVIDENCE.md`](EVIDENCE.md).
+
 Saving a finding checks that its evidence *refers* to things that exist.
 `verifyFinding` (`findings/verifier.ts`) goes one step further and checks the
 files: for each evidence item with a `location` such as
@@ -254,6 +257,14 @@ if nothing verified (including a finding with no evidence).
 - **unverified**: no location was given (only the artifact's existence was
   checked), the artifact is a single file such as a rebuilt APK, its directory
   is missing on disk, or the file is over 5 MB and the line wasn't read.
+
+When an evidence item also cites a graph `entityId`, that is checked too: the
+entity must still exist in the workspace and still list the cited artifact in
+its `artifactIds`, otherwise the item fails. A good entity never rescues a
+location nobody could check - an item with an entity but no location stays
+`unverified` - and a failure on either side fails the item, with both reasons
+reported. (Saving a finding already requires the entity to have been observed in
+the artifact, so this mainly catches stored data that changed since.)
 
 Two things it deliberately does not do. It never reads outside the artifact
 directory - parent paths, absolute paths and symlinks that lead out are

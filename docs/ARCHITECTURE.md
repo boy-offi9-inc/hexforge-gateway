@@ -273,6 +273,35 @@ exists, not that the claim about it is true, so a finding's `status` stays
 whatever someone or something set it to. The check is computed on demand and
 not stored, so it can't go stale.
 
+### Findings report
+
+`GET /workspaces/:id/report` (`report/`) turns a workspace's findings into
+something to hand to someone. `?format=` picks `json` (the default), `markdown`
+or `sarif`; `?status=` limits it to one status; `?verify=false` skips the file
+checks. The same report is available to an AI client as the `get_report` MCP tool.
+
+It is a view of the current state, built when asked and never stored: findings
+are listed `confirmed` first, then `unverified`, then `contradicted`, and each
+piece of evidence carries
+
+- what produced the artifact it cites - the agent, the operation, and the versions of the tools behind it (`jadx 1.5.1`);
+- the graph entity it is about, by type and name;
+- unless `verify=false`, a fresh [verification](#verifying-evidence) of its location, plus a per-finding summary and counts across the whole report.
+
+No machine paths appear: an artifact is named by id and kind, not where it lives, and
+locations are relative to their artifact. A *verified* check still means only that
+the cited place exists. Claims, reasoning and notes may come from an AI, so the
+Markdown output escapes them rather than passing markup or HTML through.
+
+**SARIF 2.1.0** is for tools that read it. Each finding becomes one result, the
+claim is the message, and each piece of evidence that names a file inside its
+artifact becomes a location with its line or range. Status maps to SARIF's own
+vocabulary: `confirmed` is kind `fail` at level `warning`, `unverified` is `review` at
+`note`, `contradicted` is `pass` at `none`. Locations use `uriBaseId`s described
+under `originalUriBaseIds` (no paths), and a location that isn't a plain relative
+path, or has a line that can't be valid, is left out rather than guessed. HexForge
+doesn't rate severity, so `warning` doesn't mean a vulnerability class.
+
 ## Knowledge graph
 
 `src/graph/` holds typed things observed about the target and the

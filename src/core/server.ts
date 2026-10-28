@@ -10,6 +10,7 @@ import { pluginIntrospectionRoutes } from "../api/v1/plugin.routes.js";
 import { capabilityRoutes } from "../api/v1/capability.routes.js";
 import { artifactRoutes } from "../api/v1/artifact.routes.js";
 import { findingRoutes } from "../api/v1/finding.routes.js";
+import { reportRoutes } from "../api/v1/report.routes.js";
 import { graphRoutes } from "../api/v1/graph.routes.js";
 import { register as registerKnowledgeIndexer } from "../modules/knowledge/knowledge-indexer.js";
 import { register as registerArtifactRecorder } from "../artifacts/recorder.js";
@@ -49,6 +50,7 @@ export async function buildServer() {
   await app.register(capabilityRoutes);
   await app.register(artifactRoutes);
   await app.register(findingRoutes);
+  await app.register(reportRoutes);
   await app.register(graphRoutes);
   await registerWebsocketGateway(app);
 

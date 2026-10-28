@@ -18,7 +18,8 @@ function authHeaders(): Record<string, string> {
   return API_KEY ? { Authorization: `Bearer ${API_KEY}` } : {};
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+/** Sends the request and throws, with the Gateway's own message, if it wasn't a success. */
+async function send(method: string, path: string, body?: unknown): Promise<Response> {
   const res = await fetch(`${BASE_URL}${path}`, {
     method,
     headers: { "Content-Type": "application/json", ...authHeaders() },
@@ -37,9 +38,18 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     }
     throw new Error(`Gateway ${method} ${path} -> ${res.status}: ${message || res.statusText}`);
   }
+  return res;
+}
 
+async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const res = await send(method, path, body);
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
+}
+
+/** For the endpoints that return text (a Markdown or SARIF report) instead of JSON. */
+async function requestText(method: string, path: string): Promise<string> {
+  return (await send(method, path)).text();
 }
 
 export interface Workspace {
@@ -83,6 +93,19 @@ export async function listKnowledge(workspaceId: string, type?: string): Promise
 function queryString(params: Record<string, string | undefined>): string {
   const pairs = Object.entries(params).filter((e): e is [string, string] => e[1] !== undefined);
   return pairs.length > 0 ? `?${new URLSearchParams(pairs).toString()}` : "";
+}
+
+export async function getReport(
+  workspaceId: string,
+  options: { format?: string; status?: string; verify?: boolean } = {},
+): Promise<string> {
+  const { format, status, verify } = options;
+  const query = queryString({
+    format,
+    status,
+    verify: verify === undefined ? undefined : String(verify),
+  });
+  return requestText("GET", `/workspaces/${workspaceId}/report${query}`);
 }
 
 export async function listCapabilities(): Promise<unknown> {

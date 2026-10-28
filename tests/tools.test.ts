@@ -119,6 +119,7 @@ describe("tool definitions", () => {
           "create_finding",
           "update_finding",
           "verify_finding",
+          "get_report",
         ]),
       );
     });
@@ -131,6 +132,7 @@ describe("tool definitions", () => {
         "get_graph_entity",
         "list_findings",
         "verify_finding",
+        "get_report",
       ];
       for (const name of readOnly) expect(tool(name).annotations?.readOnlyHint, name).toBe(true);
       for (const name of ["create_finding", "update_finding"]) {
@@ -163,6 +165,17 @@ describe("tool definitions", () => {
       expect(tool("update_finding").inputSchema.required).toEqual(["findingId"]);
       expect(tool("get_graph_entity").inputSchema.required).toEqual(["entityId"]);
       expect(tool("verify_finding").inputSchema.required).toEqual(["findingId"]);
+      expect(tool("get_report").inputSchema.required).toBeUndefined();
+    });
+
+    it("offers get_report in three formats with optional filters", () => {
+      const props = tool("get_report").inputSchema.properties as Record<
+        string,
+        { enum?: string[]; type: string }
+      >;
+      expect(props.format?.enum).toEqual(["markdown", "json", "sarif"]);
+      expect(props.status?.enum).toEqual(["unverified", "confirmed", "contradicted"]);
+      expect(props.verify?.type).toBe("boolean");
     });
   });
 });

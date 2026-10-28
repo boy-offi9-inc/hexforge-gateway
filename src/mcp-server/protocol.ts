@@ -26,6 +26,9 @@ export function negotiateProtocolVersion(requested: unknown): string {
     : PROTOCOL_VERSION;
 }
 export const SERVER_NAME = "hexforge-gateway";
+/** A report can be long; past this the tool returns the start and says it was cut. */
+export const MAX_REPORT_CHARS = 200_000;
+
 export const SERVER_VERSION = "0.1.0";
 const DEFAULT_WORKSPACE = "default";
 
@@ -157,6 +160,19 @@ async function callTool(
           evidence: args.evidence,
         });
         return toolTextResult(JSON.stringify(finding));
+      }
+      case "get_report": {
+        const ws = await gateway.getOrCreateWorkspace(workspaceName);
+        const text = await gateway.getReport(ws.id, {
+          format: (args.format as string | undefined) ?? "markdown",
+          status: args.status as string | undefined,
+          verify: args.verify as boolean | undefined,
+        });
+        if (text.length <= MAX_REPORT_CHARS) return toolTextResult(text);
+        return toolTextResult(
+          `${text.slice(0, MAX_REPORT_CHARS)}\n\n[Report cut at ${MAX_REPORT_CHARS} characters of ${text.length}. ` +
+            "Ask for one status at a time, or fetch the whole report from GET /workspaces/:id/report.]",
+        );
       }
       case "verify_finding": {
         const findingId = args.findingId as string;

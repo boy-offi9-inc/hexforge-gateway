@@ -875,6 +875,37 @@ export const META_TOOL_DEFINITIONS: ToolDefinition[] = [
       required: ["findingId"],
     },
   },
+  {
+    name: "get_report",
+    description:
+      "Produce a report of a workspace's findings: each claim with its status, confidence and reasoning, and each piece of evidence with what produced the artifact (agent, operation, tool versions), the graph entity it is about, and - unless verify is false - a fresh check that the cited file and line exist. Formats: markdown (default, for reading), json (for tools) or sarif (SARIF 2.1.0, for code-scanning viewers). No file paths from the machine are included. A verified check means the cited place exists, not that the claim is true. Only reads and changes nothing, apart from creating the workspace if it doesn't exist.",
+    annotations: {
+      title: "Get a findings report",
+      readOnlyHint: true,
+      openWorldHint: false,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        workspace: workspaceProp,
+        format: {
+          type: "string",
+          enum: ["markdown", "json", "sarif"],
+          description: "Output format. Defaults to markdown.",
+        },
+        status: {
+          type: "string",
+          enum: findingStatusEnum,
+          description: "Only include findings with this status. Omit to include every status.",
+        },
+        verify: {
+          type: "boolean",
+          description:
+            "Re-check each finding's evidence against the files it cites. Defaults to true; set false for a faster report that skips the file checks.",
+        },
+      },
+    },
+  },
 ];
 
 export const ALL_TOOL_DEFINITIONS: ToolDefinition[] = [...META_TOOL_DEFINITIONS, ...AGENT_TOOLS];

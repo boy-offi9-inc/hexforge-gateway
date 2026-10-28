@@ -119,7 +119,7 @@ stdio's "reachable by whoever can spawn this process":
 
 ## Tools exposed
 
-(`src/mcp-server/tools.ts`, shared by both transports) - a curated 28,
+(`src/mcp-server/tools.ts`, shared by both transports) - a curated 29,
 not a 1:1 mirror of every agent operation, picked for what's useful to
 drive directly: `list_workspaces`, `get_or_create_workspace`,
 `list_knowledge`, `get_inbox_apks`, `chat_with_workspace`, `decompile_apk`, `decode_apk`,
@@ -127,7 +127,8 @@ drive directly: `list_workspaces`, `get_or_create_workspace`,
 `read_file`, `list_files`, `adb_devices`, `adb_shell`, `adb_install`,
 `adb_logcat`, `frida_list_processes`, `frida_trace`, `summarize_text`,
 `list_capabilities`, `list_artifacts`, `list_graph_entities`, `get_graph_entity`,
-`list_findings`, `create_finding`, `update_finding`, `verify_finding`.
+`list_findings`, `create_finding`, `update_finding`, `verify_finding`,
+`get_report`.
 Every workspace-scoped tool takes an optional `workspace` name argument
 (not an id) defaulting to `"default"`, resolved through the Gateway's
 get-or-create-by-name endpoint - the calling AI never needs to know or
@@ -137,7 +138,7 @@ can resolve a real `apkPath` for it by name without anyone typing one.
 
 ### Capabilities, artifacts, the graph and findings
 
-Eight tools expose the Gateway's evidence side (the model is in
+Nine tools expose the Gateway's evidence side (the model is in
 [ARCHITECTURE](ARCHITECTURE.md#artifacts)), so an AI client can record what it
 finds and tie it to what was actually produced, instead of only reading it
 back over REST:
@@ -161,6 +162,10 @@ back over REST:
   still exists and was observed in that artifact. `verified` means
   the cited place exists, not that the claim is true, and it never changes the
   finding's status.
+- `get_report` - the whole workspace as a report, in `markdown` (the default), `json`
+  or `sarif`, optionally one `status`, with each finding's evidence re-checked
+  unless `verify` is false. Machine paths are never included, and a report past
+  200,000 characters is cut with a note saying how to fetch the rest over REST.
 
 Two choices worth knowing: `create_finding` always saves the finding with
 `source: "ai"` and has no parameter to change that, so a finding made through
@@ -195,7 +200,7 @@ things worth knowing before editing them:
   `tests/tools.test.ts` checks that annotations and parameter descriptions
   stay complete; it can't check that the prose is still true.
 
-The full tool list is about 35 KB of JSON, which a client loads into context
+The full tool list is about 37 KB of JSON, which a client loads into context
 once per session - worth keeping in mind before making descriptions longer.
 
 ## Implementation notes

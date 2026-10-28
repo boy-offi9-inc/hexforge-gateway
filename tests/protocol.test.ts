@@ -21,14 +21,11 @@ vi.mock("../src/mcp-server/gateway-client.js", () => ({
   createFinding: vi.fn(),
   updateFinding: vi.fn(),
   verifyFinding: vi.fn(),
+  getReport: vi.fn(),
 }));
 
 import * as gateway from "../src/mcp-server/gateway-client.js";
-import {
-  handleRequest,
-  negotiateProtocolVersion,
-  PROTOCOL_VERSION,
-} from "../src/mcp-server/protocol.js";
+import { handleRequest, negotiateProtocolVersion, PROTOCOL_VERSION, MAX_REPORT_CHARS } from "../src/mcp-server/protocol.js";
 
 const getOrCreateWorkspace = gateway.getOrCreateWorkspace as ReturnType<typeof vi.fn>;
 const listWorkspaces = gateway.listWorkspaces as ReturnType<typeof vi.fn>;
@@ -48,6 +45,7 @@ beforeEach(() => {
     gateway.createFinding,
     gateway.updateFinding,
     gateway.verifyFinding,
+    gateway.getReport,
   ]) {
     mocked(fn).mockReset();
   }
@@ -449,5 +447,40 @@ describe("protocol - capability, artifact, graph and finding tools", () => {
     expect(gateway.verifyFinding).toHaveBeenCalledWith("f1");
     expect(getOrCreateWorkspace).not.toHaveBeenCalled();
     expect(JSON.parse(ok.content[0].text)).toEqual({ findingId: "f1", summary: "partial" });
+  });
+
+  it("get_report defaults to markdown, passes its options, returns the text as is", async () => {
+    mocked(gateway.getReport).mockResolvedValue("# Findings report\n");
+
+    const result = await call("get_report", { workspace: "my-app", status: "confirmed" });
+
+    expect(getOrCreateWorkspace).toHaveBeenCalledWith("my-app");
+    expect(gateway.getReport).toHaveBeenCalledWith("ws-abc", {
+      format: "markdown",
+      status: "confirmed",
+      verify: undefined,
+    });
+    expect(result.isError).toBe(false);
+    expect(result.content[0].text).toBe("# Findings report\n");
+
+    await call("get_report", { format: "sarif", verify: false });
+    expect(gateway.getReport).toHaveBeenLastCalledWith("ws-abc", {
+      format: "sarif",
+      status: undefined,
+      verify: false,
+    });
+  });
+
+  it("get_report cuts a very long report and says how to get the rest", async () => {
+    mocked(gateway.getReport).mockResolvedValue("x".repeat(MAX_REPORT_CHARS + 500));
+
+    const result = await call("get_report");
+    const text = result.content[0].text;
+
+    expect(text.startsWith("x".repeat(MAX_REPORT_CHARS))).toBe(true);
+    expect(text).toContain(
+      `Report cut at ${MAX_REPORT_CHARS} characters of ${MAX_REPORT_CHARS + 500}`,
+    );
+    expect(text).toContain("GET /workspaces/:id/report");
   });
 });

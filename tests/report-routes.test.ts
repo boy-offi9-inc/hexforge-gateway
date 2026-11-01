@@ -21,11 +21,13 @@ async function buildApp(opts: { workspaceExists?: boolean } = {}) {
   vi.resetModules();
   const builder = { buildReport: vi.fn().mockResolvedValue(report) };
   const workspaces = {
-    getWorkspace: vi.fn().mockResolvedValue(
-      opts.workspaceExists === false
-        ? null
-        : { id: "ws1", name: "demo", targetLabel: "com.acme.app" },
-    ),
+    getWorkspace: vi
+      .fn()
+      .mockResolvedValue(
+        opts.workspaceExists === false
+          ? null
+          : { id: "ws1", name: "demo", targetLabel: "com.acme.app" },
+      ),
   };
   vi.doMock("../src/modules/workspace/workspace.service.js", () => workspaces);
   vi.doMock("../src/report/builder.js", () => builder);

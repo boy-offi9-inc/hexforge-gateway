@@ -204,4 +204,3 @@ export async function apksignerHandler(task: McpTask): Promise<unknown> {
     warnings: details.warnings.length > 0 ? details.warnings : undefined,
   };
 }
-

@@ -91,7 +91,7 @@ describe("apktool patch operation", () => {
     await writeFile(path.join(project, "apktool.yml"), "version: 2\n");
     await writeFile(
       path.join(project, "smali", "com", "acme", "Login.smali"),
-      ".class public Lcom/acme/Login;\nconst-string v0, \"http://api\"\n",
+      '.class public Lcom/acme/Login;\nconst-string v0, "http://api"\n',
     );
     await writeFile(path.join(project, "AndroidManifest.xml"), '<manifest debuggable="false"/>');
     vi.resetModules();

@@ -25,7 +25,12 @@ vi.mock("../src/mcp-server/gateway-client.js", () => ({
 }));
 
 import * as gateway from "../src/mcp-server/gateway-client.js";
-import { handleRequest, negotiateProtocolVersion, PROTOCOL_VERSION, MAX_REPORT_CHARS } from "../src/mcp-server/protocol.js";
+import {
+  handleRequest,
+  negotiateProtocolVersion,
+  PROTOCOL_VERSION,
+  MAX_REPORT_CHARS,
+} from "../src/mcp-server/protocol.js";
 
 const getOrCreateWorkspace = gateway.getOrCreateWorkspace as ReturnType<typeof vi.fn>;
 const listWorkspaces = gateway.listWorkspaces as ReturnType<typeof vi.fn>;

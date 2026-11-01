@@ -22,7 +22,7 @@ src/
       workspace.service.ts        workspace CRUD (local storage or Supabase)
     mcp/
       orchestrator.ts             task dispatch + agent handler registry
-      agents/                     jadx, apktool, apkid, apkmcp, ai, filesystem, adb, frida
+      agents/                     jadx, apktool, apksigner, apkid, apkmcp, ai, filesystem, adb, frida
         shared/exec-error.ts      common error shaping for spawned tools
         filesystem.search.worker.ts  worker thread for regex search (ReDoS timeout)
     jobs/
@@ -44,7 +44,7 @@ src/
     protocol.ts                    transport-agnostic JSON-RPC dispatch + tool execution, shared by both transports below
     index.ts                       stdio MCP server frontend - newline-delimited JSON-RPC framing around protocol.ts
     http.ts                        Streamable HTTP MCP server frontend - POST /mcp framing around protocol.ts, for a remote/networked client
-    tools.ts                       the 29 MCP tools exposed, table-driven
+    tools.ts                       the 31 MCP tools exposed, table-driven
     gateway-client.ts              thin HTTP client to an already-running Gateway
   plugins/
     types.ts                       PluginContext / HexForgePlugin contract

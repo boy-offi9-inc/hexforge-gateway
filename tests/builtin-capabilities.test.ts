@@ -14,10 +14,20 @@ function loadAll() {
 }
 
 describe("built-in capability descriptors", () => {
-  it("cover all eight built-in agents and pass registry validation", () => {
+  it("cover all nine built-in agents and pass registry validation", () => {
     expect(() => loadAll()).not.toThrow();
     expect(Object.keys(builtinDescriptors).sort()).toEqual(
-      ["adb", "ai", "apkid", "apkmcp", "apktool", "filesystem", "frida", "jadx"].sort(),
+      [
+        "adb",
+        "ai",
+        "apkid",
+        "apkmcp",
+        "apksigner",
+        "apktool",
+        "filesystem",
+        "frida",
+        "jadx",
+      ].sort(),
     );
   });
 
@@ -47,8 +57,10 @@ describe("built-in capability descriptors", () => {
       descriptor.operations.filter((op) => op.outputs?.length).map((op) => `${kind}.${op.name}`),
     );
     expect(withOutputs.sort()).toEqual([
+      "apksigner.sign",
       "apktool.build",
       "apktool.decode",
+      "apktool.patch",
       "filesystem.scan-secrets",
       "frida.trace",
       "jadx.decompile",

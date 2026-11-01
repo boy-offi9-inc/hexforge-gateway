@@ -1,7 +1,7 @@
 # Roadmap
 
 Everything core is built and documented in the other `docs/` files: Event
-Bus, Job/Workflow Engines, Knowledge Engine, all eight MCP agents, Auth,
+Bus, Job/Workflow Engines, Knowledge Engine, all nine MCP agents, Auth,
 nine AI providers, Terminal chat, the MCP Server Frontend, the Plugin
 System, local storage, and CI. This page tracks what's still open.
 
@@ -11,6 +11,7 @@ System, local storage, and CI. This page tracks what's still open.
 
 ## Done
 
+- [x] APK modification (`apktool` patch, `apksigner` sign): replace exact text in a decoded project with a tracked record (`apk-patch` artifact, before/after hashes), rebuild, align and sign with a generated debug key (`signed-apk` artifact), install - as tasks, as a workflow chained with `mergePreviousResult`, or as the `patch_apk_project` and `sign_apk` MCP tools. See `docs/APK_MODIFICATION.md`
 - [x] Findings report (`src/report/`): `GET /workspaces/:id/report` and the `get_report` MCP tool produce every finding with its evidence, what produced each artifact (tool versions), the entity it is about and a fresh verification, as JSON, Markdown or SARIF 2.1.0 - no machine paths, never stored. See `docs/ARCHITECTURE.md`
 - [x] MT Manager tool names (issue #16): `apkmcp`'s `open`, `outline_class` and `close` use whichever tool name MT's `tools/list` reports (MT renamed them to `mt_apk_workspace_open`, `mt_apk_dex_read_class_outline` and `mt_apk_workspace_delete`), `close` refuses to delete a saved workspace without `force`, and `docs/MT_TOOLS.md` lists all 57 MT tools
 - [x] Evidence verification (`src/findings/verifier.ts`): re-checks a finding's cited locations (`file.java:12`) against the artifact's files - the file exists, the line is within it, nothing outside the artifact is read - via `GET /findings/:id/verification` and the `verify_finding` MCP tool (cited graph entities are checked too). Reports only; never changes a finding's status. See `docs/ARCHITECTURE.md`

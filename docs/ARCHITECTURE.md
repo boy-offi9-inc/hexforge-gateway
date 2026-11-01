@@ -166,8 +166,8 @@ of being re-derived from a task's raw result. Three parts:
   capability descriptor ([AGENTS](AGENTS.md#capabilities)): an operation that
   declares exactly one output kind and whose result carries `outputDir` (a
   directory) or `outputPath` (a file) produces one artifact. Today that is
-  `jadx.decompile`, `apktool.decode`, `apktool.build`, `filesystem.scan-secrets`
-  and `frida.trace`; plugin agents join by declaring `outputs` in their
+  `jadx.decompile`, `apktool.decode`, `apktool.build`, `apktool.patch`,
+  `apksigner.sign`, `filesystem.scan-secrets` and `frida.trace`; plugin agents join by declaring `outputs` in their
   descriptor. Anything else records nothing
   rather than guessing. A failure is logged and never affects the task.
 - **`GET /workspaces/:id/artifacts?kind=apk`** — list, newest first, optional

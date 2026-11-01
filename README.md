@@ -17,7 +17,7 @@
 </p>
 
 AI-assisted APK reverse-engineering workspace API. Dispatches tasks to
-MCP agents (jadx, apktool, adb, frida, filesystem, MT Manager's APK MCP,
+MCP agents (jadx, apktool, apksigner, adb, frida, filesystem, MT Manager's APK MCP,
 AI providers) and streams updates over WebSocket. Runs entirely on-device
 (Termux + MT Manager on Android) or on a normal PC - no cloud required.
 
@@ -71,6 +71,7 @@ running Gateway - see `tests/README.md` for the split.
 | [`docs/SETUP.md`](docs/SETUP.md) | Requirements, auth, storage backend, running on PC and Android/Termux |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Event Bus, Job Engine, Workflow Engine, Knowledge Engine |
 | [`docs/AGENTS.md`](docs/AGENTS.md) | Every MCP agent - operations and examples |
+| [`docs/APK_MODIFICATION.md`](docs/APK_MODIFICATION.md) | Decode, patch, rebuild, sign and install an APK - step by step |
 | [`docs/EVIDENCE.md`](docs/EVIDENCE.md) | From a task's output to a finding with evidence, and checking it - step by step |
 | [`docs/AI.md`](docs/AI.md) | The AI provider layer (9 providers), the `ai` agent, Terminal chat |
 | [`docs/MCP_SERVER.md`](docs/MCP_SERVER.md) | Registering HexForge's agents as native tools in Claude Desktop/Code/Cursor |

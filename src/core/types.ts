@@ -13,7 +13,15 @@ export interface Workspace {
 // while still accepting arbitrary strings - required so plugins (see
 // src/plugins/) can register new agent kinds without editing this type.
 export type McpAgentKind =
-  "apktool" | "jadx" | "frida" | "adb" | "filesystem" | "apkmcp" | "ai" | (string & {});
+  "apktool"
+  | "apksigner"
+  | "jadx"
+  | "frida"
+  | "adb"
+  | "filesystem"
+  | "apkmcp"
+  | "ai"
+  | (string & {});
 
 export type TaskStatus = "queued" | "running" | "completed" | "failed";
 

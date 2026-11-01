@@ -23,7 +23,7 @@ export const builtinDescriptors = {
     ],
   },
   apktool: {
-    description: "APKTool decode/rebuild for smali and resources.",
+    description: "APKTool decode/patch/rebuild for smali and resources.",
     backends: [{ tool: "apktool" }],
     permissions: ["fs:workspace"],
     operations: [
@@ -38,6 +38,25 @@ export const builtinDescriptors = {
         capability: "android.rebuild",
         inputs: { required: ["inputDir"], optional: ["outputName"] },
         outputs: ["apk"],
+      },
+      {
+        name: "patch",
+        capability: "android.patch",
+        inputs: { required: ["projectDir", "file", "find", "replace"], optional: ["all"] },
+        outputs: ["apk-patch"],
+      },
+    ],
+  },
+  apksigner: {
+    description: "Aligns and signs an APK with a generated debug key.",
+    backends: [{ tool: "apksigner" }, { tool: "zipalign" }, { tool: "keytool" }],
+    permissions: ["fs:workspace"],
+    operations: [
+      {
+        name: "sign",
+        capability: "android.sign",
+        inputs: { required: ["apkPath"], optional: ["outputName", "flavor"] },
+        outputs: ["signed-apk"],
       },
     ],
   },

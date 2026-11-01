@@ -1,7 +1,7 @@
 # MCP Agents
 
 `src/modules/mcp/orchestrator.ts` registers a handler per agent kind.
-`jadx`, `apktool`, `apkid`, `apkmcp`, `filesystem`, `adb`, and `frida` all
+`jadx`, `apktool`, `apksigner`, `apkid`, `apkmcp`, `filesystem`, `adb`, and `frida` all
 have real implementations - `frida` has the biggest asterisk on "real"
 (see below). Dispatching a task (`POST /workspaces/:id/tasks`) is
 fire-and-forget: it returns immediately with `status: "queued"`, then
@@ -146,6 +146,11 @@ curl -X POST http://localhost:8080/workspaces/<workspaceId>/tasks \
   -H "Content-Type: application/json" \
   -d '{"agent": "apktool", "operation": "decode", "payload": {"apkPath": "/absolute/path/to/app.apk"}}'
 
+# edit one file of the decoded project: replace exact text
+curl -X POST http://localhost:8080/workspaces/<workspaceId>/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"agent": "apktool", "operation": "patch", "payload": {"projectDir": "<decode output dir>", "file": "AndroidManifest.xml", "find": "debuggable=\"false\"", "replace": "debuggable=\"true\""}}'
+
 # rebuild after editing the decoded project
 curl -X POST http://localhost:8080/workspaces/<workspaceId>/tasks \
   -H "Content-Type: application/json" \
@@ -157,11 +162,46 @@ decode flags: `noSrc: true` (resources only, faster), `noRes: true`
 (smali only). Build output:
 `WORKSPACES_ROOT/<workspaceId>/apktool/build/<outputName>`.
 
-**Important:** the rebuilt APK is unsigned and won't install until
-signed - this project doesn't wire up signing for the apktool path. Use
-`apkmcp`'s build flow (signs automatically) for a signed result, or sign
-manually with `apksigner`. Only rebuild and install apps you own or are
+`patch` replaces exact text in one file of the decoded project (`projectDir`, `file`
+relative to it, `find`, `replace`, optional `all`). The text must be found, and must
+match exactly once unless `all` is true; paths that leave the project, binary files and
+files over 5 MB are refused. Each patch saves a record - the lines changed and SHA-256
+hashes of the file before and after, no machine paths - and returns its path as
+`outputPath`, so it is recorded as an `apk-patch` [artifact](ARCHITECTURE.md#artifacts).
+The result's keys avoid `file`, `find` and `replace`, so it can be merged into the next
+step of a workflow. `build` also accepts `projectDir` and `outputDir` in place of
+`inputDir`, for the same reason.
+
+**Important:** the rebuilt APK is unsigned and won't install until signed - use the
+`apksigner` agent below. The whole loop is walked through in
+[`APK_MODIFICATION.md`](APK_MODIFICATION.md). Only rebuild and install apps you own or are
 authorized to modify.
+
+### apksigner
+
+Aligns and signs an APK so it installs. One operation, `sign`:
+
+```bash
+curl -X POST http://localhost:8080/workspaces/<workspaceId>/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"agent": "apksigner", "operation": "sign", "payload": {"apkPath": "/absolute/path/to/rebuilt.apk"}}'
+```
+
+Payload: `apkPath` (or the previous workflow step's `outputPath`), optional `outputName`
+(a file name, not a path) and `flavor` (`sdk` or `lite`, normally detected). The signed
+copy is written to `WORKSPACES_ROOT/<workspaceId>/apksigner/signed/<name>-signed.apk` and
+the result has `outputPath`, `apkPath` (the same path, under the key `adb install` reads),
+`flavor`, and for the SDK flavor `aligned` and `schemes` (the signature schemes that
+verified). Anything skipped is in `warnings`.
+
+It signs with a **debug key** generated on first use (`DATA_DIR/signing/debug.keystore`).
+The signature therefore differs from the original app's: the result can't update the
+original in place - uninstall that first - and isn't for distribution. Two programs are
+named `apksigner`: the Android SDK's, used with `zipalign` and `keytool`, and the
+lightweight one in Termux's package, which aligns for itself. The agent tells them apart by
+`--version`. Which signature schemes Termux's lightweight one writes isn't confirmed;
+if an install fails with a signature error, sign with the SDK's. A signed APK that doesn't
+verify is deleted rather than left behind.
 
 ### apkid
 

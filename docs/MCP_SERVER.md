@@ -119,7 +119,7 @@ stdio's "reachable by whoever can spawn this process":
 
 ## Tools exposed
 
-(`src/mcp-server/tools.ts`, shared by both transports) - a curated 29,
+(`src/mcp-server/tools.ts`, shared by both transports) - a curated 31,
 not a 1:1 mirror of every agent operation, picked for what's useful to
 drive directly: `list_workspaces`, `get_or_create_workspace`,
 `list_knowledge`, `get_inbox_apks`, `chat_with_workspace`, `decompile_apk`, `decode_apk`,
@@ -128,7 +128,7 @@ drive directly: `list_workspaces`, `get_or_create_workspace`,
 `adb_logcat`, `frida_list_processes`, `frida_trace`, `summarize_text`,
 `list_capabilities`, `list_artifacts`, `list_graph_entities`, `get_graph_entity`,
 `list_findings`, `create_finding`, `update_finding`, `verify_finding`,
-`get_report`.
+`get_report`, `patch_apk_project`, `sign_apk`.
 Every workspace-scoped tool takes an optional `workspace` name argument
 (not an id) defaulting to `"default"`, resolved through the Gateway's
 get-or-create-by-name endpoint - the calling AI never needs to know or
@@ -176,6 +176,17 @@ above: they edit the Gateway's own records, not the files or device being
 analyzed. `get_graph_entity`, `update_finding` and `verify_finding` take an id and no
 `workspace`; `list_capabilities` takes no arguments.
 
+### Modifying an APK
+
+`decode_apk`, `patch_apk_project`, `build_apk`, `sign_apk` and `adb_install` are the
+decode -> patch -> rebuild -> sign -> install loop ([walkthrough](APK_MODIFICATION.md)).
+`patch_apk_project` replaces exact text in one file of a decoded project - it fails if the
+text isn't found, or matches more than once without `all` - and saves a record of the
+change. `sign_apk` aligns and signs with a generated debug key, so the result installs
+but isn't the original app's signature and isn't for distribution. `patch_apk_project`
+is flagged `destructiveHint` (it edits the decoded project in place, like `decode_apk`
+replaces it); `sign_apk` is not.
+
 ### Tool annotations and descriptions
 
 Every tool declares MCP annotations (`title`, `readOnlyHint`, `destructiveHint`,
@@ -200,7 +211,7 @@ things worth knowing before editing them:
   `tests/tools.test.ts` checks that annotations and parameter descriptions
   stay complete; it can't check that the prose is still true.
 
-The full tool list is about 37 KB of JSON, which a client loads into context
+The full tool list is about 40 KB of JSON, which a client loads into context
 once per session - worth keeping in mind before making descriptions longer.
 
 ## Implementation notes

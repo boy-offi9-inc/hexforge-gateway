@@ -88,8 +88,15 @@ describe("tool definitions", () => {
         .sort();
       // adb_shell runs arbitrary commands, adb_install can replace an installed
       // app, frida_trace injects code into a running app, and decode_apk
-      // replaces the workspace's previous decode (including any edits to it).
-      expect(destructive).toEqual(["adb_install", "adb_shell", "decode_apk", "frida_trace"]);
+      // replaces the workspace's previous decode (including any edits to it), and
+      // patch_apk_project edits the decoded project in place.
+      expect(destructive).toEqual([
+        "adb_install",
+        "adb_shell",
+        "decode_apk",
+        "frida_trace",
+        "patch_apk_project",
+      ]);
     });
   });
 
@@ -176,6 +183,18 @@ describe("tool definitions", () => {
       expect(props.format?.enum).toEqual(["markdown", "json", "sarif"]);
       expect(props.status?.enum).toEqual(["unverified", "confirmed", "contradicted"]);
       expect(props.verify?.type).toBe("boolean");
+    });
+
+    it("require what the APK modification tools need", () => {
+      const spec = (name: string) => ALL_TOOL_DEFINITIONS.find((x) => x.name === name);
+      expect(spec("patch_apk_project")?.inputSchema.required).toEqual([
+        "projectDir",
+        "file",
+        "find",
+        "replace",
+      ]);
+      expect(spec("sign_apk")?.inputSchema.required).toEqual(["apkPath"]);
+      expect(spec("sign_apk")?.annotations?.destructiveHint).toBe(false);
     });
   });
 });

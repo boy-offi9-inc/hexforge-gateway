@@ -130,7 +130,7 @@ export const AGENT_TOOLS: AgentToolSpec[] = [
   {
     name: "build_apk",
     description:
-      "Rebuild an APK from an apktool-decoded (and possibly edited) project directory. The result is unsigned, so it won't install until you sign it separately. Writes to the workspace's apktool/build directory (overwriting a previous build of the same name) and returns { outputPath, signed: false, stdoutTail, stderrTail? }. Fails if inputDir has no apktool.yml, i.e. isn't a decode_apk output. Requires apktool on PATH.",
+      "Rebuild an APK from an apktool-decoded (and possibly edited) project directory. The result is unsigned, so it won't install until you sign it with sign_apk. Writes to the workspace's apktool/build directory (overwriting a previous build of the same name) and returns { outputPath, signed: false, stdoutTail, stderrTail? }. Fails if inputDir has no apktool.yml, i.e. isn't a decode_apk output. Requires apktool on PATH.",
     agent: "apktool",
     operation: "build",
     annotations: {
@@ -156,6 +156,88 @@ export const AGENT_TOOLS: AgentToolSpec[] = [
         },
       },
       required: ["inputDir"],
+    },
+  },
+  {
+    name: "patch_apk_project",
+    description:
+      "Edit a text file inside an apktool-decoded project - a smali file, AndroidManifest.xml or a resource XML - by replacing exact text. It fails unless the text is found, and unless it matches exactly once (set all to replace every match); binary files, files over 5 MB and paths that leave the project are refused. Each patch is saved as a record of what changed, with before/after hashes, so the modification is tracked. Returns { projectDir, patchedFile, replacements, sha256Before, sha256After, outputPath }. It edits the project in place: rebuild with build_apk and sign with sign_apk afterwards. Only use it on apps you own or are authorized to modify.",
+    agent: "apktool",
+    operation: "patch",
+    annotations: {
+      title: "Patch a decoded APK project",
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        workspace: workspaceProp,
+        projectDir: {
+          type: "string",
+          description:
+            "Absolute path to the decoded project directory - the outputDir returned by decode_apk. Must contain apktool.yml.",
+        },
+        file: {
+          type: "string",
+          description:
+            'Path of the file to edit, relative to the project, e.g. "smali/com/acme/Login.smali" or "AndroidManifest.xml".',
+        },
+        find: {
+          type: "string",
+          description: "The exact text to replace. Plain text, not a pattern; must not be empty.",
+        },
+        replace: {
+          type: "string",
+          description: "The text to put in its place. May be empty to delete the matched text.",
+        },
+        all: {
+          type: "boolean",
+          description:
+            "Replace every match. By default the text must match exactly once, so an ambiguous edit fails instead of changing the wrong place.",
+          default: false,
+        },
+      },
+      required: ["projectDir", "file", "find", "replace"],
+    },
+  },
+  {
+    name: "sign_apk",
+    description:
+      "Align and sign an APK so it can be installed - typically the rebuilt APK from build_apk. It signs with a debug key generated on first use and kept in the Gateway's data directory, so the signature differs from the original app's: to install over the original you must uninstall it first, and the result is not suitable for distribution. It uses the Android SDK's apksigner and zipalign when present (and verifies the signature afterwards), or Termux's lightweight apksigner. Writes to the workspace's apksigner/signed/ folder and returns { outputPath, apkPath, signed, flavor, aligned?, schemes?, warnings? }; pass apkPath to adb_install. Only use it on apps you own or are authorized to modify.",
+    agent: "apksigner",
+    operation: "sign",
+    annotations: {
+      title: "Sign an APK",
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        workspace: workspaceProp,
+        apkPath: {
+          type: "string",
+          description:
+            "Absolute path to the .apk to sign, e.g. the outputPath returned by build_apk.",
+        },
+        outputName: {
+          type: "string",
+          description:
+            'Output file name only, not a path (no "/" or ".."). Defaults to the input name with "-signed" added.',
+        },
+        flavor: {
+          type: "string",
+          enum: ["sdk", "lite"],
+          description:
+            "Which apksigner this is: sdk for the Android SDK's, lite for Termux's lightweight one. Normally omit it - it is detected.",
+        },
+      },
+      required: ["apkPath"],
     },
   },
   {

@@ -42,7 +42,10 @@ async function onWorkflowSettled(
         : step.status === "failed"
           ? `FAILED (${step.error})`
           : step.status;
-    return `${i + 1}. [${step.agent}:${step.operation}] ${outcome}`;
+    const what = step.branches
+      ? `parallel: ${step.branches.map((b) => `${b.agent}:${b.operation}`).join(", ")}`
+      : `${step.agent}:${step.operation}`;
+    return `${i + 1}. [${what}] ${outcome}`;
   });
 
   const content = [

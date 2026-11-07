@@ -20,7 +20,24 @@ Run with `npm test` (single run) or `npm run test:watch`. These are plain
   every step and merges `mergePreviousResult` correctly, stops the whole
   workflow on a step failure without dispatching later steps, and the
   same already-terminal-by-the-time-we-check race as above, one layer up
-  (a step's Job, not a Job's Task).
+  (a step's Job, not a Job's Task). Parallel groups: every branch is
+  dispatched before any finishes, results come back in branch order whichever
+  finishes first, the group waits for the slower branches before failing and
+  never dispatches the next step, `continueOnError` completes it with the
+  failure recorded, branches can merge the previous step's result, and a
+  one-branch group is rejected. Resume: a failed workflow continues from the
+  failed step with the earlier results kept and merged again, the failure is
+  cleared from the step and the workflow, a group re-runs only its unfinished
+  branches, and a missing or not-failed workflow is refused. Hydrate: a workflow
+  that was running becomes failed with its in-flight step and branches marked and
+  an error that names the step and the resume endpoint, finished workflows are left
+  alone, and a hydrated workflow can then be resumed.
+- **`workflow-routes.test.ts`** - the workflow routes on a bare Fastify instance with
+  the engine and workspace service mocked: a parallel group accepted and passed on as
+  given, a group of one or of more than twenty rejected, a nested group or an invalid
+  branch rejected, a step that is both a group and a plain step rejected with its
+  position, plain sequential steps unchanged, and `POST /workflows/:id/resume` answering
+  202, 404 or 409.
 - **`local-storage.provider.test.ts`** - the local JSON file store:
   upsert/get/list/delete/find round-trip correctly, writes actually land
   on disk (not just in the in-memory cache), collections stay independent

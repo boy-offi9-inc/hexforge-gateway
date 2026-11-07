@@ -117,6 +117,55 @@ which step failed - later steps are never dispatched. `/ws` broadcasts
 every `workflow.updated` as `{"type": "workflow:update", ...}`, same as
 jobs and tasks.
 
+### Parallel steps
+
+A step can be a group that runs several operations at the same time:
+
+```json
+{ "parallel": [
+    { "agent": "jadx", "operation": "decompile", "payload": { "apkPath": "/path/app.apk" } },
+    { "agent": "apktool", "operation": "decode", "payload": { "apkPath": "/path/app.apk" } }
+  ],
+  "continueOnError": false }
+```
+
+Every branch is a Job of its own, with its own `maxAttempts`, and takes the
+previous step's result if it sets `mergePreviousResult`. The group finishes when
+all of its branches have, and its result is `{ results, failed, errors? }`:
+`results` lists each branch's result in branch order (`null` for one that
+failed), so a step after the group can merge it. If a branch fails the group
+fails, but only once the others have finished - a running Job can't be recalled,
+so they run to the end. With `continueOnError: true` the group completes anyway
+and `failed` / `errors` say which branches did not. A group needs two to twenty
+branches, can't contain another group, and a step is either a group or a plain
+step, never both. In stored workflows a group's step has `agent: "parallel"`,
+`operation: "group"` and a `branches` array with each branch's own status and result.
+
+There is no fan-out over a list of unknown length: the branches are written out.
+
+### Resuming a failed workflow
+
+A workflow that failed - a step failed, or the Gateway restarted while it ran -
+can be continued instead of started over:
+
+```bash
+curl -X POST http://localhost:8080/workflows/<workflowId>/resume     # or: hf wf-resume
+```
+
+It carries on from the first step that did not complete, keeping the results of
+the ones that did, and answers `202` (`404` if there is no such workflow, `409` if
+it isn't failed). That step starts over from the beginning, and everything after it
+is reset; for a parallel group only the branches that hadn't completed run again.
+`resumeCount` on the workflow counts how many times that has happened.
+
+Nothing resumes by itself. When the Gateway starts, a workflow that was
+running is marked `failed` - along with the step or branches that were in flight,
+with the error "Interrupted by a Gateway restart" - and its error says which step
+it stopped at. It is not run again automatically because a step that was half done
+may not be safe to repeat (an `adb install`, a `patch`); resuming is you deciding it is.
+Plain jobs that were running at a restart are failed the same way and are not resumable:
+submit them again.
+
 
 ## Knowledge Engine
 

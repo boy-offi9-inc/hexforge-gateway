@@ -16,6 +16,7 @@ hf inbox                             # APKs dropped into the server's inbox fold
 hf job jadx decompile apkPath=/storage/emulated/0/MT2/apks/app.apk
 hf job-status                        # no id needed - uses the job just submitted
 hf wf analyze '[{"agent":"jadx","operation":"decompile","payload":{"apkPath":"/path/app.apk"}}]'
+hf wf-resume                         # continue a failed workflow from the step that stopped it
 hf knowledge                         # knowledge entries for the current workspace
 hf chat                              # interactive chat - see below
 hf current                           # what's currently selected

@@ -209,6 +209,7 @@ const HELP = [
       ["jobs", "list this workspace's jobs"],
       ["wf <name> <steps-json>", "run a multi-step workflow and follow it"],
       ["wf-status [id]", "show a workflow (default: the last one)"],
+      ["wf-resume [id]", "continue a failed workflow from the step that stopped it"],
       ["wfs", "list this workspace's workflows"],
     ],
   ],
@@ -744,7 +745,15 @@ function workflowLines(ctx, wf, frame = 0) {
     lines.push(
       `   ${t.mute(String(i + 1))} ${t.icon(step.status, frame)} ${step.agent} ${t.g.sep} ${step.operation}  ${t.mute(step.status)}`,
     );
-    if (step.status === "failed" && step.error) lines.push("       " + t.err(step.error));
+    (step.branches ?? []).forEach((branch, b) => {
+      lines.push(
+        `       ${t.mute(`${i + 1}.${b + 1}`)} ${t.icon(branch.status, frame)} ${branch.agent} ${t.g.sep} ${branch.operation}  ${t.mute(branch.status)}`,
+      );
+      if (branch.status === "failed" && branch.error) lines.push("           " + t.err(branch.error));
+    });
+    if (step.status === "failed" && step.error && !step.branches) {
+      lines.push("       " + t.err(step.error));
+    }
   });
   return lines.map((l) => t.truncate(l, t.width - 1));
 }
@@ -849,6 +858,28 @@ async function cmdWfStatus(ctx, [id]) {
   if (!ctx.caps.pretty) return void printJson(ctx, wf);
   print(ctx, workflowLines(ctx, wf));
   return 0;
+}
+
+async function cmdWfResume(ctx, [id]) {
+  const wfId = id ?? ctx.state.WORKFLOW_ID;
+  if (!wfId) throw new UsageError("No workflow id given and no current workflow set.");
+  const wf = await ctx.client.post(`/workflows/${enc(wfId)}/resume`, {});
+  saveState("WORKFLOW_ID", wf.id, ctx.env);
+  ctx.state.WORKFLOW_ID = wf.id;
+
+  const follow = ctx.caps.pretty ? !ctx.flags.detach : Boolean(ctx.flags.wait);
+  if (!follow) {
+    if (ctx.caps.pretty) print(ctx, workflowLines(ctx, wf));
+    else printJson(ctx, wf);
+    return 0;
+  }
+  const { wf: done, elapsedMs } = await followWorkflow(ctx, wf);
+  if (!ctx.caps.pretty) {
+    printJson(ctx, done);
+  } else {
+    print(ctx, [...workflowLines(ctx, done), ...ctx.t.hint(formatDuration(elapsedMs))]);
+  }
+  return done.status === "failed" ? 1 : 0;
 }
 
 async function cmdWfs(ctx) {
@@ -1332,6 +1363,7 @@ const COMMANDS = {
   jobs: cmdJobs,
   wf: cmdWf,
   "wf-status": cmdWfStatus,
+  "wf-resume": cmdWfResume,
   wfs: cmdWfs,
   knowledge: cmdKnowledge,
   summarize: cmdSummarize,

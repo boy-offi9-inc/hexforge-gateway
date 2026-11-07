@@ -13,7 +13,7 @@ export interface Workspace {
 // while still accepting arbitrary strings - required so plugins (see
 // src/plugins/) can register new agent kinds without editing this type.
 export type McpAgentKind =
-  | "apktool"
+  "apktool"
   | "apksigner"
   | "jadx"
   | "frida"
@@ -89,7 +89,7 @@ export interface Job {
 
 export type WorkflowStatus = "queued" | "running" | "completed" | "failed";
 
-export interface WorkflowStepSpec {
+export interface WorkflowSingleStepSpec {
   agent: McpAgentKind;
   operation: string;
   payload?: Record<string, unknown>;
@@ -100,6 +100,19 @@ export interface WorkflowStepSpec {
   // caller having to know it ahead of time.
   mergePreviousResult?: boolean;
 }
+
+/**
+ * Several steps that run at the same time. The group finishes when every branch
+ * has; its result is { results, failed, errors? } - one entry per branch, in order.
+ * Unless `continueOnError` is set, one failed branch fails the group (the others
+ * still run to the end, since a running job can't be recalled).
+ */
+export interface WorkflowParallelStepSpec {
+  parallel: WorkflowSingleStepSpec[];
+  continueOnError?: boolean;
+}
+
+export type WorkflowStepSpec = WorkflowSingleStepSpec | WorkflowParallelStepSpec;
 
 export interface WorkflowSpec {
   workspaceId: string;
@@ -119,7 +132,15 @@ export interface WorkflowStepState {
   jobId?: string;
   result?: unknown;
   error?: string;
+  /**
+   * Present on a parallel group, whose `agent` is "parallel" and `operation` is
+   * "group"; each branch is tracked like a step of its own.
+   */
+  branches?: WorkflowBranchState[];
+  continueOnError?: boolean;
 }
+
+export type WorkflowBranchState = Omit<WorkflowStepState, "branches" | "continueOnError">;
 
 export interface Workflow {
   id: string;
@@ -131,6 +152,8 @@ export interface Workflow {
   createdAt: string;
   updatedAt: string;
   error?: string;
+  /** How many times a failed workflow has been resumed from where it stopped. */
+  resumeCount?: number;
 }
 
 // --- Knowledge Engine types -----------------------------------------------

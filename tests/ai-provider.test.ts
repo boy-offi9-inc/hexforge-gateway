@@ -113,9 +113,11 @@ describe("ai.provider - Anthropic", () => {
       AI_PROVIDER: "anthropic",
       ANTHROPIC_API_KEY: "sk-test",
     });
-    fetchMock.mockResolvedValueOnce(textErrorResponse(500, "internal error"));
+    // 500 is retried (twice), so every attempt gets the same answer.
+    fetchMock.mockResolvedValue(textErrorResponse(500, "internal error"));
 
     await expect(mod.complete(req)).rejects.toThrow(/Anthropic API error \(500\).*internal error/s);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it("throws a clear error when the response has no text content (malformed/empty)", async () => {
@@ -178,9 +180,42 @@ describe("ai.provider - OpenAI-compatible shape (via Groq)", () => {
       AI_PROVIDER: "groq",
       GROQ_API_KEY: "gsk-test",
     });
-    fetchMock.mockResolvedValueOnce(textErrorResponse(429, "rate limited"));
+    // 429 is retried (twice), so every attempt gets the same answer.
+    fetchMock.mockResolvedValue(textErrorResponse(429, "rate limited"));
 
     await expect(mod.complete(req)).rejects.toThrow(/Groq API error \(429\).*rate limited/s);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("retries a rate-limited request and returns the next attempt's answer", async () => {
+    const mod = await loadWithEnv({
+      AI_PROVIDER: "groq",
+      GROQ_API_KEY: "gsk-test",
+    });
+    fetchMock
+      .mockResolvedValueOnce(textErrorResponse(429, "rate limited"))
+      .mockResolvedValueOnce(jsonResponse(200, { choices: [{ message: { content: "ok" } }] }));
+
+    await expect(mod.complete(req)).resolves.toBe("ok");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("gives up on a provider that never answers, and does not retry the timeout", async () => {
+    const mod = await loadWithEnv({
+      AI_PROVIDER: "groq",
+      GROQ_API_KEY: "gsk-test",
+    });
+    vi.useFakeTimers();
+    try {
+      fetchMock.mockReturnValue(new Promise(() => {}));
+      // Attach the expectation before advancing time so the rejection is never unhandled.
+      const outcome = expect(mod.complete(req)).rejects.toThrow(/Timed out after 90000ms/);
+      await vi.advanceTimersByTimeAsync(90_000);
+      await outcome;
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("throws a clear error when the response has no message content (malformed/empty)", async () => {
@@ -198,11 +233,12 @@ describe("ai.provider - OpenAI-compatible shape (via Groq)", () => {
       AI_PROVIDER: "groq",
       GROQ_API_KEY: "gsk-test",
     });
-    fetchMock.mockRejectedValueOnce(new TypeError("fetch failed"));
+    fetchMock.mockRejectedValue(new TypeError("fetch failed"));
 
     await expect(mod.complete(req)).rejects.toThrow(
       /Could not reach Groq at https:\/\/api\.groq\.com\/openai\/v1.*fetch failed/s,
     );
+    expect(fetchMock).toHaveBeenCalledTimes(3); // network errors are retried too
   });
 });
 
@@ -283,6 +319,7 @@ describe("ai.provider - Gemini", () => {
     fetchMock.mockResolvedValueOnce(textErrorResponse(400, "bad request"));
 
     await expect(mod.complete(req)).rejects.toThrow(/Gemini API error \(400\).*bad request/s);
+    expect(fetchMock).toHaveBeenCalledTimes(1); // a 4xx other than 408/425/429 is the caller's problem, not retried
   });
 
   it("throws a clear error when the response has no text content (malformed/empty)", async () => {
@@ -315,14 +352,14 @@ describe("ai.provider - Ollama", () => {
 
   it('wraps a network-level fetch failure in a friendlier "is ollama serve running" error', async () => {
     const mod = await loadWithEnv({ AI_PROVIDER: "ollama" });
-    fetchMock.mockRejectedValueOnce(new TypeError("fetch failed"));
+    fetchMock.mockRejectedValue(new TypeError("fetch failed"));
 
     await expect(mod.complete(req)).rejects.toThrow(/Is "ollama serve" running.*fetch failed/s);
   });
 
   it("surfaces a non-ok response as an error with status and truncated body", async () => {
     const mod = await loadWithEnv({ AI_PROVIDER: "ollama" });
-    fetchMock.mockResolvedValueOnce(textErrorResponse(500, "model not found"));
+    fetchMock.mockResolvedValue(textErrorResponse(500, "model not found"));
 
     await expect(mod.complete(req)).rejects.toThrow(/Ollama API error \(500\).*model not found/s);
   });

@@ -1,3 +1,4 @@
+import { TimeoutError, withRetry, withTimeout } from "@boy-offi9-inc/reqkit";
 import { config, isAiConfigured } from "../core/config.js";
 
 /**
@@ -13,6 +14,57 @@ import { config, isAiConfigured } from "../core/config.js";
  */
 
 export { isAiConfigured };
+
+// Per-attempt timeouts. Hosted APIs answer or fail well inside this; a model
+// served from the same phone (Ollama, LM Studio, llama.cpp) can take minutes
+// for one completion, so local/openai-compatible endpoints get far longer.
+const REMOTE_TIMEOUT_MS = 90_000;
+const LOCAL_TIMEOUT_MS = 300_000;
+
+// Statuses worth another try: the request timed out upstream, the provider is
+// rate-limiting us, or it had a transient server error.
+const RETRY_STATUS_CODES = [408, 425, 429, 500, 502, 503, 504];
+
+interface PostResult {
+  ok: boolean;
+  status: number;
+  headers: Headers | undefined;
+  text: string;
+}
+
+/**
+ * POSTs a JSON body and reads the whole response inside one timeout, so a
+ * provider that stalls mid-body can't hang a job any more than one that never
+ * answers. Retries transient failures (network errors, 408/425/429/5xx) twice
+ * with backoff, waiting for Retry-After when the provider sends it. Retrying
+ * a completion is safe - it has no side effects. A timeout is not retried: a
+ * provider that hung for the full window will likely hang again.
+ *
+ * If the last attempt still gets a retryable status, that response is returned
+ * rather than thrown, so callers report it the same way as any other non-ok
+ * response. Retrying stops once 30s have passed, so a long Retry-After surfaces
+ * the 429 immediately instead of parking the job.
+ */
+async function postJson(
+  url: string,
+  headers: Record<string, string>,
+  body: string,
+  timeoutMs: number,
+): Promise<PostResult> {
+  return withRetry(
+    () =>
+      withTimeout(async (signal) => {
+        const res = await fetch(url, { method: "POST", headers, body, signal });
+        return { ok: res.ok, status: res.status, headers: res.headers, text: await res.text() };
+      }, timeoutMs),
+    {
+      retries: 2,
+      retryStatusCodes: RETRY_STATUS_CODES,
+      maxRetryTime: 30_000,
+      shouldRetry: (err) => !(err instanceof TimeoutError),
+    },
+  );
+}
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -37,27 +89,27 @@ async function completeWithAnthropic(req: CompletionRequest): Promise<string> {
 
   const messages = [...(req.history ?? []), { role: "user", content: req.prompt }];
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
+  const response = await postJson(
+    "https://api.anthropic.com/v1/messages",
+    {
       "Content-Type": "application/json",
       "x-api-key": config.ANTHROPIC_API_KEY,
       "anthropic-version": "2023-06-01",
     },
-    body: JSON.stringify({
+    JSON.stringify({
       model: config.ANTHROPIC_MODEL,
       max_tokens: req.maxTokens ?? 1024,
       system: req.system,
       messages,
     }),
-  });
+    REMOTE_TIMEOUT_MS,
+  );
 
   if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    throw new Error(`Anthropic API error (${response.status}): ${body.slice(0, 500)}`);
+    throw new Error(`Anthropic API error (${response.status}): ${response.text.slice(0, 500)}`);
   }
 
-  const data = (await response.json()) as AnthropicMessagesResponse;
+  const data = JSON.parse(response.text) as AnthropicMessagesResponse;
   const text = (data.content ?? [])
     .filter((block) => block.type === "text" && typeof block.text === "string")
     .map((block) => block.text)
@@ -86,6 +138,7 @@ async function completeWithOpenAiCompatibleShape(
   apiKey: string | undefined,
   model: string,
   req: CompletionRequest,
+  timeoutMs: number = REMOTE_TIMEOUT_MS,
 ): Promise<string> {
   const messages = [
     ...(req.system ? [{ role: "system", content: req.system }] : []),
@@ -98,17 +151,18 @@ async function completeWithOpenAiCompatibleShape(
   };
   if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
 
-  let response: Response;
+  let response: PostResult;
   try {
-    response = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
+    response = await postJson(
+      `${baseUrl}/chat/completions`,
       headers,
-      body: JSON.stringify({
+      JSON.stringify({
         model,
         messages,
         max_tokens: req.maxTokens ?? 1024,
       }),
-    });
+      timeoutMs,
+    );
   } catch (err) {
     throw new Error(
       `Could not reach ${providerLabel} at ${baseUrl}. (${err instanceof Error ? err.message : String(err)})`,
@@ -116,11 +170,12 @@ async function completeWithOpenAiCompatibleShape(
   }
 
   if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    throw new Error(`${providerLabel} API error (${response.status}): ${body.slice(0, 500)}`);
+    throw new Error(
+      `${providerLabel} API error (${response.status}): ${response.text.slice(0, 500)}`,
+    );
   }
 
-  const data = (await response.json()) as OpenAiCompatibleChatResponse;
+  const data = JSON.parse(response.text) as OpenAiCompatibleChatResponse;
   const text = data.choices?.[0]?.message?.content?.trim();
 
   if (!text) throw new Error(`${providerLabel} API returned no text content`);
@@ -213,6 +268,7 @@ async function completeWithOpenAiCompatible(req: CompletionRequest): Promise<str
     config.OPENAI_COMPATIBLE_API_KEY,
     config.OPENAI_COMPATIBLE_MODEL,
     req,
+    LOCAL_TIMEOUT_MS,
   );
 }
 
@@ -235,22 +291,22 @@ async function completeWithGemini(req: CompletionRequest): Promise<string> {
     parts: [{ text: m.content }],
   }));
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+  const response = await postJson(
+    url,
+    { "Content-Type": "application/json" },
+    JSON.stringify({
       ...(req.system ? { systemInstruction: { parts: [{ text: req.system }] } } : {}),
       contents: [...historyContents, { role: "user", parts: [{ text: req.prompt }] }],
       generationConfig: { maxOutputTokens: req.maxTokens ?? 1024 },
     }),
-  });
+    REMOTE_TIMEOUT_MS,
+  );
 
   if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    throw new Error(`Gemini API error (${response.status}): ${body.slice(0, 500)}`);
+    throw new Error(`Gemini API error (${response.status}): ${response.text.slice(0, 500)}`);
   }
 
-  const data = (await response.json()) as GeminiGenerateResponse;
+  const data = JSON.parse(response.text) as GeminiGenerateResponse;
   const text = data.candidates?.[0]?.content?.parts
     ?.map((p) => p.text ?? "")
     .join("")
@@ -283,17 +339,20 @@ async function completeWithOllama(req: CompletionRequest): Promise<string> {
   };
   if (config.OLLAMA_API_KEY) headers.Authorization = `Bearer ${config.OLLAMA_API_KEY}`;
 
-  let response: Response;
+  let response: PostResult;
   try {
-    response = await fetch(`${config.OLLAMA_BASE_URL}/api/chat`, {
-      method: "POST",
+    response = await postJson(
+      `${config.OLLAMA_BASE_URL}/api/chat`,
       headers,
-      body: JSON.stringify({
+      JSON.stringify({
         model: config.OLLAMA_MODEL,
         messages,
         stream: false,
       }),
-    });
+      // Cloud models (OLLAMA_API_KEY set) answer like any hosted API; a local
+      // model on this device can be slow.
+      config.OLLAMA_API_KEY ? REMOTE_TIMEOUT_MS : LOCAL_TIMEOUT_MS,
+    );
   } catch (err) {
     throw new Error(
       `Could not reach Ollama at ${config.OLLAMA_BASE_URL}. Is "ollama serve" running? (${
@@ -303,11 +362,10 @@ async function completeWithOllama(req: CompletionRequest): Promise<string> {
   }
 
   if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    throw new Error(`Ollama API error (${response.status}): ${body.slice(0, 500)}`);
+    throw new Error(`Ollama API error (${response.status}): ${response.text.slice(0, 500)}`);
   }
 
-  const data = (await response.json()) as OllamaChatResponse;
+  const data = JSON.parse(response.text) as OllamaChatResponse;
   const text = data.message?.content?.trim();
 
   if (!text) throw new Error("Ollama API returned no message content");

@@ -1,3 +1,4 @@
+import { readSSE } from "@boy-offi9-inc/reqkit";
 import type { McpTask } from "../../../core/types.js";
 
 /**
@@ -37,6 +38,9 @@ import type { McpTask } from "../../../core/types.js";
 
 const DEFAULT_BASE_URL = "http://127.0.0.1:8787/mcp";
 const PROTOCOL_VERSION = "2025-03-26";
+
+// How long to wait for the matching response on an event-stream reply.
+const SSE_RESPONSE_TIMEOUT_MS = 30_000;
 
 // initSession always uses id 1 for "initialize". Every request after that
 // - list_tools, and each callTool() - needs its own unique id so the SSE
@@ -90,55 +94,48 @@ async function sendMcpMessage(
 
   if (contentType.includes("text/event-stream")) {
     // The stream may stay open indefinitely for future server pushes, so we
-    // can't wait for it to close (res.text() would hang forever). Read
-    // incrementally and stop as soon as we see a complete JSON-RPC message
-    // matching this request's id.
+    // can't wait for it to close (res.text() would hang forever). Read events
+    // as they arrive and stop at the one answering this request's id.
+    //
+    // The deadline has to abort the read itself: a check between reads never
+    // runs when the server goes quiet, because the read just waits. readSSE
+    // cancels the stream when the signal fires. It also handles CRLF framing
+    // and multi-line data fields, which splitting on "\n\n" did not.
     if (!res.body) throw new Error("MCP server returned an event-stream with no body");
 
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    const timeoutMs = 30_000;
-    const deadline = Date.now() + timeoutMs;
+    const timeoutMs = SSE_RESPONSE_TIMEOUT_MS;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      while (Date.now() < deadline) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
+      for await (const evt of readSSE(res, { signal: controller.signal })) {
+        let parsed: any;
+        try {
+          parsed = JSON.parse(evt.data);
+        } catch {
+          continue;
+        }
 
-        const events = buffer.split("\n\n");
-        buffer = events.pop() ?? "";
-
-        for (const evt of events) {
-          const dataLine = evt.split("\n").find((line) => line.startsWith("data:"));
-          if (!dataLine) continue;
-
-          const jsonStr = dataLine.slice(5).trim();
-          let parsed: any;
-          try {
-            parsed = JSON.parse(jsonStr);
-          } catch {
-            continue;
-          }
-
-          if (parsed.id === message.id) {
-            await reader.cancel().catch(() => {});
-            return {
-              result: parsed.result,
-              error: parsed.error,
-              sessionId: returnedSessionId,
-            };
-          }
+        if (parsed?.id === message.id) {
+          return {
+            result: parsed.result,
+            error: parsed.error,
+            sessionId: returnedSessionId,
+          };
         }
       }
+    } catch (err) {
+      if (controller.signal.aborted) {
+        throw new Error(
+          `Timed out waiting for MCP response to "${message.method}" after ${timeoutMs}ms`,
+        );
+      }
+      throw err;
     } finally {
-      await reader.cancel().catch(() => {});
+      clearTimeout(timer);
     }
 
-    throw new Error(
-      `Timed out waiting for MCP response to "${message.method}" after ${timeoutMs}ms`,
-    );
+    throw new Error(`MCP stream ended before a response to "${message.method}" arrived`);
   }
 
   const parsed = await res.json();

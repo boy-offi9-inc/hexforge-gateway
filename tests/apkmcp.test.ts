@@ -221,3 +221,78 @@ describe("apkmcp close", () => {
     expect(mt.calls.map((c) => c.name)).not.toContain("mt_apk_workspace_delete");
   });
 });
+
+// MT answers a request either as plain JSON or, on the streamable HTTP
+// transport, as an event stream that may stay open after the answer.
+describe("apkmcp event-stream responses", () => {
+  const json = (id: unknown, result: unknown) =>
+    JSON.stringify({ jsonrpc: "2.0", id, result });
+
+  // initialize and the initialized notification answer normally; every
+  // request with an id (tools/list here) is answered by `streamBody`.
+  function fakeMtStream(streamBody: (id: number) => BodyInit) {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: { body: string }) => {
+        const message = JSON.parse(init.body);
+        if (message.method === "initialize") {
+          return new Response(json(message.id, { capabilities: {} }), {
+            headers: { "content-type": "application/json", "mcp-session-id": "s1" },
+          });
+        }
+        if (message.id === undefined) return new Response(null, { status: 202 });
+        return new Response(streamBody(message.id), {
+          headers: { "content-type": "text/event-stream" },
+        });
+      }),
+    );
+  }
+
+  it("finds the response in a CRLF-framed stream, skipping comments and other events", async () => {
+    fakeMtStream(
+      (id) =>
+        ": keepalive\r\n\r\n" +
+        "event: message\r\n" +
+        'data: {"jsonrpc":"2.0","method":"notifications/progress"}\r\n\r\n' +
+        `data: ${json(id, { tools: [{ name: "mt_apk_list" }] })}\r\n\r\n`,
+    );
+
+    const out = await run("list_tools");
+
+    expect(JSON.stringify(out)).toContain("mt_apk_list");
+  });
+
+  it("stops waiting when the server goes quiet instead of hanging", async () => {
+    vi.useFakeTimers();
+    try {
+      // One comment line, then silence with the stream left open.
+      fakeMtStream(
+        () =>
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode(": hi\n\n"));
+            },
+          }),
+      );
+
+      // Attach the expectation before advancing time so the rejection is never unhandled.
+      const outcome = expect(run("list_tools")).rejects.toThrow(
+        /Timed out waiting for MCP response to "tools\/list" after 30000ms/,
+      );
+      await vi.advanceTimersByTimeAsync(0); // let the agent reach the stream
+      await vi.advanceTimersByTimeAsync(30_000);
+      await outcome;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("says so when the stream ends without a response to the request", async () => {
+    fakeMtStream(() => `data: ${json(9999, {})}\n\n`); // answers some other id
+
+    await expect(run("list_tools")).rejects.toThrow(
+      /MCP stream ended before a response to "tools\/list" arrived/,
+    );
+  });
+});
+

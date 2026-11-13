@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import type { McpTask } from "../../../core/types.js";
 import { config } from "../../../core/config.js";
 import { withSavedOutput } from "./task-output.js";
+import { DETECTORS, detect, type SecretCandidate } from "./secret-detectors.js";
 
 // Trust model: "list"/"read"/"stat"/"search" accept any absolute path,
 // same as jadx/apktool already trust an arbitrary "apkPath" - this is a
@@ -267,33 +268,6 @@ async function searchHandler(task: McpTask): Promise<unknown> {
   });
 }
 
-// Curated, high-precision patterns - deliberately not exhaustive. These
-// favor patterns with a distinctive enough shape to keep false positives
-// low (a real AWS key prefix, a real PEM header) over generic ones like
-// "password=..." that would flood results with test fixtures and config
-// examples. This is a starting set for catching obvious hardcoded
-// secrets before shipping/committing something, not a replacement for a
-// maintained secret-scanning tool (gitleaks, trufflehog) for anything
-// that actually matters.
-const SECRET_PATTERNS: { name: string; pattern: string }[] = [
-  { name: "AWS Access Key", pattern: "AKIA[0-9A-Z]{16}" },
-  { name: "Google API Key", pattern: "AIza[0-9A-Za-z\\-_]{35}" },
-  {
-    name: "Private Key Header",
-    pattern: "-----BEGIN (RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----",
-  },
-  { name: "Slack Token", pattern: "xox[baprs]-[0-9A-Za-z-]{10,48}" },
-  { name: "GitHub Token", pattern: "gh[pousr]_[A-Za-z0-9]{36,255}" },
-  { name: "Stripe Live Key", pattern: "sk_live_[0-9a-zA-Z]{24,}" },
-  {
-    name: "JWT",
-    pattern: "eyJ[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}",
-  },
-  {
-    name: "Firebase Cloud Messaging Key",
-    pattern: "AAAA[A-Za-z0-9_-]{7}:[A-Za-z0-9_-]{140}",
-  },
-];
 
 interface ScanSecretsPayload {
   dirPath: string;
@@ -301,6 +275,13 @@ interface ScanSecretsPayload {
   maxResults?: number;
 }
 
+/**
+ * Secret scanning runs the same worker walk as "search" but with the
+ * detector registry, then re-scores each raw hit through the
+ * candidate model (entropy, context keywords, placeholders) into
+ * redacted SecretCandidates - the matched secret text itself never
+ * leaves this function.
+ */
 async function scanSecretsHandler(task: McpTask): Promise<unknown> {
   const payload = task.payload as unknown as ScanSecretsPayload;
   if (!payload.dirPath) throw new Error('scan-secrets requires "dirPath" in the task payload');
@@ -313,13 +294,67 @@ async function scanSecretsHandler(task: McpTask): Promise<unknown> {
       ? Math.min(payload.maxResults, MAX_SEARCH_RESULTS)
       : MAX_SEARCH_RESULTS;
 
-  const result = await runSearchWorker({
+  const raw = await runSearchWorker({
     dirPath,
-    patterns: SECRET_PATTERNS,
-    caseSensitive: true, // these patterns rely on specific casing (AKIA, AIza, sk_live_) - case-insensitive would just add false positives
+    patterns: DETECTORS.map((d) => ({ name: d.name, pattern: d.pattern.source })),
+    caseSensitive: true,
     extensions: payload.extensions,
     maxResults,
   });
+
+  const rawHits: { file: string; line: number; name: string }[] = raw.matches.map(
+    ({ file, line, name }) => ({ file, line, name }),
+  );
+  const byFile = new Map<string, Map<number, string[]>>();
+  const detectionErrors: string[] = [];
+  for (const hit of rawHits) {
+    let fileMap = byFile.get(hit.file);
+    if (!fileMap) {
+      fileMap = new Map();
+      byFile.set(hit.file, fileMap);
+    }
+    let lineHits = fileMap.get(hit.line);
+    if (!lineHits) {
+      lineHits = [];
+      fileMap.set(hit.line, lineHits);
+    }
+    lineHits.push(hit.name);
+  }
+
+  const candidates: SecretCandidate[] = [];
+  const filesDetected = new Set<string>();
+  for (const [file, fileMap] of byFile) {
+    const abs = path.join(dirPath, file);
+    let text: string;
+    try {
+      text = await readFile(abs, "utf8");
+    } catch {
+      detectionErrors.push(file);
+      continue;
+    }
+    const lines = text.split("\n");
+    if (fileMap.size > 0) filesDetected.add(file);
+    const detected = detect(file, lines);
+    for (const c of detected) {
+      if (fileMap.get(c.line)?.length && filesDetected.has(file)) candidates.push(c);
+    }
+    if (candidates.length >= maxResults) break;
+  }
+  candidates.length = Math.min(candidates.length, maxResults);
+
+  const byConfidence = { high: 0, medium: 0, low: 0 } as Record<SecretCandidate["confidence"], number>;
+  for (const c of candidates) byConfidence[c.confidence]++;
+
+  const result = {
+    dirPath,
+    detectors: DETECTORS.length,
+    filesScanned: raw.filesScanned,
+    candidateCount: candidates.length,
+    byConfidence,
+    candidates,
+    detectionErrors: detectionErrors.length > 0 ? detectionErrors : undefined,
+    truncated: raw.truncated,
+  };
   return withSavedOutput(task, "filesystem/scan-secrets", result);
 }
 

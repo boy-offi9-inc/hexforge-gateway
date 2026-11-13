@@ -16,6 +16,7 @@ import { register as registerKnowledgeIndexer } from "../modules/knowledge/knowl
 import { register as registerArtifactRecorder } from "../artifacts/recorder.js";
 import { register as registerGraphIndexer } from "../graph/java-indexer.js";
 import { register as registerSmaliIndexer } from "../graph/smali-indexer.js";
+import { register as registerSecretIndexer } from "../graph/secret-indexer.js";
 import { loadPlugins } from "../plugins/loader.js";
 import { registerWebsocketGateway } from "./websocket.js";
 import { registerAuth } from "./auth.js";
@@ -69,6 +70,10 @@ export async function buildServer() {
   // The same for decoded apktool projects: smali classes and packages, merged with
   // the Java entities where jadx saw the same class (see graph/smali-indexer.ts).
   registerSmaliIndexer();
+
+  // Turns secret-scan artifacts into redacted secret-candidate entities in
+  // the knowledge graph (see graph/secret-indexer.ts).
+  registerSecretIndexer();
 
   // Loaded last so plugin-registered routes/agents/listeners land on a
   // fully-formed Gateway (all core routes and indexers already active).

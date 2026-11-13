@@ -440,3 +440,13 @@ checked by [verification](#verifying-evidence).
 The same cap applies - 20,000 classes per decode, counted separately from the
 Java index - and the same batch path (one write per collection). A class that
 appears in two dex directories keeps its first copy.
+
+#### Secret candidates
+
+`graph/secret-indexer.ts` listens for `secret-scan` artifacts - what
+`filesystem.scan-secrets` produces - and creates one `secret-candidate`
+entity per candidate in the scan's saved JSON. The entity name is
+`detector:path:line` (never a secret value), with the fingerprint,
+preview, length, confidence and signals as attributes. Re-scanning the
+same file merges into the same entities. Indexing failures are logged and
+never affect the scan.

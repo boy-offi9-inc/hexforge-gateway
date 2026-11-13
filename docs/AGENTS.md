@@ -29,21 +29,39 @@ Operations: `list` (`dirPath`, `recursive?`, `limit?`), `read` (`filePath`,
 - sandboxed), `delete` (`filePath` - sandboxed), `stat` (`filePath`),
 `search` (`dirPath`, `pattern` - a regex, `caseSensitive?`, `extensions?`,
 `maxResults?`), `scan-secrets` (`dirPath`, `extensions?`, `maxResults?`) -
-same walk-and-match machinery as `search`, but against a curated built-in
-set of high-precision patterns (AWS/Google API keys, private key headers,
-Slack/GitHub tokens, JWTs) instead of a user-supplied one. Deliberately
-not exhaustive - favors patterns distinctive enough to keep false
-positives low over generic ones like `password=...` that would flood
-results with test fixtures. Not a replacement for a maintained
-secret-scanner (gitleaks, trufflehog) on anything that actually matters.
+same walk-and-match machinery as `search`, but against a built-in
+multi-detector registry (24 detectors: AWS/Google/Azure keys, private key
+headers, GitHub/GitLab/Slack/Stripe/Twilio/SendGrid/Mailgun/NPM/PyPI
+tokens, JWTs, webhook URLs, high-entropy key shapes) instead of a
+user-supplied pattern. Deliberately not exhaustive - favors detectors
+distinctive enough to keep false positives low. Not a replacement for a
+maintained secret-scanner (gitleaks, trufflehog) on anything that
+actually matters.
 
-`scan-secrets` also saves its full result (matched lines included) as
-`WORKSPACES_ROOT/<id>/filesystem/scan-secrets/<taskId>.json` and returns the
-path as `outputPath`, so a scan can be recorded as an
+Each raw hit is re-scored into a **secret candidate**:
+`detector` + `file` + `line`, a **redacted context line** (the matched
+text replaced with `[REDACTED:<length>]`), a 4-character `preview`, the
+match `length`, a SHA-256 `fingerprint` (stable id for dedupe, never
+reversible), a `confidence` (`low`/`medium`/`high`) and the `signals`
+that produced it - entropy of the match, context keywords on the line
+(`aws_secret_access_key = ...` raises an AWS-secret-shaped hit), and
+placeholder/example shapes (`AKIAIOSFODNN7EXAMPLE`, `changeme`) that
+force `low`. The candidate never contains the secret text itself, and
+neither does the saved result file - the matched line is stored
+redacted.
+
+`scan-secrets` also saves its full result (redacted candidates included)
+as `WORKSPACES_ROOT/<id>/filesystem/scan-secrets/<taskId>.json` and
+returns the path as `outputPath`, so a scan can be recorded as an
 [artifact](ARCHITECTURE.md#artifacts) and cited as evidence. Each run gets its
 own file; earlier scans are never overwritten. If the file can't be written
-the scan still succeeds, just without an `outputPath`. Treat that file like
-the decompiled sources it was scanned from - it contains the matched lines.
+the scan still succeeds, just without an `outputPath`.
+
+Every `secret-scan` artifact is also indexed into the knowledge graph
+(`graph/secret-indexer.ts`): one `secret-candidate` entity per candidate
+(`detector:path:line` as the name, fingerprint/preview/length/confidence/
+signals as attributes), merged by derived id so re-scanning the same file
+updates the same entities instead of duplicating them.
 
 `search`'s pattern is user-supplied (and `scan-secrets`' built-in
 patterns are still regexes) and regex engines can be tricked into

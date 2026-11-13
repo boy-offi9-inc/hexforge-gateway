@@ -1,8 +1,8 @@
 # MCP Agents
 
 `src/modules/mcp/orchestrator.ts` registers a handler per agent kind.
-`jadx`, `apktool`, `apksigner`, `apkid`, `apkmcp`, `filesystem`, `adb`, and `frida` all
-have real implementations - `frida` has the biggest asterisk on "real"
+`jadx`, `apktool`, `apksigner`, `apkid`, `triage`, `apkmcp`, `filesystem`, `adb`, and
+`frida` all have real implementations - `frida` has the biggest asterisk on "real"
 (see below). Dispatching a task (`POST /workspaces/:id/tasks`) is
 fire-and-forget: it returns immediately with `status: "queued"`, then
 moves to `running` then `completed`/`failed` as the handler runs - poll
@@ -243,6 +243,47 @@ Operation: `identify` (`apkPath`, `timeoutSeconds?` - per-file YARA scan
 timeout, default 30). Output is APKiD's own JSON passed through as-is,
 not reshaped into a HexForge-specific structure - that schema belongs to
 APKiD, not duplicated and drifted out of sync here.
+
+### triage
+
+The triage front door: one fingerprint-first assessment of an APK or an
+already decoded/decompiled project, before deciding how to approach it.
+It composes signals that already exist rather than reimplementing them:
+
+- **APKiD fingerprints** (`fingerprints`) when the target is an `.apk`
+  and `apkid` is installed - packer/compiler/obfuscator markers, exactly
+  what `apkid identify` returns;
+- **Manifest analysis** (`manifest`) when the target has an
+  `AndroidManifest.xml` at its root (an apktool decode output):
+  package, versionName/Code, min/target SDK, the full permission list,
+  every exported component (with the implicit-export rule for pre-API-31
+  manifests), and the application class;
+- **Native library inventory** (`nativeLibs`) for decoded projects:
+  `.so` files per ABI under `lib/`;
+- **Kotlin name recovery** (`kotlinNames`) over a jadx output's
+  `sources/`: R8/ProGuard-renamed classes keep their original names in
+  `@kotlin.Metadata` annotations (the `d2` field), so renamed classes can
+  be recovered statically - a count, up to 100 samples of
+  `{renamed, original}`, and a truncation flag.
+
+```bash
+curl -X POST http://localhost:8080/workspaces/<id>/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"agent": "triage", "operation": "assess", "payload": {"target": "/absolute/path/to/decoded-project"}}'
+```
+
+Operation: `assess` (`target` - an `.apk` file or a project directory,
+`timeoutSeconds?` - forwarded to apkid). The report is saved as
+`WORKSPACES_ROOT/<id>/triage/<taskId>.json` and its path returned as
+`outputPath`, so it can be recorded as a
+[triage-report artifact](ARCHITECTURE.md#artifacts) and cited as
+evidence.
+
+The report is an assessment, not a verdict: it uses "detected"/"not
+observed" language, never "safe"/"protected" - marker absence doesn't
+prove a target doesn't detect instrumentation. Anything that couldn't
+run (apkid missing, no manifest found) is listed in `warnings` instead
+of silently absent.
 
 ### apkmcp
 

@@ -270,6 +270,36 @@ export const AGENT_TOOLS: AgentToolSpec[] = [
     },
   },
   {
+    name: "triage_target",
+    description:
+      "Fingerprint-first triage of an APK or an already decoded/decompiled project - one call that composes the first look: APKiD fingerprints (when given an .apk and apkid is installed), the manifest (package, sdk levels, permissions, exported components, application class - needs an apktool decode output), the native library inventory per ABI, and Kotlin metadata name recovery for obfuscated classes (needs a jadx output's sources/ directory). This is an assessment, not a verdict: marker absence doesn't prove a target is clean. Returns { target, kind, manifest?, fingerprints?, nativeLibs?, kotlinNames?, obfuscationHints?, warnings? }. The full report is saved in the workspace and its path returned as outputPath, so it can be cited as evidence.",
+    agent: "triage",
+    operation: "assess",
+    annotations: {
+      title: "Triage an APK or project",
+      readOnlyHint: true,
+      openWorldHint: false,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        workspace: workspaceProp,
+        target: {
+          type: "string",
+          description:
+            "Absolute path to an .apk file, or to a decoded/decompiled project directory (apktool decode output or jadx output). Must exist.",
+        },
+        timeoutSeconds: {
+          type: "number",
+          description: "Forwarded to apkid's per-file YARA scan timeout when the target is an .apk. Default 30.",
+          default: 30,
+          minimum: 1,
+        },
+      },
+      required: ["target"],
+    },
+  },
+  {
     name: "scan_secrets",
     description:
       "Recursively scan a directory (typically decompile_apk or decode_apk output) for likely hardcoded secrets using a multi-detector registry: AWS/Google/Azure keys, private key headers, GitHub/GitLab/Slack/Stripe/Twilio/SendGrid/Mailgun/NPM/PyPI tokens, JWTs, webhook URLs, and high-entropy key shapes. Each hit is scored into a redacted secret candidate with a detector, confidence (low/medium/high), the signals behind it (entropy, context keywords, placeholders), and a SHA-256 fingerprint - the secret value itself is never included, the context line is returned with the match replaced by [REDACTED:<length>]. Not exhaustive, and not a replacement for a maintained secret scanner. Only reads files; skips files over 2 MB. Returns { dirPath, filesScanned, detectors, candidateCount, byConfidence, candidates: [{ detector, file, line, context, preview, length, fingerprint, confidence, signals }], truncated }. Candidates are also indexed into the knowledge graph as secret-candidate entities. For your own patterns use search_code. The full redacted result is also saved as a JSON file in the workspace and its path returned as outputPath, so it can be cited as evidence.",

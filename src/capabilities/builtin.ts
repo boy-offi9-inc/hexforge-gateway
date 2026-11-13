@@ -72,6 +72,19 @@ export const builtinDescriptors = {
       },
     ],
   },
+  triage: {
+    description: "Fingerprint-first triage of an APK or decoded project: manifest, native libs, Kotlin name recovery.",
+    backends: [{ tool: "apkid" }],
+    permissions: ["fs:workspace"],
+    operations: [
+      {
+        name: "assess",
+        capability: "android.triage",
+        inputs: { required: ["target"], optional: ["timeoutSeconds"] },
+        outputs: ["triage-report"],
+      },
+    ],
+  },
   adb: {
     description: "Android Debug Bridge device control.",
     backends: [{ tool: "adb" }],

@@ -284,10 +284,10 @@ const ASCII = {
   spin: ["-", "\\", "|", "/"],
 };
 
-// Brand palette: ember amber as the accent (a forge, not a terminal-green
-// hacker cliche), with the usual semantic colors. [r, g, b, 256-color, 16-color]
+// Brand palette: Material blue as the accent (matching the project's imagery),
+// with the usual semantic colors. [r, g, b, 256-color, 16-color]
 const PALETTE = {
-  accent: [255, 167, 38, 214, 33],
+  accent: [33, 150, 243, 75, 94],
   ok: [74, 222, 128, 78, 32],
   err: [248, 113, 113, 203, 31],
   warn: [251, 191, 36, 220, 33],

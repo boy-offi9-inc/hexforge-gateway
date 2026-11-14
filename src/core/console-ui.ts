@@ -118,7 +118,7 @@ const ASCII: typeof UNICODE = {
 // [r, g, b, 256-color, 16-color] - same brand palette as scripts/hf/ui.mjs.
 type Swatch = readonly [number, number, number, number, number];
 const PALETTE: Record<"accent" | "ok" | "err" | "warn" | "info" | "mute", Swatch> = {
-  accent: [255, 167, 38, 214, 33],
+  accent: [33, 150, 243, 75, 94],
   ok: [74, 222, 128, 78, 32],
   err: [248, 113, 113, 203, 31],
   warn: [251, 191, 36, 220, 33],

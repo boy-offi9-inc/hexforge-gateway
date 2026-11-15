@@ -19,6 +19,7 @@ export const RELATIONS = [
   "accesses",
   "observed-by",
   "supports",
+  "inherits",
 ] as const;
 export type Relation = (typeof RELATIONS)[number];
 

@@ -1,9 +1,10 @@
-import { readdir, stat } from "node:fs/promises";
+import { readdir, stat, readFile } from "node:fs/promises";
 import path from "node:path";
 import { eventBus } from "../events/event-bus.js";
 import type { EventMap } from "../events/types.js";
 import type { Artifact } from "../artifacts/types.js";
 import * as graphService from "./graph.service.js";
+import { parseInheritanceEdges, MAX_EDGES as INHERITANCE_MAX_EDGES } from "./inheritance-indexer.js";
 import type { BatchEdge, BatchEntity } from "./types.js";
 
 /**
@@ -94,18 +95,40 @@ async function sourcesRoot(dir: string): Promise<string> {
 /** Indexes one `java-sources` directory artifact into the graph. */
 export async function indexJavaArtifact(artifact: Artifact) {
   const root = await sourcesRoot(artifact.path);
-  const { entities, edges, truncated } = parseJavaSources(await listFiles(root));
+  const files = await listFiles(root);
+  const { entities, edges, truncated } = parseJavaSources(files);
   if (truncated) {
     console.warn(
       `[graph-indexer] ${artifact.path}: indexing capped at the first ${MAX_CLASSES} classes`,
+    );
+  }
+  const inherited = await collectInheritance(root, files);
+  if (inherited.truncated) {
+    console.warn(
+      `[graph-indexer] ${artifact.path}: inheritance indexing capped at the first ${INHERITANCE_MAX_EDGES} edges`,
     );
   }
   return graphService.indexBatch({
     workspaceId: artifact.workspaceId,
     artifactId: artifact.id,
     entities,
-    edges,
+    edges: [...edges, ...inherited.edges],
   });
+}
+
+/** Reads each class file and extracts `inherits` edges. Never fatal. */
+async function collectInheritance(root: string, files: string[]) {
+  const contents = new Map<string, string>();
+  for (const file of files) {
+    if (!file.endsWith(".java")) continue;
+    try {
+      contents.set(file, await readFile(path.join(root, file), "utf8"));
+    } catch {
+      // unreadable file - skip it, the class entity still exists
+    }
+  }
+  const { edges, truncated } = parseInheritanceEdges(contents, INHERITANCE_MAX_EDGES);
+  return { edges, truncated };
 }
 
 /**

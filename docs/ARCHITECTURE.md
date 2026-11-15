@@ -405,6 +405,14 @@ produces - reads the decompiled files and creates:
 - a `package` entity per directory that holds classes, with a `classCount`;
 - a `contains` edge from each package to its classes.
 
+The same scan also parses every class declaration's `extends`/`implements`
+clauses (`graph/inheritance-indexer.ts`) and writes an `inherits` edge from
+the subclass to each supertype: a bare name resolves against the subclass's
+package, a fully-qualified one is kept as written, generics are stripped
+(`extends C<D>` targets `C`), and a cap of 40,000 edges guards very large
+decompiles. Edges to classes outside this artifact (JDK types, another
+artifact's classes) are still written - the name itself is evidence.
+
 It reads jadx's `sources/` folder (a sibling `resources/` is ignored), or the
 artifact directory itself when there is no `sources/`. Files that aren't
 `.java`, and `package-info` / `module-info`, are skipped; a class at the top

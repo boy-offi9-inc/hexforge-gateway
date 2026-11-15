@@ -76,26 +76,44 @@ export async function jadxHandler(task: McpTask): Promise<unknown> {
     // -d: output directory, -r: skip resources decode for speed (optional
     // - remove if you want resources too). --show-bad-code keeps going
     // past errors instead of aborting the whole decompile.
-    const { stdout, stderr } = await execFileAsync(
-      "jadx",
-      ["-d", outputDir, "--show-bad-code", apkPath],
-      { maxBuffer: 1024 * 1024 * 20 }, // 20MB buffer for verbose jadx output
-    );
+    let stdout = "";
+    let stderr = "";
+    let exitError: Error | undefined;
+    try {
+      ({ stdout, stderr } = await execFileAsync(
+        "jadx",
+        ["-d", outputDir, "--show-bad-code", apkPath],
+        { maxBuffer: 1024 * 1024 * 20 }, // 20MB buffer for verbose jadx output
+      ));
+    } catch (err) {
+      // jadx exits non-zero when a decompile finishes with recoverable
+      // per-class errors (common on obfuscated or multi-dex APKs) even
+      // though the output is complete and usable. Only treat it as a
+      // failure when nothing was produced.
+      exitError = err instanceof Error ? err : new Error(String(err));
+    }
 
     const files = await listFilesCapped(outputDir);
+    if (files.length === 0) {
+      if (exitError) {
+        throw friendlyExecError(
+          "jadx",
+          'Install it first (e.g. "brew install jadx" or see https://github.com/skylot/jadx/releases).',
+          exitError,
+        );
+      }
+      throw new Error("jadx produced no output files - see its stderr for why");
+    }
 
     return {
       outputDir,
       fileCount: files.length,
       files,
-      stdoutTail: stdout.slice(-2000),
+      completedWithErrors: exitError !== undefined,
       stderrTail: stderr ? stderr.slice(-2000) : undefined,
+      stdoutTail: stdout ? stdout.slice(-2000) : undefined,
     };
   } catch (err) {
-    throw friendlyExecError(
-      "jadx",
-      'Install it first (e.g. "brew install jadx" or see https://github.com/skylot/jadx/releases).',
-      err,
-    );
+    throw err instanceof Error ? err : new Error(String(err));
   }
 }

@@ -1,0 +1,92 @@
+# HexForge Gateway runtime image: the Gateway plus pinned RE tooling, so a
+# run is reproducible - the exact jadx/apktool/APKiD/frida versions that
+# produced an artifact are the ones this image ships (Phase 0 "pinning").
+#
+# The MCP-introspection image (Glama) stays a separate, tool-free build:
+# introspection needs no live tooling, and shipping JVM/Python stacks to a
+# registry for a tools/list call would be pure waste. See the end of this
+# file for how the two builds are kept apart.
+#
+# Build:  docker build -f Dockerfile.runtime -t hexforge-runtime .
+# Run:    docker run -p 8080:8080 -v hexforge-data:/app/data -v hexforge-workspaces:/app/workspaces hexforge-runtime
+#
+#   - AUTH is off by default; mount a config or pass env to turn it on
+#     before exposing the port beyond localhost (docs/SETUP.md).
+#   - adb/frida need a device: pass --privileged and mount /dev/bus/usb,
+#     or point the agents at a remote adb host. Without a device the
+#     agents still install, list and fail cleanly.
+
+FROM node:22-bookworm-slim
+
+# Node for the Gateway, a JVM for jadx/apktool, Python+pip for
+# frida-tools/apkid, android-tools for adb, git for apktool's
+# framework resolution. Versions come from the distro, except where
+# pinned explicitly below.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      openjdk-17-jre-headless \
+      python3 python3-pip \
+      android-tools-adb \
+      git ca-certificates curl unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# ---- pinned backend tools -------------------------------------------------
+
+# jadx 1.5.1
+ARG JADX_VERSION=1.5.1
+RUN curl -fsSL -o /tmp/jadx.zip \
+      "https://github.com/skylot/jadx/releases/download/v${JADX_VERSION}/jadx-${JADX_VERSION}.zip" \
+    && unzip -q /tmp/jadx.zip -d /opt/jadx \
+    && ln -s /opt/jadx/bin/jadx /usr/local/bin/jadx \
+    && rm /tmp/jadx.zip
+
+# apktool 2.7.0 (the upstream jar; Debian's package drifts)
+ARG APKTOOL_VERSION=2.7.0
+RUN curl -fsSL -o /usr/local/bin/apktool.jar \
+      "https://github.com/iBotPeaches/Apktool/releases/download/v${APKTOOL_VERSION}/apktool_${APKTOOL_VERSION}.jar" \
+    && printf '#!/bin/sh\nexec java -jar /usr/local/bin/apktool.jar "$@"\n' > /usr/local/bin/apktool \
+    && chmod +x /usr/local/bin/apktool
+
+# Android SDK build-tools: apksigner + zipalign (the "sdk flavor" the
+# apksigner agent detects), and keytool comes with the JRE above.
+ARG BUILD_TOOLS_VERSION=34
+RUN curl -fsSL -o /tmp/buildtools.zip \
+      "https://dl.google.com/android/repository/build-tools_r${BUILD_TOOLS_VERSION}-linux.zip" \
+    && unzip -q /tmp/buildtools.zip -d /opt/buildtools \
+    && mv /opt/buildtools/android-* /opt/buildtools/${BUILD_TOOLS_VERSION}.0.0 \
+    && ln -s /opt/buildtools/${BUILD_TOOLS_VERSION}.0.0/apksigner /usr/local/bin/apksigner \
+    && ln -s /opt/buildtools/${BUILD_TOOLS_VERSION}.0.0/zipalign /usr/local/bin/zipalign \
+    && rm /tmp/buildtools.zip
+
+# Python tooling: APKiD (needs yara-python-dex, its own DEX-capable yara
+# build - plain yara-python isn't enough) and frida-tools. System pip is
+# PEP 668 managed, so --break-system-packages is required here.
+ARG APKID_VERSION=3.2.0
+ARG FRIDA_TOOLS_VERSION=14.13.1
+RUN pip3 install --break-system-packages --no-cache-dir \
+      "apkid==${APKID_VERSION}" \
+      "frida-tools==${FRIDA_TOOLS_VERSION}"
+
+# ---- the Gateway ----------------------------------------------------------
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
+ENV NODE_ENV=production \
+    HOST=0.0.0.0 \
+    PORT=8080
+
+EXPOSE 8080
+
+# The full Gateway (REST + WebSocket + MCP frontend), not the stdio
+# introspection server. Data and workspaces live under /app, so mounting
+# volumes there persists everything.
+CMD ["node", "dist/index.js"]
+
+# Smoke check, mirroring scripts/smoke-test.sh's tool-verification spirit:
+# every backend the capability registry declares must answer --version.
+# Run: docker run --rm hexforge-runtime node scripts/check-runtime.mjs

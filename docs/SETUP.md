@@ -212,6 +212,39 @@ could drop APKs into instead of typing full paths - see the main
 README's Roadmap section); for now, just use full paths.
 
 
+## Running with Docker (pinned runtime)
+
+The `Dockerfile.runtime` image ships the Gateway **plus the pinned RE
+toolchain** - jadx 1.5.1, apktool 2.7.0, build-tools 34 (apksigner +
+zipalign), APKiD 3.2.0, frida-tools 17.26.3, adb, and a JRE 17 - so a run
+is reproducible: the tool versions recorded in artifact provenance are the
+ones the image ships, and a scan today matches a scan next month.
+
+```bash
+docker build -f Dockerfile.runtime -t hexforge-runtime .
+
+# run the Gateway with persistent data and workspaces
+docker run -p 8080:8080 \
+  -v hexforge-data:/app/data \
+  -v hexforge-workspaces:/app/workspaces \
+  hexforge-runtime
+
+# verify the toolchain inside the image (exit 0 = all pinned tools healthy)
+docker run --rm hexforge-runtime node scripts/check-runtime.mjs
+```
+
+Notes:
+
+- The versions are pinned by build args at the top of `Dockerfile.runtime`;
+  bump them there deliberately, one at a time, so provenance stays honest.
+- `AUTH_ENABLED` stays off unless you pass it - see [Auth](#auth) before
+  exposing the port beyond localhost.
+- `adb` and `frida` need a device. Without one, those agents still load and
+  fail cleanly; with USB passthrough (`--privileged -v /dev/bus/usb:/dev/bus/usb`)
+  or a remote adb host they work fully.
+- The tool-free MCP-introspection image (`Dockerfile`) is unchanged and is
+  what Glama builds; introspection never needs the JVM/Python stacks.
+
 ## Running on Android (Termux + MT Manager)
 
 Runs entirely on-device - Gateway and MT Manager as two apps on the same

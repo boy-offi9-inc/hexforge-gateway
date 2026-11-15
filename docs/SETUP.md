@@ -216,7 +216,7 @@ README's Roadmap section); for now, just use full paths.
 
 The `Dockerfile.runtime` image ships the Gateway **plus the pinned RE
 toolchain** - jadx 1.5.1, apktool 2.7.0, build-tools 34 (apksigner +
-zipalign), APKiD 3.2.0, frida-tools 17.26.3, adb, and a JRE 17 - so a run
+zipalign), APKiD 3.2.0, frida-tools 14.13.1, adb, and a JRE 17 - so a run
 is reproducible: the tool versions recorded in artifact provenance are the
 ones the image ships, and a scan today matches a scan next month.
 

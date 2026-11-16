@@ -128,12 +128,16 @@ async function handleMcpPost(req: IncomingMessage, res: ServerResponse) {
   try {
     raw = await readBody(req);
   } catch (err) {
+    // Detail goes to the server log, a fixed string to the client: an error
+    // message can carry internal path/stream details, and this response is
+    // read by whoever sent the request.
+    log("rejected request body:", err instanceof Error ? err.message : String(err));
     sendJson(res, 413, {
       jsonrpc: "2.0",
       id: null,
       error: {
         code: -32600,
-        message: err instanceof Error ? err.message : String(err),
+        message: `Request body exceeds ${MAX_BODY_BYTES} bytes`,
       },
     });
     return;
@@ -143,12 +147,13 @@ async function handleMcpPost(req: IncomingMessage, res: ServerResponse) {
   try {
     parsed = JSON.parse(raw);
   } catch (err) {
+    log("unparseable JSON-RPC request:", err instanceof Error ? err.message : String(err));
     sendJson(res, 400, {
       jsonrpc: "2.0",
       id: null,
       error: {
         code: -32700,
-        message: `Parse error: ${err instanceof Error ? err.message : String(err)}`,
+        message: "Parse error: the request body is not valid JSON",
       },
     });
     return;

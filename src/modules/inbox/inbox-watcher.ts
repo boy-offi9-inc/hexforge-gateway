@@ -235,11 +235,12 @@ export async function listInboxApks(workspaceId: string): Promise<InboxApk[]> {
   const apks: InboxApk[] = [];
   for (const fileName of entries) {
     if (!fileName.toLowerCase().endsWith(".apk")) continue;
-    const fullPath = path.join(dir, path.basename(fileName));
+    const safeName = path.basename(fileName);
+    const fullPath = path.join(dir, safeName);
     const s = await stat(fullPath);
     if (!s.isFile()) continue;
     apks.push({
-      fileName,
+      fileName: safeName,
       path: fullPath,
       sizeBytes: s.size,
       detectedAt: s.mtime.toISOString(),

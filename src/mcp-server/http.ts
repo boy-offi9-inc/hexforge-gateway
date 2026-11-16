@@ -109,6 +109,9 @@ function readBody(req: IncomingMessage): Promise<string> {
     req.on("data", (chunk: Buffer) => {
       size += chunk.length;
       if (size > MAX_BODY_BYTES) {
+        // A plain Error from us, not the stream's own error object - the
+        // caller sends err.message to the client, so nothing from Node
+        // internals (paths, syscall details) can leak into a response.
         reject(new Error(`Request body exceeds ${MAX_BODY_BYTES} bytes`));
         req.destroy();
         return;
@@ -116,7 +119,7 @@ function readBody(req: IncomingMessage): Promise<string> {
       chunks.push(chunk);
     });
     req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
-    req.on("error", reject);
+    req.on("error", () => reject(new Error("Request stream failed")));
   });
 }
 

@@ -6,6 +6,11 @@ on:
   pull_request:
   workflow_call:
 
+# Read-only by principle: CI checks out code and runs tests, it never needs
+# to touch anything else. Release is the only workflow with broader rights.
+permissions:
+  contents: read
+
 jobs:
   typecheck-and-build:
     runs-on: ubuntu-latest

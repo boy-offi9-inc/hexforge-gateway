@@ -1,6 +1,6 @@
 {
   "name": "hexforge-gateway",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Self-hosted reverse-engineering workspace API - orchestrates jadx, apktool, adb, frida and APKiD through a job and workflow engine, exposed as native MCP tools for Claude. No cloud required.",
   "repository": {
     "type": "git",
@@ -42,6 +42,7 @@
   },
   "dependencies": {
     "@boy-offi9-inc/reqkit": "^0.9.0",
+    "@fastify/rate-limit": "^11.2.2",
     "@fastify/websocket": "^11.3.7",
     "@supabase/supabase-js": "^2.119.0",
     "dotenv": "^18.0.9",

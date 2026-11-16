@@ -243,7 +243,12 @@ function main() {
 
   const server = createServer((req, res) => {
     void requestListener(req, res).catch((err) => {
-      log("unhandled error handling request:", err);
+      // Log the message only - the stack could carry internal paths and the
+      // 500 body below is already a generic string (nothing is echoed back).
+      log(
+        "unhandled error handling request:",
+        err instanceof Error ? err.message : String(err),
+      );
       if (!res.headersSent) sendJson(res, 500, { error: "Internal server error" });
     });
   });

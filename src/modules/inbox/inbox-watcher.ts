@@ -165,12 +165,16 @@ export class InboxWatcher {
   }
 
   private async claim(fileName: string, sourcePath: string): Promise<void> {
-    const workspaceName = deriveWorkspaceNameFromFilename(fileName);
+    // fileName comes from a readdir of the watched folder, but belt-and-braces:
+    // a basename barrier guarantees nothing here can climb out of destDir even
+    // if the inbox directory ever contains a hostile name.
+    const safeName = path.basename(fileName);
+    const workspaceName = deriveWorkspaceNameFromFilename(safeName);
     const workspace = await workspaceService.getOrCreateWorkspace(workspaceName, workspaceName);
 
-    const destDir = path.resolve(config.WORKSPACES_ROOT, workspace.id, "inbox");
+    const destDir = path.resolve(config.WORKSPACES_ROOT, sanitizeWorkspaceId(workspace.id), "inbox");
     await mkdir(destDir, { recursive: true });
-    const destPath = path.join(destDir, fileName);
+    const destPath = path.join(destDir, safeName);
 
     try {
       await rename(sourcePath, destPath);
@@ -200,6 +204,14 @@ export class InboxWatcher {
   }
 }
 
+/** A workspace id must be exactly what the Gateway generated (a 12-char nanoid) - anything else can never name a real workspace's directory. Rejects traversal and injection shapes instead of resolving them. */
+function sanitizeWorkspaceId(workspaceId: string): string {
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(workspaceId)) {
+    throw new Error(`Invalid workspace id: ${JSON.stringify(workspaceId.slice(0, 64))}`);
+  }
+  return workspaceId;
+}
+
 export const inboxWatcher = new InboxWatcher();
 
 export interface InboxApk {
@@ -211,7 +223,7 @@ export interface InboxApk {
 
 /** Backs `GET /workspaces/:id/inbox` and the `get_inbox_apks` MCP tool - lists whatever's actually in this workspace's own inbox/ directory, newest first. No separate index to keep in sync; the directory is the truth. */
 export async function listInboxApks(workspaceId: string): Promise<InboxApk[]> {
-  const dir = path.resolve(config.WORKSPACES_ROOT, workspaceId, "inbox");
+  const dir = path.resolve(config.WORKSPACES_ROOT, sanitizeWorkspaceId(workspaceId), "inbox");
   let entries: string[];
   try {
     entries = await readdir(dir);
@@ -223,7 +235,7 @@ export async function listInboxApks(workspaceId: string): Promise<InboxApk[]> {
   const apks: InboxApk[] = [];
   for (const fileName of entries) {
     if (!fileName.toLowerCase().endsWith(".apk")) continue;
-    const fullPath = path.join(dir, fileName);
+    const fullPath = path.join(dir, path.basename(fileName));
     const s = await stat(fullPath);
     if (!s.isFile()) continue;
     apks.push({

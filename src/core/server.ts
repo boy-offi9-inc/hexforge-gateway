@@ -20,6 +20,7 @@ import { register as registerSecretIndexer } from "../graph/secret-indexer.js";
 import { loadPlugins } from "../plugins/loader.js";
 import { registerWebsocketGateway } from "./websocket.js";
 import { registerAuth } from "./auth.js";
+import rateLimit from "@fastify/rate-limit";
 import { config } from "./config.js";
 import { createConsoleUi, createPrettyLogStream, detectConsoleCaps } from "./console-ui.js";
 
@@ -37,6 +38,17 @@ export async function buildServer() {
       : {}),
   };
   const app = Fastify({ logger: loggerOptions });
+
+  // Global request rate limit: the API dispatches real work (decompiles,
+  // device I/O), so an unbounded client can exhaust the machine. 300/min
+  // per IP is far above any interactive or scripted use of the hf CLI, and
+  // health/liveness checks are exempted so supervisors and containers are
+  // never throttled.
+  await app.register(rateLimit, {
+    global: true,
+    max: 300,
+    timeWindow: "1 minute",
+  });
 
   await app.register(websocketPlugin);
   await registerAuth(app);

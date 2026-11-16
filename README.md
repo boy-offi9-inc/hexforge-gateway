@@ -18,22 +18,27 @@
 
 ---
 
-> 🔍 **AI-assisted APK reverse-engineering workspace API.** Dispatches tasks to MCP agents (jadx, apktool, apksigner, adb, frida, filesystem, MT Manager's APK MCP, AI providers) and streams updates over WebSocket. Runs entirely on-device (Termux + MT Manager on Android) or on a normal PC — no cloud required.
+**HexForge Gateway is an AI-assisted APK reverse-engineering workspace API.**
+It dispatches tasks to MCP agents (jadx, apktool, apksigner, adb, frida,
+filesystem, MT Manager's APK MCP, AI providers) and streams updates over
+WebSocket. It runs entirely on-device (Termux + MT Manager on Android) or on
+a normal PC — no cloud required.
 
-Flow: `Workspace → Workflow → Jobs → Tasks → MCP Agents`, with modules talking through an Event Bus. MIT licensed.
+## What makes it different
 
-## ✨ What makes it different
+HexForge treats every external tool as a **replaceable backend** behind one
+**capability contract** — if jadx disappears tomorrow, `java.decompile`
+keeps working through another adapter. On top of the raw tooling sits an
+evidence pipeline: a **typed knowledge graph** of classes, packages and
+secret candidates merged by derived ids so re-analysis never duplicates;
+**findings** that carry a claim, a confidence and evidence citing real
+artifacts; and a **verifier** that re-checks every citation against the
+files on disk, exportable as JSON / Markdown / SARIF. Secret scanning is
+**redaction by design** — fingerprints and previews, never the value
+itself. And the whole thing is **local-first**: the full pipeline runs on an
+Android phone via Termux, a PC, or a VPS, with no cloud dependency.
 
-|  | |
-|---|---|
-| 🧩 **Composable capabilities** | Every external tool (jadx, apktool, APKiD, MT Manager…) is a replaceable backend behind one capability contract. If a tool disappears, the capability keeps working through another adapter |
-| 🗺️ **Typed knowledge graph** | Not just notes: classes, packages, secret candidates and their relationships, merged by derived ids so re-analysis never duplicates |
-| 🔗 **Evidence chains** | Findings carry claims, confidence and evidence citing real artifacts — re-verified against the cited files on demand, exportable as JSON / Markdown / SARIF |
-| 🔒 **Redaction by design** | Secret scanning stores fingerprints and previews, never the secret itself |
-| 📱 **Local-first** | Full pipeline on an Android phone via Termux, or a PC, or a VPS — no cloud dependency |
-| 🔌 **MCP native** | Register the whole agent fleet as native tools in Claude Desktop / Code / Cursor, or drive it with the built-in `hf` CLI |
-
-## 🚀 Getting started
+## Getting started
 
 ```bash
 npm install
@@ -45,73 +50,29 @@ The Gateway starts on `http://localhost:8080` and prints a banner with your
 workspaces and copy-pasteable commands. `GET /` returns the same as JSON —
 the quickest way to see what's here.
 
-## 🏗️ How it fits together
+## How it fits together
 
-```mermaid
-flowchart TB
-    subgraph CLIENTS["Clients"]
-        CLI["⌨️ hf CLI"]
-        MCP["🔌 MCP clients<br/>(Claude / Cursor)"]
-        API["🌐 REST / WS"]
-    end
-
-    subgraph GATEWAY["HexForge Gateway"]
-        direction TB
-        APIV1["API v1 (Fastify)"]
-        ORCH["Task Orchestrator"]
-
-        subgraph AGENTS["MCP Agents"]
-            JDX["jadx"]
-            AKT["apktool"]
-            ASG["apksigner"]
-            AKD["apkid"]
-            TRG["triage"]
-            FSY["filesystem"]
-            ADB["adb"]
-            FRD["frida"]
-            AKM["apkmcp"]
-            AI["ai"]
-        end
-
-        subgraph ENGINES["Engines"]
-            JOB["Job Engine<br/>retry + timeout"]
-            WF["Workflow Engine<br/>parallel + resume"]
-        end
-
-        subgraph EVIDENCE["Evidence layer"]
-            ART["Artifacts<br/>typed + provenance"]
-            GRAPH["Knowledge Graph<br/>typed entities + edges"]
-            FIND["Findings<br/>claim + evidence"]
-            VER["Verifier"]
-        end
-    end
-
-    TOOLS["🛠️ Backend tools<br/>jadx · apktool · apksigner · apkid · adb · frida"]
-    MT["📱 MT Manager<br/>APK MCP service"]
-    LLM["🤖 AI providers<br/>9 vendors"]
-
-    CLI --> APIV1
-    MCP -->|"POST /mcp"| APIV1
-    API --> APIV1
-    APIV1 --> JOB --> ORCH --> AGENTS
-    APIV1 --> WF --> JOB
-    JDX & AKT --> TOOLS
-    AKM --> MT
-    AI --> LLM
-    ORCH -->|"outputs"| ART
-    ART -->|"indexed by"| GRAPH
-    GRAPH --> FIND
-    ART --> FIND
-    FIND --> VER
-    APIV1 -.->|"events"| ENGINES
+```
+HexForge Gateway
+├── Clients            hf CLI · MCP clients (Claude / Cursor) · REST / WS
+├── API layer          Fastify routes · opt-in auth · Event Bus
+├── Engines            Job Engine (retry + timeout) · Workflow Engine (parallel + resume)
+├── MCP agents         jadx · apktool · apksigner · apkid · triage · apkmcp
+│                      filesystem · adb · frida · ai
+├── Backend tools      jadx · apktool · apksigner · apkid · adb · frida on PATH
+│                      MT Manager's APK MCP service · 9 AI providers
+└── Evidence layer     Artifacts (typed + provenance) · Knowledge graph
+                       (typed entities + edges) · Findings (claim + evidence) · Verifier
 ```
 
+A request enters through the API layer, becomes a task, and the task
+orchestrator hands it to the agent that provides the requested capability.
 Agents talk to real backend tools; every finished task's output is recorded
-as an artifact with tool-version provenance; artifacts feed the graph and
-findings; findings get re-verified. Modules communicate through the Event
-Bus, not direct calls.
+as an artifact with tool-version provenance; artifacts feed the knowledge
+graph and findings; findings get re-verified on demand. Modules communicate
+through the Event Bus, not direct calls.
 
-## 📡 Core endpoints
+## Core endpoints
 
 Request/response shapes are in the linked docs:
 
@@ -130,7 +91,7 @@ Request/response shapes are in the linked docs:
 - `WS /ws` — real-time `task:update`, `job:update`, `workflow:update`, `knowledge:entry_created`, `workspace:status_changed` for every workspace
 - `WS /ws/workspaces/:id` — same events, filtered to one workspace
 
-## 🧪 Secret intelligence
+## Secret intelligence
 
 `scan-secrets` runs a 24-detector registry (cloud keys, tokens, JWTs, private
 keys, webhook URLs, high-entropy shapes) and scores every hit into a
@@ -139,7 +100,7 @@ keys, webhook URLs, high-entropy shapes) and scores every hit into a
 is never stored, not in the result, not in the artifact, not in the graph.
 Candidates land in the knowledge graph as typed entities. ([AGENTS](docs/AGENTS.md))
 
-## 🕵️ Triage front door
+## Triage front door
 
 One fingerprint-first assessment before paying for a full decompile: APKiD
 packer/compiler fingerprints, manifest analysis (permissions, exported
@@ -147,7 +108,7 @@ components), native library inventory per ABI, and **Kotlin name recovery** —
 R8/ProGuard-renamed classes keep their original names in `@kotlin.Metadata`,
 so obfuscated classes get recovered statically. ([AGENTS](docs/AGENTS.md#triage))
 
-## 🛠️ Stack
+## Stack
 
 Node.js 22+ / TypeScript, Fastify (+ `@fastify/websocket`), Zod. Storage is
 local files by default; Supabase is opt-in (`STORAGE_BACKEND=supabase`). Auth
@@ -156,30 +117,25 @@ runs the Vitest unit suite (600+ tests, no live instance needed);
 `scripts/smoke-test.sh` covers end-to-end happy paths against a running
 Gateway — see `tests/README.md` for the split.
 
-## 📚 Documentation
+## Documentation
 
 | Doc | Covers |
 |---|---|
-| 🚧 [`docs/SETUP.md`](docs/SETUP.md) | Requirements, auth, storage backend, running on PC and Android/Termux |
-| 🏛️ [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Event Bus, Job Engine, Workflow Engine, Knowledge Engine |
-| 🤖 [`docs/AGENTS.md`](docs/AGENTS.md) | Every MCP agent — operations and examples |
-| 🔧 [`docs/APK_MODIFICATION.md`](docs/APK_MODIFICATION.md) | Decode, patch, rebuild, sign and install an APK — step by step |
-| 🔗 [`docs/EVIDENCE.md`](docs/EVIDENCE.md) | From a task's output to a finding with evidence, and checking it — step by step |
-| 🧠 [`docs/AI.md`](docs/AI.md) | The AI provider layer (9 providers), the `ai` agent, Terminal chat |
-| 🔌 [`docs/MCP_SERVER.md`](docs/MCP_SERVER.md) | Registering HexForge's agents as native tools in Claude Desktop/Code/Cursor |
-| 🧩 [`docs/PLUGINS.md`](docs/PLUGINS.md) | The Plugin System — contract, loader, reference plugins |
-| ⌨️ [`docs/CLI.md`](docs/CLI.md) | the `hf` CLI (`scripts/hf.sh`) and `scripts/smoke-test.sh` |
-| 📱 [`docs/MT_MANAGER.md`](docs/MT_MANAGER.md) | MT Manager's APK MCP setup, with screenshots and troubleshooting |
-| 🗂️ [`docs/PROJECT_STRUCTURE.md`](docs/PROJECT_STRUCTURE.md) | Repo layout and how the pieces talk |
-| 🗺️ [`docs/ROADMAP.md`](docs/ROADMAP.md) | What's done and what's still open |
+| [`docs/SETUP.md`](docs/SETUP.md) | Requirements, auth, storage backend, running on PC and Android/Termux |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Event Bus, Job Engine, Workflow Engine, Knowledge Engine |
+| [`docs/AGENTS.md`](docs/AGENTS.md) | Every MCP agent — operations and examples |
+| [`docs/APK_MODIFICATION.md`](docs/APK_MODIFICATION.md) | Decode, patch, rebuild, sign and install an APK — step by step |
+| [`docs/EVIDENCE.md`](docs/EVIDENCE.md) | From a task's output to a finding with evidence, and checking it — step by step |
+| [`docs/AI.md`](docs/AI.md) | The AI provider layer (9 providers), the `ai` agent, Terminal chat |
+| [`docs/MCP_SERVER.md`](docs/MCP_SERVER.md) | Registering HexForge's agents as native tools in Claude Desktop/Code/Cursor |
+| [`docs/PLUGINS.md`](docs/PLUGINS.md) | The Plugin System — contract, loader, reference plugins |
+| [`docs/CLI.md`](docs/CLI.md) | The `hf` CLI (`scripts/hf.sh`) and `scripts/smoke-test.sh` |
+| [`docs/MT_MANAGER.md`](docs/MT_MANAGER.md) | MT Manager's APK MCP setup, with screenshots and troubleshooting |
+| [`docs/PROJECT_STRUCTURE.md`](docs/PROJECT_STRUCTURE.md) | Repo layout and how the pieces talk |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | What's done and what's still open |
 
-## 🤝 Contributing
+## Contributing
 
 Run `npm run typecheck && npm run build && ./scripts/smoke-test.sh` before a
 PR — see [`CONTRIBUTING.md`](CONTRIBUTING.md). Issues and PRs welcome.
 
----
-
-<div align="center">
-  <sub><b>HEX</b> blue · <b>FORGE</b> silver · <b>GATEWAY</b> violet — reverse engineering workspace API</sub>
-</div>

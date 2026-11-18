@@ -1,11 +1,13 @@
 import { nanoid } from "nanoid";
-import * as localStore from "../providers/local-storage.provider.js";
+import { localStorageProvider } from "../providers/storage.provider.js";
 import { eventBus } from "../events/event-bus.js";
 import type { Artifact, ArtifactInput } from "./types.js";
 
-// Local storage only, for now: unlike knowledge entries there is no Supabase
-// table for artifacts yet, so STORAGE_BACKEND=supabase does not change this.
+// Local storage only, for now: unlike knowledge entries there is no
+// database table for artifacts yet, so STORAGE_BACKEND does not change this.
 const COLLECTION = "artifacts";
+
+const localStore = localStorageProvider();
 
 /**
  * Records an artifact. Producing the same kind at the same path again (a

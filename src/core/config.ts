@@ -26,7 +26,11 @@ const envSchema = z.object({
   // restores the old behavior (Supabase primary, local storage as a
   // runtime-failure fallback) - switch to this once there's a real reason
   // to share state across devices/users, e.g. once a web interface exists.
-  STORAGE_BACKEND: z.enum(["local", "supabase"]).default("local"),
+  STORAGE_BACKEND: z.enum(["local", "supabase", "postgres"]).default("local"),
+  // Required when STORAGE_BACKEND=postgres - Neon, RDS, or any Postgres
+  // reachable over its connection string. Enforced below so a postgres
+  // backend without one fails at boot, not on the first query.
+  DATABASE_URL: z.string().optional(),
 
   // Any built-in name below, or a provider name from AI_PROVIDERS_PATH -
   // which is why this is a free string validated after the file loads
@@ -109,6 +113,13 @@ if (!parsed.success) {
 }
 
 export const config = parsed.data;
+
+if (config.STORAGE_BACKEND === "postgres" && !config.DATABASE_URL) {
+  console.error(
+    "\u274c Invalid environment configuration: STORAGE_BACKEND=postgres requires DATABASE_URL.",
+  );
+  process.exit(1);
+}
 
 // Loaded eagerly so a malformed file fails the boot exactly like a bad .env
 // does, with an error naming the offending entry.

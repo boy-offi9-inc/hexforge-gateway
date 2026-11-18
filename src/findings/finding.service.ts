@@ -1,12 +1,14 @@
 import { nanoid } from "nanoid";
-import * as localStore from "../providers/local-storage.provider.js";
+import { localStorageProvider } from "../providers/storage.provider.js";
 import { eventBus } from "../events/event-bus.js";
 import { missingArtifactIds } from "../artifacts/artifact.service.js";
 import { getEntity } from "../graph/graph.service.js";
 import type { Evidence, Finding, FindingInput, FindingStatus, FindingUpdate } from "./types.js";
 
-// Local storage only, like artifacts: there is no Supabase table for these yet.
+// Local storage only, like artifacts: there is no database table for these yet.
 const COLLECTION = "findings";
+
+const localStore = localStorageProvider();
 
 /** The finding's evidence is invalid. Callers (the routes) turn this into a 400. */
 export class EvidenceError extends Error {}

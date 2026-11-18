@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import * as localStore from "../providers/local-storage.provider.js";
+import { localStorageProvider } from "../providers/storage.provider.js";
 import { eventBus } from "../events/event-bus.js";
 import { missingArtifactIds } from "../artifacts/artifact.service.js";
 import type {
@@ -13,9 +13,11 @@ import type {
   Relation,
 } from "./types.js";
 
-// Local storage only, like artifacts and findings: no Supabase tables yet.
+// Local storage only, like artifacts and findings: no database tables yet.
 const ENTITIES = "graph_entities";
 const EDGES = "graph_edges";
+
+const localStore = localStorageProvider();
 
 /** A reference in the graph is invalid. Callers (the routes) turn this into a 400. */
 export class GraphError extends Error {}

@@ -1,15 +1,12 @@
 import { nanoid } from "nanoid";
-import { getSupabase } from "../../providers/supabase.client.js";
-import * as localStore from "../../providers/local-storage.provider.js";
+import { getStorage, localStorageProvider } from "../../providers/storage.provider.js";
 import { eventBus } from "../../events/event-bus.js";
 import type { Workspace, WorkspaceStatus } from "../../core/types.js";
 
 const COLLECTION = "workspaces";
 
-function warnFallback(op: string, message: string) {
-  console.warn(
-    `[workspace.service] Supabase ${op} failed, falling back to local storage: ${message}`,
-  );
+function store() {
+  return getStorage() ?? localStorageProvider();
 }
 
 export async function createWorkspace(name: string, targetLabel: string): Promise<Workspace> {
@@ -23,57 +20,23 @@ export async function createWorkspace(name: string, targetLabel: string): Promis
     updatedAt: now,
   };
 
-  const supabase = getSupabase();
-  if (supabase) {
-    const { error } = await supabase.from("workspaces").insert(workspace);
-    if (error) {
-      warnFallback("insert", error.message);
-      await localStore.upsertRecord(COLLECTION, workspace);
-    }
-  } else {
-    await localStore.upsertRecord(COLLECTION, workspace);
-  }
+  await store().upsertRecord(COLLECTION, workspace);
 
   eventBus.emit("workspace.created", { workspace });
   return workspace;
 }
 
 export async function getWorkspace(id: string): Promise<Workspace | null> {
-  const supabase = getSupabase();
-  if (supabase) {
-    const { data, error } = await supabase.from("workspaces").select("*").eq("id", id).single();
-    if (!error) return data as Workspace;
-    warnFallback("select", error.message);
-  }
-  return localStore.getRecord<Workspace>(COLLECTION, id);
+  return store().getRecord<Workspace>(COLLECTION, id);
 }
 
 export async function listWorkspaces(): Promise<Workspace[]> {
-  const supabase = getSupabase();
-  if (supabase) {
-    const { data, error } = await supabase
-      .from("workspaces")
-      .select("*")
-      .order("createdAt", { ascending: false });
-    if (!error) return data as Workspace[];
-    warnFallback("query", error.message);
-  }
-  const local = await localStore.listRecords<Workspace>(COLLECTION);
-  return local.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const all = await store().listRecords<Workspace>(COLLECTION);
+  return all.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 export async function getWorkspaceByName(name: string): Promise<Workspace | null> {
-  const supabase = getSupabase();
-  if (supabase) {
-    const { data, error } = await supabase
-      .from("workspaces")
-      .select("*")
-      .eq("name", name)
-      .maybeSingle();
-    if (!error) return (data as Workspace | null) ?? null;
-    warnFallback("select", error.message);
-  }
-  return localStore.findRecord<Workspace>(COLLECTION, (w) => w.name === name);
+  return store().findRecord<Workspace>(COLLECTION, (w) => w.name === name);
 }
 
 /**
@@ -93,33 +56,14 @@ export async function updateWorkspaceStatus(
   id: string,
   status: WorkspaceStatus,
 ): Promise<Workspace | null> {
-  const supabase = getSupabase();
   const updatedAt = new Date().toISOString();
 
   const previous = await getWorkspace(id);
   if (!previous) return null;
   const previousStatus = previous.status;
 
-  let updated: Workspace | null = null;
-
-  if (supabase) {
-    const { data, error } = await supabase
-      .from("workspaces")
-      .update({ status, updatedAt })
-      .eq("id", id)
-      .select()
-      .single();
-    if (!error) {
-      updated = data as Workspace;
-    } else {
-      warnFallback("update", error.message);
-    }
-  }
-
-  if (!updated) {
-    updated = { ...previous, status, updatedAt };
-    await localStore.upsertRecord(COLLECTION, updated);
-  }
+  const updated: Workspace = { ...previous, status, updatedAt };
+  await store().upsertRecord(COLLECTION, updated);
 
   if (updated.status !== previousStatus) {
     eventBus.emit("workspace.status_changed", {

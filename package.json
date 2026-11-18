@@ -48,10 +48,12 @@
     "dotenv": "^18.0.9",
     "fastify": "^5.12.8",
     "nanoid": "^6.0.2",
+    "pg": "^8.23.1",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
+    "@types/pg": "^8.23.1",
     "prettier": "^3.9.10",
     "tsx": "^4.23.15",
     "typescript": "~5.9.3",

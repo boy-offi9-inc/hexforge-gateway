@@ -1,13 +1,10 @@
-import { getSupabase } from "../../providers/supabase.client.js";
-import * as localStore from "../../providers/local-storage.provider.js";
+import { getStorage, localStorageProvider } from "../../providers/storage.provider.js";
 import type { Workflow } from "../../core/types.js";
 
 const COLLECTION = "workflows";
 
-function warnFallback(op: string, message: string) {
-  console.warn(
-    `[workflow.service] Supabase ${op} failed, falling back to local storage: ${message}`,
-  );
+function store() {
+  return getStorage() ?? localStorageProvider();
 }
 
 /**
@@ -17,16 +14,7 @@ function warnFallback(op: string, message: string) {
  * just makes the latest snapshot durable across restarts.
  */
 export async function persistWorkflow(workflow: Workflow): Promise<void> {
-  const supabase = getSupabase();
-  if (supabase) {
-    const { error } = await supabase.from("workflows").upsert(workflow);
-    if (error) {
-      warnFallback("upsert", error.message);
-      await localStore.upsertRecord(COLLECTION, workflow);
-    }
-    return;
-  }
-  await localStore.upsertRecord(COLLECTION, workflow);
+  await store().upsertRecord(COLLECTION, workflow);
 }
 
 /**
@@ -36,11 +24,5 @@ export async function persistWorkflow(workflow: Workflow): Promise<void> {
  * pretending the step sequence is still advancing.
  */
 export async function listAllWorkflows(): Promise<Workflow[]> {
-  const supabase = getSupabase();
-  if (supabase) {
-    const { data, error } = await supabase.from("workflows").select("*");
-    if (!error) return data as Workflow[];
-    warnFallback("select", error.message);
-  }
-  return localStore.listRecords<Workflow>(COLLECTION);
+  return store().listRecords<Workflow>(COLLECTION);
 }

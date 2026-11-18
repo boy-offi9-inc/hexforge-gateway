@@ -55,6 +55,25 @@ Run with `npm test` (single run) or `npm run test:watch`. These are plain
   producing a clear error rather than returning garbage. Groq and Ollama
   also cover a network-level `fetch` rejection getting wrapped in a
   friendlier reachability message.
+- **`ai-providers-file.test.ts`** - the custom-providers file
+  (`AI_PROVIDERS_PATH`), with `fetch` mocked and a throwaway file per test:
+  loading a valid file (optional `apiKey`/`headers`/`timeoutMs`), rejection
+  of invalid JSON, unreadable files, structurally invalid entries (naming
+  the offending entry and field), duplicate names, and non-array files; and
+  the provider side - routing a completion to a named file provider, extra
+  headers + Bearer token when a key is set, a per-entry timeout honored
+  without retry, `AI_PROVIDER` selecting a file provider directly
+  (`isAiConfigured` counting it), an unknown name erroring with the list of
+  available names, and a bad file failing config load at boot.
+- **`storage-provider.test.ts`** - the storage provider layer:
+  `LocalStorageProvider` satisfies the full `StorageProvider` contract
+  (upsert/get/find/list/batch/delete, replace-on-same-id, delete
+  idempotence) against real files, persisting across a fresh module graph;
+  `PostgresProvider` runs the same contract against a `pg` pool double
+  (no live database), asserts the `id` + `data jsonb` insert/select shape
+  with parameterized ids, falls back to the local provider with a logged
+  warning when a query fails, and rejects a collection name that couldn't
+  be a table; `getStorage()` returns null for `STORAGE_BACKEND=local`.
 - **`capability-registry.test.ts`** - the capability registry: providers ordered by priority, all of an adapter's operations grouped per capability, fallback when a backend's availability probe says no (or throws), malformed capability ids and duplicate operation names rejected, and replace/unregister. Pure unit test, no mocks - the registry has no dependencies.
 - **`builtin-capabilities.test.ts`** - the built-in descriptors are plain data, so this needs no mocks: all ten agents are described and pass registry validation, frida's push/start/stop-server operations group under one capability, and `outputs` is only declared for the operations whose result is a tracked path (`jadx.decompile`, `apktool.decode`, `apktool.build`, `filesystem.scan-secrets`, `frida.trace`).
 - **`capability-routes.test.ts`** - `GET /capabilities` on a bare Fastify instance (same approach as `api-routes.test.ts`, without its mocking, since the route only reads the registry singleton): providers come back ordered by priority with their operation names, and the `isAvailable` probe never reaches the JSON.

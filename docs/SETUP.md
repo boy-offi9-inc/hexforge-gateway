@@ -42,7 +42,7 @@ for anything more current, since app store requirements shift over time.
 **Network:** None required at all with `STORAGE_BACKEND=local` (the
 default) and `AI_PROVIDER=ollama` or `openai-compatible` pointed at a
 local server - the Gateway can run fully offline. Network is only needed
-for a cloud AI provider, `STORAGE_BACKEND=supabase`, or the
+for a cloud AI provider, `STORAGE_BACKEND=supabase`/`postgres`, or the
 `webhook-notifier` plugin actually sending anything.
 
 
@@ -91,9 +91,10 @@ devices; if this project grows into something with actual multiple
 untrusted users, `core/auth.ts` is the one file to replace, not extend.
 
 
-## Storage: local (default) or Supabase
+## Storage: local (default), Supabase, or Postgres
 
-`STORAGE_BACKEND` picks where `workspaces` and `knowledge_entries` live:
+`STORAGE_BACKEND` picks where `workspaces`, `knowledge_entries`, `jobs`
+and `workflows` live:
 
 - **`local`** (the default) — everything goes to
   `providers/local-storage.provider.ts`, a JSON file per collection under
@@ -107,32 +108,50 @@ untrusted users, `core/auth.ts` is the one file to replace, not extend.
   automatically instead of crashing the request. Switch to this once
   there's an actual reason to share state across devices/users - e.g.
   once a web interface exists.
+- **`postgres`** — any Postgres reachable over a connection string,
+  **Neon** included. Same fallback behavior as Supabase: a failed query is
+  served from local storage and logged, so a database outage degrades
+  instead of failing the request.
 
 To use Supabase: create a project, run `supabase.schema.sql` in the SQL
 editor, then set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and
 `STORAGE_BACKEND=supabase` in `.env`. `GET /health`'s `storageBackend`
 field confirms which mode is actually active.
 
-Worth knowing either way:
+To use Postgres: run `postgres.schema.sql` against the database once (one
+table per collection, `id text primary key` plus the record in a `data
+jsonb` column), then set `DATABASE_URL` (Neon's pooled connection string
+works as-is - remember `?sslmode=require` if your provider needs it) and
+`STORAGE_BACKEND=postgres`. `DATABASE_URL` without `STORAGE_BACKEND=postgres`
+does nothing, and `STORAGE_BACKEND=postgres` without `DATABASE_URL` fails
+at startup rather than on the first request.
 
-- **No sync between the two.** Anything written to local storage while
-  on `supabase` mode during an outage stays local-only - check
+All three backends sit behind `providers/storage.provider.ts`, a single
+interface (`upsertRecord`, `upsertRecords`, `getRecord`, `findRecord`,
+`listRecords`, `deleteRecord`) with one implementation per backend, so a
+service never branches on which one is active and adding a backend is one
+class rather than edits across every service.
+
+Worth knowing on any of them:
+
+- **No sync between the tiers.** Anything written to local storage while
+  on `supabase`/`postgres` mode during an outage stays local-only - check
   `data/*.json` for anything written during the gap if that matters.
-  Switching `local` → `supabase` later doesn't auto-migrate existing
-  local data either.
-- **Not a real database.** No indexing, no migrations, no query language
-  - a flat `{ id: record }` JSON map per collection. Concurrent writes
+  Switching `local` → `supabase`/`postgres` later doesn't auto-migrate
+  existing local data either.
+- **Local mode is not a real database.** No indexing, no migrations, no
+  query language - a flat `{ id: record }` JSON map per collection. Concurrent writes
   *within one process* are safe (`upsertRecord`/`deleteRecord` serialize
   per collection so two requests racing on the same collection can't
   silently drop one's write) but that doesn't extend across multiple
   processes sharing one `DATA_DIR`, which isn't a supported setup.
 - **Jobs and Workflows persist like everything else** (local files, or
-  Supabase write-through with local fallback), but the McpTasks behind
+  database write-through with local fallback), but the McpTasks behind
   each Job attempt are in-memory only. A job or workflow still
   `running`/`queued` when the Gateway restarts is marked `failed` on
   startup rather than resumed.
 
-Falling back is logged (`[workspace.service] Supabase ... failed,
+Falling back is logged (`[storage:postgres] select workspaces failed,
 falling back to local storage: ...`), so it's visible rather than silent.
 
 

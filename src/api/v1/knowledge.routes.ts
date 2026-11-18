@@ -104,7 +104,7 @@ export async function knowledgeRoutes(app: FastifyInstance) {
 
     if (!aiService.isAiConfigured) {
       return reply.code(503).send({
-        error: `AI provider "${config.AI_PROVIDER}" is not configured (missing its API key in .env)`,
+        error: `AI provider "${config.AI_PROVIDER}" is not configured (missing its API key in .env, or AI_PROVIDERS_PATH is unset)`,
       });
     }
 
@@ -132,7 +132,7 @@ export async function knowledgeRoutes(app: FastifyInstance) {
 
     if (!aiService.isAiConfigured) {
       return reply.code(503).send({
-        error: `AI provider "${config.AI_PROVIDER}" is not configured (missing its API key in .env)`,
+        error: `AI provider "${config.AI_PROVIDER}" is not configured (missing its API key in .env, or AI_PROVIDERS_PATH is unset)`,
       });
     }
 

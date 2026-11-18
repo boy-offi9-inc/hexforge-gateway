@@ -1,5 +1,6 @@
 import { TimeoutError, withRetry, withTimeout } from "@boy-offi9-inc/reqkit";
-import { config, isAiConfigured } from "../core/config.js";
+import { BUILTIN_AI_PROVIDERS, config, customAiProviders, isAiConfigured } from "../core/config.js";
+import type { CustomAiProvider } from "./ai-providers.file.js";
 
 /**
  * AI Provider Layer: abstracts Supabase, AI providers, Redis, and future
@@ -139,6 +140,7 @@ async function completeWithOpenAiCompatibleShape(
   model: string,
   req: CompletionRequest,
   timeoutMs: number = REMOTE_TIMEOUT_MS,
+  extraHeaders?: Record<string, string>,
 ): Promise<string> {
   const messages = [
     ...(req.system ? [{ role: "system", content: req.system }] : []),
@@ -147,6 +149,7 @@ async function completeWithOpenAiCompatibleShape(
   ];
 
   const headers: Record<string, string> = {
+    ...extraHeaders,
     "Content-Type": "application/json",
   };
   if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
@@ -255,6 +258,19 @@ async function completeWithMistral(req: CompletionRequest): Promise<string> {
  * above, there's no sensible default model - it varies entirely by what
  * you're running, so it's required rather than defaulted.
  */
+function completeWithCustomProvider(entry: CustomAiProvider) {
+  return (req: CompletionRequest) =>
+    completeWithOpenAiCompatibleShape(
+      entry.name,
+      entry.baseUrl,
+      entry.apiKey,
+      entry.model,
+      req,
+      entry.timeoutMs ?? REMOTE_TIMEOUT_MS,
+      entry.headers,
+    );
+}
+
 async function completeWithOpenAiCompatible(req: CompletionRequest): Promise<string> {
   if (!config.OPENAI_COMPATIBLE_MODEL) {
     throw new Error(
@@ -378,8 +394,15 @@ async function completeWithOllama(req: CompletionRequest): Promise<string> {
  * callers should check `isAiConfigured` first if they want to fail softer
  * (e.g. a 503 instead of a 502) than just letting this throw.
  */
-export async function complete(req: CompletionRequest): Promise<string> {
-  switch (config.AI_PROVIDER) {
+const customProvidersByName = new Map<string, CustomAiProvider>(
+  customAiProviders.map((entry) => [entry.name, entry]),
+);
+
+function completeWithSelectedProvider(provider: string, req: CompletionRequest): Promise<string> {
+  const custom = customProvidersByName.get(provider);
+  if (custom) return completeWithCustomProvider(custom)(req);
+
+  switch (provider) {
     case "anthropic":
       return completeWithAnthropic(req);
     case "groq":
@@ -398,10 +421,22 @@ export async function complete(req: CompletionRequest): Promise<string> {
       return completeWithMistral(req);
     case "openai-compatible":
       return completeWithOpenAiCompatible(req);
-    default:
-      throw new Error(
-        `Unsupported AI_PROVIDER "${config.AI_PROVIDER}". Implemented: "anthropic", "groq", "gemini", "ollama", ` +
-          `"openai", "deepseek", "xai", "mistral", "openai-compatible".`,
-      );
+    default: {
+      const customNames = [...customProvidersByName.keys()];
+      const available = [
+        BUILTIN_AI_PROVIDERS.map((name) => `"${name}"`).join(", "),
+        ...(customNames.length > 0
+          ? [`custom: ${customNames.map((n) => `"${n}"`).join(", ")}`]
+          : []),
+      ].join(", ");
+      throw new Error(`Unsupported AI provider "${provider}". Available: ${available}.`);
+    }
   }
+}
+
+export async function complete(
+  req: CompletionRequest,
+  opts?: { provider?: string },
+): Promise<string> {
+  return completeWithSelectedProvider(opts?.provider ?? config.AI_PROVIDER, req);
 }

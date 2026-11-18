@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { z } from "zod";
+import { loadCustomAiProviders, type CustomAiProvider } from "../providers/ai-providers.file.js";
 
 const envSchema = z.object({
   PORT: z.coerce.number().default(8080),
@@ -27,19 +28,10 @@ const envSchema = z.object({
   // to share state across devices/users, e.g. once a web interface exists.
   STORAGE_BACKEND: z.enum(["local", "supabase"]).default("local"),
 
-  AI_PROVIDER: z
-    .enum([
-      "anthropic",
-      "groq",
-      "gemini",
-      "ollama",
-      "openai",
-      "deepseek",
-      "xai",
-      "mistral",
-      "openai-compatible",
-    ])
-    .default("anthropic"),
+  // Any built-in name below, or a provider name from AI_PROVIDERS_PATH -
+  // which is why this is a free string validated after the file loads
+  // rather than a fixed enum.
+  AI_PROVIDER: z.string().default("anthropic"),
   ANTHROPIC_API_KEY: z.string().optional(),
   ANTHROPIC_MODEL: z.string().default("claude-sonnet-5"),
   GROQ_API_KEY: z.string().optional(),
@@ -73,6 +65,12 @@ const envSchema = z.object({
   OPENAI_COMPATIBLE_BASE_URL: z.string().default("http://localhost:1234/v1"),
   OPENAI_COMPATIBLE_API_KEY: z.string().optional(),
   OPENAI_COMPATIBLE_MODEL: z.string().optional(),
+
+  // File of named custom providers (see providers/ai-providers.file.ts).
+  // Optional - when set, every entry joins AI_PROVIDER's switch and can be
+  // selected per call. A file that fails validation fails the whole boot,
+  // same as a bad .env would.
+  AI_PROVIDERS_PATH: z.string().optional(),
 
   MCP_RUNTIME_MODE: z.enum(["local", "remote"]).default("local"),
 
@@ -111,6 +109,39 @@ if (!parsed.success) {
 }
 
 export const config = parsed.data;
+
+// Loaded eagerly so a malformed file fails the boot exactly like a bad .env
+// does, with an error naming the offending entry.
+export const BUILTIN_AI_PROVIDERS = [
+  "anthropic",
+  "groq",
+  "gemini",
+  "ollama",
+  "openai",
+  "deepseek",
+  "xai",
+  "mistral",
+  "openai-compatible",
+] as const;
+
+export const customAiProviders: CustomAiProvider[] = config.AI_PROVIDERS_PATH
+  ? loadCustomAiProviders(config.AI_PROVIDERS_PATH)
+  : [];
+
+// A typo in AI_PROVIDER would otherwise only surface as a 502 on the first
+// completion, long after boot.
+if (
+  !(BUILTIN_AI_PROVIDERS as readonly string[]).includes(config.AI_PROVIDER) &&
+  !customAiProviders.some((entry) => entry.name === config.AI_PROVIDER)
+) {
+  const names = [...BUILTIN_AI_PROVIDERS, ...customAiProviders.map((entry) => entry.name)].join(
+    ", ",
+  );
+  console.error(
+    `\u274c AI_PROVIDER "${config.AI_PROVIDER}" is not a known provider. Available: ${names}.`,
+  );
+  process.exit(1);
+}
 
 export const apiKeys = new Set(
   (config.API_KEYS ?? "")
@@ -154,6 +185,8 @@ export const isAiConfigured = (() => {
       // name is, since there's no sensible default across different servers.
       return !!config.OPENAI_COMPATIBLE_MODEL;
     default:
-      return false;
+      // A file provider name selected via AI_PROVIDER counts as configured
+      // once the file loaded - there's nothing else to check per entry.
+      return customAiProviders.some((entry) => entry.name === config.AI_PROVIDER);
   }
 })();

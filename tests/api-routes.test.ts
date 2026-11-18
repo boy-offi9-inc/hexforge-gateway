@@ -80,10 +80,17 @@ async function buildApp(opts: { aiConfigured?: boolean } = {}) {
     ...m.ai,
   }));
   vi.doMock("../src/core/config.js", () => ({
-    config: { AI_PROVIDER: "anthropic", STORAGE_BACKEND: "local" },
+    config: {
+      AI_PROVIDER: "anthropic",
+      STORAGE_BACKEND: "local",
+      DATA_DIR: "./data",
+      SUPABASE_URL: undefined,
+      SUPABASE_SERVICE_ROLE_KEY: undefined,
+    },
     isSupabaseConfigured: false,
     isAiConfigured: aiConfigured,
     isAuthEffectivelyEnabled: false,
+    apiKeys: new Set<string>(),
   }));
 
   const { default: Fastify } = await import("fastify");

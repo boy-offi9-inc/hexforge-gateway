@@ -111,7 +111,8 @@ so obfuscated classes get recovered statically. ([AGENTS](docs/AGENTS.md#triage)
 ## Stack
 
 Node.js 22+ / TypeScript, Fastify (+ `@fastify/websocket`), Zod. Storage is
-local files by default; Supabase is opt-in (`STORAGE_BACKEND=supabase`). Auth
+local files by default; Supabase (`STORAGE_BACKEND=supabase`) or any Postgres
+- Neon included (`STORAGE_BACKEND=postgres` + `DATABASE_URL`) is opt-in. Auth
 is an opt-in API key check, off by default (`AUTH_ENABLED=false`). `npm test`
 runs the Vitest unit suite (600+ tests, no live instance needed);
 `scripts/smoke-test.sh` covers end-to-end happy paths against a running
@@ -126,7 +127,7 @@ Gateway — see `tests/README.md` for the split.
 | [`docs/AGENTS.md`](docs/AGENTS.md) | Every MCP agent — operations and examples |
 | [`docs/APK_MODIFICATION.md`](docs/APK_MODIFICATION.md) | Decode, patch, rebuild, sign and install an APK — step by step |
 | [`docs/EVIDENCE.md`](docs/EVIDENCE.md) | From a task's output to a finding with evidence, and checking it — step by step |
-| [`docs/AI.md`](docs/AI.md) | The AI provider layer (9 providers), the `ai` agent, Terminal chat |
+| [`docs/AI.md`](docs/AI.md) | The AI provider layer (9 built-in providers, custom providers file), the `ai` agent, Terminal chat |
 | [`docs/MCP_SERVER.md`](docs/MCP_SERVER.md) | Registering HexForge's agents as native tools in Claude Desktop/Code/Cursor |
 | [`docs/PLUGINS.md`](docs/PLUGINS.md) | The Plugin System — contract, loader, reference plugins |
 | [`docs/CLI.md`](docs/CLI.md) | The `hf` CLI (`scripts/hf.sh`) and `scripts/smoke-test.sh` |

@@ -45,7 +45,7 @@
     "@fastify/rate-limit": "^11.2.2",
     "@fastify/websocket": "^11.3.7",
     "@supabase/supabase-js": "^2.119.0",
-    "dotenv": "^18.0.9",
+    "dotenv": "^18.0.10",
     "fastify": "^5.12.8",
     "nanoid": "^6.0.2",
     "pg": "^8.23.1",

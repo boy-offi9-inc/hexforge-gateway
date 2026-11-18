@@ -1,7 +1,7 @@
 # AI Provider Layer
 
 `src/providers/ai.provider.ts` exposes one function, `complete()`, backed
-by nine interchangeable providers - **Anthropic**, **Groq**, **Gemini**,
+by nine built-in providers - **Anthropic**, **Groq**, **Gemini**,
 **Ollama**, **OpenAI**, **DeepSeek**, **xAI (Grok)**, **Mistral**, and a
 generic **openai-compatible** option for anything else that speaks the
 same shape (LM Studio, llama.cpp's server, vLLM, text-generation-webui,
@@ -10,8 +10,9 @@ and openai-compatible - share one implementation internally
 (`completeWithOpenAiCompatibleShape`) since they're all the OpenAI Chat
 Completions request/response shape against a different base URL; only
 Anthropic, Gemini, and Ollama needed their own code. Adding a new
-provider that speaks this shape is a ~10-line addition - see
-`CONTRIBUTING.md`.
+provider that speaks this shape is either a ~10-line addition - see
+`CONTRIBUTING.md` - or, with no code at all, one entry in a providers
+file (below).
 
 ```bash
 AI_PROVIDER=anthropic   # or "groq", "gemini", "ollama", "openai", "deepseek", "xai", "mistral", "openai-compatible"
@@ -64,6 +65,64 @@ and set `OPENAI_COMPATIBLE_MODEL`.
 `aiConfigured` just means "selected" - local mode has no key to check, so
 the Gateway can't confirm the server is reachable without making a call.
 Same for `openai-compatible`: it just means `OPENAI_COMPATIBLE_MODEL` is set.
+
+### Custom providers file
+
+Any number of extra providers can be declared in a JSON file instead of
+adding code, for endpoints that are specific to your network: a LAN box
+running LM Studio, a colleague's vLLM instance, a gateway that proxies
+three models behind one URL.
+
+```bash
+AI_PROVIDERS_PATH=./ai-providers.json
+```
+
+```json
+[
+  {
+    "name": "lan-llama",
+    "baseUrl": "http://192.168.1.10:1234/v1",
+    "model": "qwen3-32b"
+  },
+  {
+    "name": "lab-vllm",
+    "baseUrl": "https://llm.lab.internal/v1",
+    "apiKey": "...",
+    "model": "mistral-small",
+    "headers": { "X-Route": "research" },
+    "timeoutMs": 60000
+  }
+]
+```
+
+Every entry speaks the OpenAI Chat Completions shape - the same
+implementation the six built-in OpenAI-shaped providers use, so nothing
+else about it is special. Fields: **`name`** (how you select it, and what
+appears in error messages), **`baseUrl`** (the `/chat/completions` path is
+appended), **`model`**, optional **`apiKey`** (absent means *no*
+`Authorization` header is sent at all, for local servers and auth-less
+endpoints), optional **`headers`** (extra request headers, merged under the
+ones above), and optional **`timeoutMs`** (per attempt, default 90s - the
+same window hosted providers get; a local model that needs minutes should
+raise it).
+
+Use one as the default with `AI_PROVIDER=lan-llama`, or for a single call:
+
+```ts
+await complete({ prompt: "..." }, { provider: "lab-vllm" });
+```
+
+`complete(req, { provider })` overrides `AI_PROVIDER` for that call only -
+a caller that wants a cheap model for a summarize pass and a stronger one
+for analysis can pick per request without reconfiguring the Gateway.
+
+The file is validated once at startup: a malformed entry, a missing
+`name`/`baseUrl`/`model`, a duplicate name, or a file that isn't valid JSON
+fails the boot with an error naming the offending entry, rather than
+surfacing as a failed completion later. An unknown name passed to
+`complete()` errors listing every available name, built-in and custom.
+`isAiConfigured` is true when `AI_PROVIDER` names a loaded file entry, so a
+custom provider also gets the soft 503 path instead of a 502.
 
 Three things sit on top of the provider:
 

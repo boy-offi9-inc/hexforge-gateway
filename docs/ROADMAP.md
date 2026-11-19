@@ -7,10 +7,14 @@ System, local storage, and CI. This page tracks what's still open.
 
 ## Open
 
+- [ ] Per-workspace AI provider selection: a workspace-scoped provider override, not just the global `AI_PROVIDER` - the `AI_PROVIDERS_PATH` file shipped in 1.6.0 (`docs/AI.md`) is the base to build on
+- [ ] Neon/Postgres hosting guide: a `docs/SETUP.md` section walking through the Neon free tier with `DATABASE_URL`, schema apply, and verifying with a live boot (the Postgres backend shipped in 1.6.0, the guide does not exist yet)
+- [ ] MCP server frontend auth hardening: rate limit per key, CORS allowlist for `/mcp`, audit log of tool calls
 - [ ] Web interface (once this exists, `STORAGE_BACKEND=supabase` becomes worth turning back on for shared state)
 
 ## Done
 
+- [x] 1.6.0: custom AI providers via `AI_PROVIDERS_PATH` (file-defined providers with per-call override, alongside the nine built-ins) and a Postgres storage backend (`DATABASE_URL`, Neon works) - see `docs/AI.md` and `docs/SETUP.md`. The storage layer became a `getStorage()` factory, so services no longer import the supabase/local providers directly
 - [x] Secret intelligence (`filesystem.scan-secrets` + `graph/secret-indexer.ts`): a 24-detector registry where every hit is scored into a redacted secret candidate (detector, confidence from entropy/context keywords/placeholder shapes, SHA-256 fingerprint, signals) - the secret value itself is never stored anywhere, and candidates land in the knowledge graph as `secret-candidate` entities. See `docs/AGENTS.md`
 - [x] Triage front door (`triage` agent): fingerprint-first assessment of an APK or decoded/decompiled project - APKiD fingerprints, manifest (package, SDKs, permissions, exported components), native library inventory per ABI, and Kotlin metadata name recovery for obfuscated classes. Assessment language only, warnings list what couldn't run. See `docs/AGENTS.md`
 - [x] Pinned runtime (`Dockerfile.runtime` + `scripts/check-runtime.mjs`): the Gateway plus a reproducible RE toolchain - jadx 1.5.1, apktool 2.7.0, build-tools 34, APKiD 3.2.0, frida-tools 14.13.1 - with a one-command health check for every backend the capability registry declares. See `docs/SETUP.md`

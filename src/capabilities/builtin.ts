@@ -266,6 +266,22 @@ export const builtinDescriptors = {
       },
     ],
   },
+  ghidra: {
+    description:
+      "Headless Ghidra native analysis (analyzeHeadless): decompiled C, function inventory, " +
+      "cross-references and call targets for ELF/.so and other native binaries - the native " +
+      "half that jadx cannot see.",
+    backends: [{ tool: "ghidra" }],
+    permissions: ["fs:workspace"],
+    operations: [
+      {
+        name: "analyze",
+        capability: "native.analyze",
+        inputs: { required: ["filePath"], optional: ["ghidraHome"] },
+        outputs: ["native-analysis"],
+      },
+    ],
+  },
   verifyClaims: {
     description:
       "Claim verification: re-checks each finding's cited evidence (artifact exists, " +

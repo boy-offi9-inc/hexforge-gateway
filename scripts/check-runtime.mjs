@@ -8,8 +8,12 @@ const execFileAsync = promisify(execFile);
 
 const TOOLS = [
   { name: "node", args: ["--version"], expect: /v2[0-9]+\./ },
-  { name: "java", args: ["-version"], versionFrom: "stderr", expect: /17|21/ },
+  { name: "java", args: ["-version"], versionFrom: "stderr", expect: /(17|21|25)\./ },
   { name: "jadx", args: ["--version"], expect: /1\.5\./ },
+  // analyzeHeadless has no --version and exits 1 on a bare run; its stderr
+  // prints the JVM it resolved, so accept the non-zero exit as long as the
+  // JDK check ran (output mentions openjdk).
+  { name: "analyzeHeadless", args: [], expect: /openjdk version/i, allowNonZero: true },
   { name: "apktool", args: ["--version"], expect: /2\.7\./ },
   { name: "apksigner", args: ["--version"], expect: /[0-9]+\.[0-9]+/ },
   { name: "zipalign", args: ["-h"], versionFrom: "none" },
@@ -39,6 +43,15 @@ for (const tool of TOOLS) {
       console.log(`ok      ${tool.name} ${line.trim().split(" ")[0]}`);
     }
   } catch (err) {
+    // Some tools exit non-zero even when healthy (analyzeHeadless has no
+    // usage mode that exits 0). allowNonZero keeps the output check.
+    if (
+      tool.allowNonZero &&
+      tool.expect.test(String(err.stdout ?? "") + String(err.stderr ?? ""))
+    ) {
+      console.log(`ok      ${tool.name}`);
+      continue;
+    }
     console.log(`MISSING ${tool.name}: ${err.message.split("\n")[0]}`);
     failures++;
   }

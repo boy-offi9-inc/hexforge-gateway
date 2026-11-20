@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import path from "node:path";
 import { promisify } from "node:util";
 import type { ToolProvenance } from "./types.js";
 
@@ -17,6 +18,7 @@ export type Runner = (file: string, args: string[]) => Promise<string>;
  * named "frida", not "frida-tools" (the CLI package versions separately).
  */
 const PROBES: Record<string, { file: string; args: string[] }> = {
+  ghidra: { file: path.join(process.env.GHIDRA_HOME || "", "support", "analyzeHeadless"), args: ["--version"] },
   jadx: { file: "jadx", args: ["--version"] },
   apktool: { file: "apktool", args: ["--version"] },
   apkid: { file: "apkid", args: ["--version"] },

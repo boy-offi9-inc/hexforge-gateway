@@ -19,7 +19,7 @@
 ---
 
 **HexForge Gateway is an AI-assisted APK reverse-engineering workspace API.**
-It dispatches tasks to MCP agents (jadx, apktool, apksigner, adb, frida,
+It dispatches tasks to MCP agents (jadx, apktool, apksigner, adb, frida, ghidra,
 filesystem, MT Manager's APK MCP, AI providers) and streams updates over
 WebSocket. It runs entirely on-device (Termux + MT Manager on Android) or on
 a normal PC — no cloud required.
@@ -57,7 +57,7 @@ HexForge Gateway
 ├── Clients            hf CLI · MCP clients (Claude / Cursor) · REST / WS
 ├── API layer          Fastify routes · opt-in auth · Event Bus
 ├── Engines            Job Engine (retry + timeout) · Workflow Engine (parallel + resume)
-├── MCP agents         jadx · apktool · apksigner · apkid · triage · apkmcp
+├── MCP agents         jadx · apktool · apksigner · apkid · triage · apkmcp · ghidra
 │                      filesystem · adb · frida · ai
 ├── Backend tools      jadx · apktool · apksigner · apkid · adb · frida on PATH
 │                      MT Manager's APK MCP service · 9 AI providers

@@ -4,6 +4,7 @@ import { eventBus } from "../../events/event-bus.js";
 import { capabilityRegistry } from "../../capabilities/registry.js";
 import type { AdapterDescriptor } from "../../capabilities/types.js";
 import { builtinDescriptors as d } from "../../capabilities/builtin.js";
+import { ghidraHandler } from "./agents/ghidra.agent.js";
 import { jadxHandler } from "./agents/jadx.agent.js";
 import { apkMcpHandler } from "./agents/apkmcp.agent.js";
 import { apktoolHandler } from "./agents/apktool.agent.js";
@@ -118,6 +119,7 @@ class McpOrchestrator {
 export const orchestrator = new McpOrchestrator();
 
 // --- Real agent handlers -------------------------------------------------
+orchestrator.registerAgent("ghidra", ghidraHandler, d.ghidra);
 orchestrator.registerAgent("jadx", jadxHandler, d.jadx);
 orchestrator.registerAgent("apkmcp", apkMcpHandler, d.apkmcp);
 orchestrator.registerAgent("apktool", apktoolHandler, d.apktool);

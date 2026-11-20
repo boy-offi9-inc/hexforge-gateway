@@ -14,7 +14,7 @@ function loadAll() {
 }
 
 describe("built-in capability descriptors", () => {
-  it("cover all eleven built-in agents and pass registry validation", () => {
+  it("cover all twelve built-in agents and pass registry validation", () => {
     expect(() => loadAll()).not.toThrow();
     expect(Object.keys(builtinDescriptors).sort()).toEqual(
       [
@@ -26,6 +26,7 @@ describe("built-in capability descriptors", () => {
         "apktool",
         "filesystem",
         "frida",
+        "ghidra",
         "jadx",
         "triage",
         "verifyClaims",
@@ -65,6 +66,7 @@ describe("built-in capability descriptors", () => {
       "apktool.patch",
       "filesystem.scan-secrets",
       "frida.trace",
+      "ghidra.analyze",
       "jadx.decompile",
       "triage.assess",
     ]);

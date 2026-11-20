@@ -1,8 +1,8 @@
 # MCP Agents
 
 `src/modules/mcp/orchestrator.ts` registers a handler per agent kind.
-`jadx`, `apktool`, `apksigner`, `apkid`, `triage`, `apkmcp`, `filesystem`, `adb`, and
-`frida` all have real implementations - `frida` has the biggest asterisk on "real"
+`jadx`, `apktool`, `apksigner`, `apkid`, `triage`, `apkmcp`, `filesystem`, `adb`,
+`frida`, and `ghidra` all have real implementations - `frida` has the biggest asterisk on "real"
 (see below). Dispatching a task (`POST /workspaces/:id/tasks`) is
 fire-and-forget: it returns immediately with `status: "queued"`, then
 moves to `running` then `completed`/`failed` as the handler runs - poll
@@ -284,6 +284,26 @@ observed" language, never "safe"/"protected" - marker absence doesn't
 prove a target doesn't detect instrumentation. Anything that couldn't
 run (apkid missing, no manifest found) is listed in `warnings` instead
 of silently absent.
+
+### ghidra
+
+Requires Ghidra (12.2 pinned in `Dockerfile.runtime`) with `GHIDRA_HOME`
+pointing at the extracted release directory, or `analyzeHeadless` on `PATH`;
+a JDK 25+ must be resolvable by Ghidra's launcher. Analyzes ELF/.so (and
+other Ghidra-importable binaries) headlessly: every function's decompiled C,
+cross-references and call targets, written as one JSON report.
+
+```bash
+curl -X POST http://localhost:8080/workspaces/<workspaceId>/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"agent": "ghidra", "operation": "analyze", "payload": {"filePath": "/absolute/path/to/libnative.so"}}'
+```
+
+Output goes to `WORKSPACES_ROOT/<workspaceId>/ghidra/`; the result carries a
+50-function preview and the full report path (the artifact). Analysis runs a
+temporary project and deletes it afterwards; per-function decompile output is
+capped at 8 KiB and the report at 2,000 functions (the response flags
+truncation). Large `.so` files can take minutes - the agent allows 30.
 
 ### apkmcp
 

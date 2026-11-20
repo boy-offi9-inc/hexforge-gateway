@@ -154,6 +154,79 @@ Worth knowing on any of them:
 Falling back is logged (`[storage:postgres] select workspaces failed,
 falling back to local storage: ...`), so it's visible rather than silent.
 
+### Neon (Postgres) hosting guide, step by step
+
+The free Neon tier is enough for HexForge's single-operator data volumes
+(workspaces, knowledge entries, jobs and workflows are small records).
+
+1. **Create the project.** Sign up at neon.tech, create a project (any
+   name; a HexForge workspace is a *record*, not a Neon project), and
+   pick the Postgres version it offers by default. Note the region - the
+   Gateway talks to it on every request, so pick the one closest to
+   wherever the Gateway runs (a Termux phone, a VPS, a PC).
+
+2. **Copy the pooled connection string.** Neon's dashboard shows a
+   connection string per branch. Use the one with `-pooler` in the host
+   (Neon's pgBouncer pooled endpoint) - HexForge's pool is small
+   (`max: 5` in `providers/storage.provider.ts`), and the pooled endpoint
+   is what the free tier is sized for. It looks like:
+
+   ```
+   postgresql://user:password@ep-xyz-pooler.region.aws.neon.tech/neondb
+   ```
+
+   Neon's strings already carry `?sslmode=require`. Keep it - the
+   credentials travel over the network.
+
+3. **Apply the schema, once.** With `psql` (or Neon's SQL editor, which
+   accepts the same statements):
+
+   ```bash
+   psql "postgresql://...neon.tech/neondb?sslmode=require" -f postgres.schema.sql
+   ```
+
+   It's all `create table if not exists`, so running it twice is harmless.
+
+4. **Point the Gateway at it.** In `.env` next to the Gateway:
+
+   ```bash
+   DATABASE_URL=postgresql://user:password@ep-xyz-pooler.region.aws.neon.tech/neondb?sslmode=require
+   STORAGE_BACKEND=postgres
+   ```
+
+   `DATABASE_URL` without `STORAGE_BACKEND=postgres` does nothing, and
+   the reverse fails at startup - both mistakes fail loudly on purpose
+   (see the storage section above).
+
+5. **Boot and verify.** Start the Gateway (`npm run dev`), then:
+
+   ```bash
+   curl -s http://localhost:8080/health | grep storage
+   # "storageBackend":"postgres" - the live boot check
+   ```
+
+   A `storageBackend` still reporting `local` means the backend didn't
+   switch (check `.env` was read - the startup banner prints both
+   settings). If Neon is unreachable at boot the Gateway still starts:
+   queries fall back to local storage with a logged
+   `[storage:postgres] ... falling back to local storage` line, so the
+   failure mode is visible in the logs, not silent.
+
+6. **Create a workspace and check it landed in Neon:**
+
+   ```bash
+   curl -X PUT http://localhost:8080/workspaces/by-name/neon-test      -H "Content-Type: application/json" -d '{}'
+   ```
+   then in Neon's SQL editor: `select id, data from workspaces;` should
+   show the row. Delete it from the UI or with a `DELETE` when done.
+
+Two things worth knowing before relying on it: writes fall back to
+**local** storage during a Neon outage and are *not* replayed when Neon
+returns (check `data/*.json` for the gap, per the storage section); and
+Neon's free tier autosuspends after inactivity - the first request after
+a suspension pays a cold-start of a second or so, which is visible as a
+slow first job after an idle period and nothing else.
+
 
 ## Console output
 

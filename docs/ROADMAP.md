@@ -1,12 +1,15 @@
 # Roadmap
 
 Everything core is built and documented in the other `docs/` files: Event
-Bus, Job/Workflow Engines, Knowledge Engine, all ten MCP agents, Auth,
+Bus, Job/Workflow Engines, Knowledge Engine, all eleven MCP agents, Auth,
 nine AI providers, Terminal chat, the MCP Server Frontend, the Plugin
 System, local storage, and CI. This page tracks what's still open.
 
 ## Open
 
+- [ ] Graph URLs and strings: extract URL and string entities from decoded
+  resources and sources and link them to their artifacts (`maps-to` edges) - the
+  last graph population slice after classes, inheritance and methods/calls
 - [ ] Web interface (once this exists, `STORAGE_BACKEND=supabase` becomes worth turning back on for shared state)
 
 ## Done
@@ -30,9 +33,7 @@ System, local storage, and CI. This page tracks what's still open.
   cited `file:line` is real and in range, graph entity observed in the artifact - and
   with `apply: true` writes the verdict back (`verified`/`partial` -> `confirmed`,
   `unverified` -> stays, `failed` -> `contradicted`). A claim with no checkable evidence
-  is flagged, never silently trusted. Manifest/resources graph population remains the
-  one open graph slice (URLs/strings; the methods-and-calls-edges slice is
-  done).
+  is flagged, never silently trusted.
 
 - [x] MCP server frontend auth hardening: per-key rate limiting on `/mcp` (`MCP_HTTP_RATE_LIMIT_MAX`/`MCP_HTTP_RATE_LIMIT_WINDOW_MS`, fixed-window, 429 + Retry-After; client IP as the identity without auth), the existing Origin allowlist (`MCP_HTTP_ALLOWED_ORIGINS`) now documented as the CORS story, and an optional append-only audit log of every `/mcp` request (`MCP_HTTP_AUDIT_LOG`, JSON Lines, keys fingerprinted, tool arguments never recorded). See `src/mcp-server/auth-hardening.ts` and `docs/MCP_SERVER.md`
 - [x] 1.6.0: custom AI providers via `AI_PROVIDERS_PATH` (file-defined providers with per-call override, alongside the nine built-ins) and a Postgres storage backend (`DATABASE_URL`, Neon works) - see `docs/AI.md` and `docs/SETUP.md`. The storage layer became a `getStorage()` factory, so services no longer import the supabase/local providers directly

@@ -9,6 +9,7 @@ System, local storage, and CI. This page tracks what's still open.
 
 - [ ] Per-workspace AI provider selection: a workspace-scoped provider override, not just the global `AI_PROVIDER` - the `AI_PROVIDERS_PATH` file shipped in 1.6.0 (`docs/AI.md`) is the base to build on
 - [ ] Neon/Postgres hosting guide: a `docs/SETUP.md` section walking through the Neon free tier with `DATABASE_URL`, schema apply, and verifying with a live boot (the Postgres backend shipped in 1.6.0, the guide does not exist yet)
+- [ ] Graph population (methods, URLs, manifest/resources, calls/invokes/accesses edges) and the claim-verification workflow step - **in progress**: the manifest-and-resources slice is DONE (`graph/manifest-indexer.ts`: the decoded manifest's components/permissions/intent-filters and the `res/`+`assets/` files become graph entities and edges, registered beside the smali indexer; see ARCHITECTURE.md's "Manifest and resources"). STILL OPEN in this item: `calls`/`invokes` edges between methods (from smali `invoke-*` opcodes), `url` entities extracted from resources and code, `accesses` edges from resource references across files, `maps-to` edges from manifest components to their indexed code entities, and the claim-verification workflow step (a workflow operation that re-checks every finding's evidence at the end of a run) - not started
 - [ ] Web interface (once this exists, `STORAGE_BACKEND=supabase` becomes worth turning back on for shared state)
 
 ## Done

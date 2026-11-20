@@ -17,6 +17,7 @@ import { register as registerArtifactRecorder } from "../artifacts/recorder.js";
 import { register as registerGraphIndexer } from "../graph/java-indexer.js";
 import { register as registerSmaliIndexer } from "../graph/smali-indexer.js";
 import { register as registerSecretIndexer } from "../graph/secret-indexer.js";
+import { register as registerManifestIndexer } from "../graph/manifest-indexer.js";
 import { loadPlugins } from "../plugins/loader.js";
 import { registerWebsocketGateway } from "./websocket.js";
 import { registerAuth } from "./auth.js";
@@ -86,6 +87,11 @@ export async function buildServer() {
   // Turns secret-scan artifacts into redacted secret-candidate entities in
   // the knowledge graph (see graph/secret-indexer.ts).
   registerSecretIndexer();
+
+  // Turns an apktool project's decoded manifest and resources into
+  // component, permission and intent-filter entities in the knowledge
+  // graph (see graph/manifest-indexer.ts).
+  registerManifestIndexer();
 
   // Loaded last so plugin-registered routes/agents/listeners land on a
   // fully-formed Gateway (all core routes and indexers already active).

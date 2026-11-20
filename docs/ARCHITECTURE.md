@@ -449,6 +449,44 @@ The same cap applies - 20,000 classes per decode, counted separately from the
 Java index - and the same batch path (one write per collection). A class that
 appears in two dex directories keeps its first copy.
 
+#### Manifest and resources
+
+`graph/manifest-indexer.ts` also listens for `apktool-project` artifacts and
+indexes the parts of the decode the smali indexer deliberately ignores: the
+decoded `AndroidManifest.xml` and the files under `res/` and `assets/`.
+
+From the manifest:
+
+- the `package` attribute becomes a `package` entity with `appId: true` (the
+  app id - a namespace, not a code package);
+- every declared component (`activity`, `service`, `receiver`, `provider`)
+  becomes a `class` entity with a `component` attribute naming its tag, and
+  `exported` when the manifest says so. Relative names (`.MainActivity`) are
+  resolved against the app package, fully-qualified ones kept as written -
+  so a component the smali/java indexers also saw is the **same entity**,
+  enriched with the component role;
+- `uses-permission` entries become `resource` entities named
+  `permission:<name>`, with a `package -> resource` `accesses` edge from the
+  app package (a permission is something the app asks the platform for, not
+  code it contains);
+- `<intent-filter>` actions and categories become `resource` entities named
+  `intent:<value>`, with a `component -> resource` `accesses` edge - the
+  cheap, high-signal half of the app's external surface (its launcher
+  entry, deep links and exported receivers).
+
+Resource files are `resource` entities named by their project-relative path
+(`res/layout/main.xml`), with a `contains` edge from the app package when it
+is known, capped at 20,000 files per decode like the class index. Parsing is
+regex-based, same as triage's manifest analysis - the decoded manifest is
+plain XML, and the graph needs two attributes and three tag types, not a new
+XML dependency. A manifest entry the smali indexer can't see (a component
+declared but stripped from the dex, an intent filter, a permission) is
+exactly why this indexer exists.
+
+Not yet derived (open): `calls`/`invokes` edges between methods, URL
+entities from resources and code, and `maps-to` edges from manifest
+components to their indexed code - see the roadmap's graph-population item.
+
 #### Secret candidates
 
 `graph/secret-indexer.ts` listens for `secret-scan` artifacts - what

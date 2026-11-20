@@ -50,6 +50,23 @@ The Gateway starts on `http://localhost:8080` and prints a banner with your
 workspaces and copy-pasteable commands. `GET /` returns the same as JSON —
 the quickest way to see what's here.
 
+## Skills pack
+
+Ready-to-use [skills](skills/README.md) drive whole workflows from any
+skill-capable agent CLI (Claude Code and friends): full APK triage with
+verified findings, the decode → patch → rebuild → sign chain, and MCP
+server registration for Claude Desktop/Code/Cursor.
+
+```bash
+cp -r skills/hexforge-apk-triage ~/.claude/skills/
+```
+
+HexForge also speaks MCP as a server
+([`docs/MCP_SERVER.md`](docs/MCP_SERVER.md)), so its agents register as
+native tools in any MCP client — and the repo ships a
+[`smithery.yaml`](smithery.yaml) for one-click install on
+[Smithery](https://smithery.ai).
+
 ## How it fits together
 
 ```
@@ -129,6 +146,7 @@ Gateway — see `tests/README.md` for the split.
 | [`docs/EVIDENCE.md`](docs/EVIDENCE.md) | From a task's output to a finding with evidence, and checking it — step by step |
 | [`docs/AI.md`](docs/AI.md) | The AI provider layer (9 built-in providers, custom providers file), the `ai` agent, Terminal chat |
 | [`docs/MCP_SERVER.md`](docs/MCP_SERVER.md) | Registering HexForge's agents as native tools in Claude Desktop/Code/Cursor |
+| [`skills/README.md`](skills/README.md) | The skills pack — ready-to-use workflow skills for Claude Code and compatible CLIs |
 | [`docs/PLUGINS.md`](docs/PLUGINS.md) | The Plugin System — contract, loader, reference plugins |
 | [`docs/CLI.md`](docs/CLI.md) | The `hf` CLI (`scripts/hf.sh`) and `scripts/smoke-test.sh` |
 | [`docs/MT_MANAGER.md`](docs/MT_MANAGER.md) | MT Manager's APK MCP setup, with screenshots and troubleshooting |

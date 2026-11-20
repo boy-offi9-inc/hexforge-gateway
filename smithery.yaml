@@ -1,0 +1,26 @@
+# Smithery configuration for HexForge Gateway's MCP server (stdio transport).
+# https://smithery.ai/docs/concepts/servers
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      hexforgeUrl:
+        type: string
+        title: HexForge URL
+        description: URL of the running HexForge Gateway (its REST API), e.g. http://localhost:8080 or a reachable host over the network.
+        default: http://localhost:8080
+      apiKey:
+        type: string
+        title: API key
+        description: Value of HEXFORGE_API_KEY when the Gateway requires authentication. Leave empty for a Gateway without auth.
+    required: []
+  commandFunction: |-
+    (config) => ({
+      command: "node",
+      args: ["dist/mcp-server/index.js"],
+      env: {
+        HEXFORGE_URL: config.hexforgeUrl || "http://localhost:8080",
+        ...(config.apiKey ? { HEXFORGE_API_KEY: config.apiKey } : {})
+      }
+    })

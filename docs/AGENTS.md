@@ -195,6 +195,17 @@ step of a workflow. `build` also accepts `projectDir` and `outputDir` in place o
 [`APK_MODIFICATION.md`](APK_MODIFICATION.md). Only rebuild and install apps you own or are
 authorized to modify.
 
+A `validate` operation pre-flights a decoded project before a rebuild: XML
+well-formedness of the manifest and every `res/` file, empty/truncated
+smali files, and APKs referenced in `apktool.yml` that no longer exist -
+all problems reported at once, in assessment language. `build` runs the
+same checks first, so a doomed build fails in seconds instead of halfway
+through a resource cycle.
+
+XAPK and APKS bundles decode transparently: the bundle is extracted to
+`WORKSPACES_ROOT/<workspaceId>/apktool/bundles/<name>/` and the `base.apk`
+inside it is what gets decoded; the result's `bundle` field carries the
+bundle directory and file count.
 ### apksigner
 
 Aligns and signs an APK so it installs. One operation, `sign`:
@@ -221,6 +232,12 @@ lightweight one in Termux's package, which aligns for itself. The agent tells th
 if an install fails with a signature error, sign with the SDK's. A signed APK that doesn't
 verify is deleted rather than left behind.
 
+Signing uses a generated debug key by default; pass `keystorePath`,
+`keystorePass` and optionally `keystoreAlias` to sign with your own
+keystore instead (the password stays in the task payload and the spawned
+process - it is never logged or stored). A directory containing
+`base.apk` plus splits is signed APK-by-APK with the same key and repacked
+into an installable `.apks` bundle.
 ### apkid
 
 Requires `apkid` on `PATH` (`pip install apkid` - needs a yara-python

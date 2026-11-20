@@ -1,8 +1,9 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import { mkdir, rm } from "node:fs/promises";
 import path from "node:path";
+import { bundleKind, repackBundle } from "./split-bundle.js";
 import type { McpTask } from "../../../core/types.js";
 import { config } from "../../../core/config.js";
 import { friendlyExecError } from "./shared/exec-error.js";
@@ -29,6 +30,9 @@ interface SignPayload {
   outputPath?: string; // a workflow can leave apkPath out and use the previous step's outputPath
   outputName?: string; // file name written under WORKSPACES_ROOT/<workspaceId>/apksigner/signed/
   flavor?: SignerFlavor; // override the detected apksigner type
+  keystorePath?: string; // own keystore (absolute path on the Gateway host); default: the generated debug key
+  keystorePass?: string; // password for the own keystore (also used as the key password)
+  keystoreAlias?: string; // key alias inside the own keystore (sdk flavor)
 }
 
 let detectedFlavor: SignerFlavor | undefined;
@@ -101,9 +105,16 @@ function verifiedSchemes(output: string): string[] {
   return schemes;
 }
 
-async function signSdk(input: string, output: string, taskId: string) {
+async function signSdk(
+  input: string,
+  output: string,
+  taskId: string,
+  own?: { keystore: string; pass: string; alias: string },
+) {
   const warnings: string[] = [];
-  const keystore = await ensureKeystore();
+  const keystore = own?.keystore ?? (await ensureKeystore());
+  const keyAlias = own?.alias ?? KEY_ALIAS;
+  const keyPass = own?.pass ?? KEY_PASS;
 
   // Align first: apksigner's v2+ signature covers the whole file, so aligning afterwards breaks it.
   let toSign = input;
@@ -128,11 +139,11 @@ async function signSdk(input: string, output: string, taskId: string) {
       "--ks",
       keystore,
       "--ks-key-alias",
-      KEY_ALIAS,
+      keyAlias,
       "--ks-pass",
-      `pass:${KEY_PASS}`,
+      `pass:${keyPass}`,
       "--key-pass",
-      `pass:${KEY_PASS}`,
+      `pass:${keyPass}`,
       "--out",
       output,
       toSign,
@@ -152,8 +163,8 @@ async function signSdk(input: string, output: string, taskId: string) {
   return { aligned, schemes: verifiedSchemes(verified), warnings };
 }
 
-async function signLite(input: string, output: string) {
-  const keystore = path.resolve(config.DATA_DIR, "signing", "debug.keystore");
+async function signLite(input: string, output: string, own?: { keystore: string; pass: string }) {
+  const keystore = own?.keystore ?? path.resolve(config.DATA_DIR, "signing", "debug.keystore");
   await mkdir(path.dirname(keystore), { recursive: true });
   // The lite apksigner creates the keystore if it isn't there, and aligns as it signs.
   await run("apksigner", ["-p", KEY_PASS, keystore, input, output]);
@@ -174,7 +185,8 @@ export async function apksignerHandler(task: McpTask): Promise<unknown> {
 
   const input = path.resolve(apkArg);
   if (!existsSync(input)) throw new Error(`File not found at path: ${input}`);
-  if (path.extname(input).toLowerCase() !== ".apk") {
+  const isSplitDir = statSync(input).isDirectory() && bundleKind(input) === "split-dir";
+  if (!isSplitDir && path.extname(input).toLowerCase() !== ".apk") {
     throw new Error(`Expected an .apk file, got "${path.extname(input) || "no extension"}"`);
   }
 
@@ -189,9 +201,50 @@ export async function apksignerHandler(task: McpTask): Promise<unknown> {
   if (output === input) throw new Error("The signed APK can't overwrite the APK being signed");
   await rm(output, { force: true });
 
+  // Own keystore: absolute path on the Gateway host; never logged or stored
+  // - the password lives only in the task payload and the spawned process.
+  let own: { keystore: string; pass: string; alias: string } | undefined;
+  if (payload.keystorePath) {
+    if (!payload.keystorePass) {
+      throw new Error('sign with "keystorePath" also requires "keystorePass"');
+    }
+    const keystore = path.resolve(payload.keystorePath);
+    if (!existsSync(keystore)) throw new Error(`Keystore not found at path: ${keystore}`);
+    own = { keystore, pass: payload.keystorePass, alias: payload.keystoreAlias ?? KEY_ALIAS };
+  }
+
   const flavor = await signerFlavor(payload.flavor);
   const details =
-    flavor === "sdk" ? await signSdk(input, output, task.id) : await signLite(input, output);
+    flavor === "sdk"
+      ? await signSdk(input, output, task.id, own)
+      : await signLite(input, output, own);
+  if (own) {
+    details.warnings.push(
+      "Signed with a caller-provided keystore - the debug-key defaults were not used.",
+    );
+  }
+
+  // Split bundle: sign every APK in the directory (base + splits) with the
+  // same key, then repack into an installable .apks file next to them.
+  if (isSplitDir) {
+    const apkFiles = readdirSync(input).filter((f) => f.toLowerCase().endsWith(".apk"));
+    const signedDir = path.join(path.dirname(output), path.basename(output, ".apk") + "-splits");
+    await mkdir(signedDir, { recursive: true });
+    for (const f of apkFiles) {
+      const inFile = path.join(input, f);
+      const outFile = path.join(signedDir, f);
+      const one =
+        (await signerFlavor(payload.flavor)) === "sdk"
+          ? await signSdk(inFile, outFile, task.id, own)
+          : await signLite(inFile, outFile, own);
+      details.warnings.push(...one.warnings);
+    }
+    const repacked = path.join(path.dirname(output), path.basename(output, ".apk") + ".apks");
+    await repackBundle(signedDir, repacked);
+    details.warnings.push(
+      `Split bundle: signed ${apkFiles.length} APK(s) and repacked them to ${path.basename(repacked)} - install with a bundle-aware installer, not "adb install".`,
+    );
+  }
 
   return {
     outputPath: output,

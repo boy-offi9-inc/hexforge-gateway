@@ -4,6 +4,8 @@ import { existsSync, statSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { validateProject } from "./android-validate.js";
+import { bundleKind, extractBundle } from "./split-bundle.js";
 import type { McpTask } from "../../../core/types.js";
 import { config } from "../../../core/config.js";
 import { friendlyExecError } from "./shared/exec-error.js";
@@ -81,7 +83,31 @@ async function decodeHandler(task: McpTask): Promise<unknown> {
   if (!payload.apkPath) {
     throw new Error('decode requires "apkPath" in the task payload');
   }
-  const apkPath = resolveExistingApk(payload.apkPath);
+  let apkPath = resolveExistingApk(payload.apkPath);
+
+  // XAPK/APKS bundles: extract first, then decode the base APK. The other
+  // splits stay next to it in the bundle directory (repacked later by
+  // apksigner's sign, or the repackBundle helper).
+  let bundle: { dir: string; kind: string; files: number } | undefined;
+  const kind = bundleKind(apkPath);
+  if (kind === "xapk" || kind === "apks") {
+    const bundleDir = path.resolve(
+      config.WORKSPACES_ROOT,
+      task.workspaceId,
+      "apktool",
+      "bundles",
+      path.basename(apkPath, path.extname(apkPath)),
+    );
+    const { files } = await extractBundle(apkPath, bundleDir);
+    const base = path.join(bundleDir, "base.apk");
+    if (!existsSync(base)) {
+      throw new Error(
+        `"${path.basename(apkPath)}" extracted to ${files.length} file(s) but has no base.apk - not an installable Android bundle`,
+      );
+    }
+    apkPath = base;
+    bundle = { dir: bundleDir, kind, files: files.length };
+  }
 
   const outputDir = path.resolve(config.WORKSPACES_ROOT, task.workspaceId, "apktool", "decode");
   await mkdir(path.dirname(outputDir), { recursive: true });
@@ -101,6 +127,7 @@ async function decodeHandler(task: McpTask): Promise<unknown> {
       outputDir,
       fileCount: files.length,
       files,
+      bundle,
       stdoutTail: stdout.slice(-2000),
       stderrTail: stderr ? stderr.slice(-2000) : undefined,
     };
@@ -111,6 +138,27 @@ async function decodeHandler(task: McpTask): Promise<unknown> {
       err,
     );
   }
+}
+
+/** Pre-flight validation of a decoded project - report language, all issues at once. */
+async function validateHandler(task: McpTask): Promise<unknown> {
+  const payload = task.payload as unknown as BuildPayload;
+  const projectDir = payload.inputDir ?? payload.projectDir ?? payload.outputDir;
+  if (!projectDir) {
+    throw new Error(
+      'validate requires "inputDir" (a decoded apktool project directory) in the task payload',
+    );
+  }
+  const inputDir = path.resolve(projectDir);
+  const result = await validateProject(inputDir);
+  return {
+    ok: result.ok,
+    issues: result.issues,
+    checked: result.checked,
+    projectDir: inputDir,
+    // next step when ok: the "build" operation on this same projectDir
+    next: result.ok ? "build" : undefined,
+  };
 }
 
 async function buildHandler(task: McpTask): Promise<unknown> {
@@ -131,6 +179,16 @@ async function buildHandler(task: McpTask): Promise<unknown> {
   if (!existsSync(path.join(inputDir, "apktool.yml"))) {
     throw new Error(
       `"${inputDir}" doesn't look like an apktool project (no apktool.yml found). Did you mean the output of a prior "decode" operation?`,
+    );
+  }
+
+  // pre-flight: catch doomed builds in seconds instead of a mid-build failure
+  const validation = await validateProject(inputDir);
+  if (!validation.ok) {
+    throw new Error(
+      `build pre-flight found ${validation.issues.length} problem(s): ` +
+        validation.issues.map((i) => `${i.file ?? "project"}: ${i.problem}`).join("; ") +
+        ` - run the "validate" operation for the full report`,
     );
   }
 
@@ -252,13 +310,15 @@ export async function apktoolHandler(task: McpTask): Promise<unknown> {
   switch (task.operation) {
     case "decode":
       return decodeHandler(task);
+    case "validate":
+      return validateHandler(task);
     case "build":
       return buildHandler(task);
     case "patch":
       return patchHandler(task);
     default:
       throw new Error(
-        `Unsupported apktool operation "${task.operation}". Supported: "decode", "patch", "build"`,
+        `Unsupported apktool operation "${task.operation}". Supported: "decode", "patch", "validate", "build"`,
       );
   }
 }

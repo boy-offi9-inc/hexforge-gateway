@@ -29,6 +29,10 @@ beforeEach(async () => {
   project = path.join(root, "project");
   await mkdir(project, { recursive: true });
   await writeFile(path.join(project, "apktool.yml"), "version: 2\n");
+  await writeFile(
+    path.join(project, "AndroidManifest.xml"),
+    "<manifest><application /></manifest>",
+  );
   calls = [];
 
   vi.resetModules();
@@ -72,6 +76,10 @@ describe("apktool build", () => {
     const other = path.join(root, "other");
     await mkdir(other);
     await writeFile(path.join(other, "apktool.yml"), "version: 2\n");
+    await writeFile(
+      path.join(other, "AndroidManifest.xml"),
+      "<manifest><application /></manifest>",
+    );
 
     await build({ inputDir: project, outputDir: other });
 

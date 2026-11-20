@@ -45,6 +45,12 @@ export const builtinDescriptors = {
         inputs: { required: ["projectDir", "file", "find", "replace"], optional: ["all"] },
         outputs: ["apk-patch"],
       },
+      {
+        name: "validate",
+        capability: "android.validate",
+        inputs: { required: ["inputDir"], optional: [] },
+        outputs: [],
+      },
     ],
   },
   apksigner: {
@@ -55,7 +61,10 @@ export const builtinDescriptors = {
       {
         name: "sign",
         capability: "android.sign",
-        inputs: { required: ["apkPath"], optional: ["outputName", "flavor"] },
+        inputs: {
+          required: ["apkPath"],
+          optional: ["outputName", "flavor", "keystorePath", "keystorePass", "keystoreAlias"],
+        },
         outputs: ["signed-apk"],
       },
     ],

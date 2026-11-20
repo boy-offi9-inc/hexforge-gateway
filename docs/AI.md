@@ -191,3 +191,37 @@ curl http://localhost:8080/workspaces/<id>/chat   # full transcript, oldest-firs
 
 Or from the terminal with `hf chat` - see `docs/CLI.md`.
 
+## Per-workspace provider selection
+
+The global `AI_PROVIDER` is the default for every workspace, but any
+workspace can override it - useful when one workspace's analysis should
+run on a cheap local model while another uses a frontier one, without
+restarting the Gateway between them.
+
+```bash
+# set an override (a built-in name or one from AI_PROVIDERS_PATH)
+curl -X PATCH http://localhost:8080/workspaces/<id>/ai-provider \
+  -H "Content-Type: application/json" \
+  -d '{"aiProvider": "groq"}'
+
+# clear it - the workspace goes back to the global AI_PROVIDER
+curl -X PATCH http://localhost:8080/workspaces/<id>/ai-provider \
+  -H "Content-Type: application/json" \
+  -d '{"aiProvider": null}'
+```
+
+The response is the workspace record with its `aiProvider` field set (or
+the field gone, once cleared). The name is validated against every
+provider the AI layer can currently dispatch on - nine built-ins plus
+whatever the `AI_PROVIDERS_PATH` file defines - so a typo is a `400`
+immediately, not a failure on the first chat call. An unknown provider
+for a *built-in* name still needs that provider's key configured in the
+environment; the override only selects who answers, not how they're
+authenticated.
+
+The override applies to everything scoped to that workspace: `POST
+/workspaces/:id/chat`, `POST /knowledge/:entryId/summarize`, and the
+`ai` agent's `summarize` operation when dispatched into the workspace.
+It is stored on the workspace record itself, so it survives a Gateway
+restart and applies until changed or cleared.
+

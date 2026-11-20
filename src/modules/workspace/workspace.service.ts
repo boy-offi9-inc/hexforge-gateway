@@ -1,6 +1,7 @@
 import { nanoid } from "nanoid";
 import { getStorage, localStorageProvider } from "../../providers/storage.provider.js";
 import { eventBus } from "../../events/event-bus.js";
+import { BUILTIN_AI_PROVIDERS, customAiProviders } from "../../core/config.js";
 import type { Workspace, WorkspaceStatus } from "../../core/types.js";
 
 const COLLECTION = "workspaces";
@@ -73,4 +74,41 @@ export async function updateWorkspaceStatus(
   }
 
   return updated;
+}
+
+/**
+ * Sets (or clears, with `null`) a workspace's AI provider override. The
+ * name is validated here against the same set `ai.provider.ts` dispatches
+ * on - a bad name is a 400, not a surprise at the first chat call. The
+ * override is stored on the workspace record itself, so it survives
+ * restarts and applies to every AI call scoped to this workspace (chat,
+ * summarize, the ai agent) until changed.
+ */
+export async function setWorkspaceAiProvider(
+  id: string,
+  provider: string | null,
+): Promise<Workspace | null> {
+  const previous = await getWorkspace(id);
+  if (!previous) return null;
+
+  if (provider !== null) {
+    const available = availableAiProviders();
+    if (!available.has(provider)) {
+      const names = [...available].sort();
+      throw new Error(`Unknown AI provider "${provider}". Available: ${names.join(", ")}.`);
+    }
+  }
+
+  const updated: Workspace = {
+    ...previous,
+    aiProvider: provider ?? undefined,
+    updatedAt: new Date().toISOString(),
+  };
+  await store().upsertRecord(COLLECTION, updated);
+  return updated;
+}
+
+/** Every provider name the AI layer can dispatch on right now. */
+export function availableAiProviders(): Set<string> {
+  return new Set([...BUILTIN_AI_PROVIDERS, ...customAiProviders.map((entry) => entry.name)]);
 }

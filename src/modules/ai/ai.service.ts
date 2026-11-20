@@ -1,5 +1,6 @@
 import * as aiProvider from "../../providers/ai.provider.js";
 import * as knowledgeService from "../knowledge/knowledge.service.js";
+import * as workspaceService from "../workspace/workspace.service.js";
 import type { KnowledgeEntry } from "../../core/types.js";
 import type { ChatMessage } from "../../providers/ai.provider.js";
 
@@ -52,11 +53,19 @@ export async function summarizeEntry(entryId: string): Promise<KnowledgeEntry> {
   const entry = await knowledgeService.getEntry(entryId);
   if (!entry) throw new Error(`Knowledge entry ${entryId} not found`);
 
-  const summaryText = await aiProvider.complete({
-    system: SUMMARIZE_SYSTEM_PROMPT,
-    prompt: `Title: ${entry.title}\n\n${entry.content}`,
-    maxTokens: 512,
-  });
+  // A workspace-level provider override (see setWorkspaceAiProvider) beats
+  // the global AI_PROVIDER for everything scoped to that workspace.
+  const workspace = await workspaceService.getWorkspace(entry.workspaceId);
+  const provider = workspace?.aiProvider;
+
+  const summaryText = await aiProvider.complete(
+    {
+      system: SUMMARIZE_SYSTEM_PROMPT,
+      prompt: `Title: ${entry.title}\n\n${entry.content}`,
+      maxTokens: 512,
+    },
+    provider ? { provider } : undefined,
+  );
 
   return knowledgeService.createEntry({
     workspaceId: entry.workspaceId,
@@ -163,12 +172,20 @@ export async function chat(
     source: "user",
   });
 
-  const reply = await aiProvider.complete({
-    system: CHAT_SYSTEM_PROMPT,
-    prompt: message,
-    history,
-    maxTokens: 1024,
-  });
+  // Per-workspace provider override (see setWorkspaceAiProvider); falls
+  // back to the global AI_PROVIDER when the workspace has none.
+  const workspace = await workspaceService.getWorkspace(workspaceId);
+  const provider = workspace?.aiProvider;
+
+  const reply = await aiProvider.complete(
+    {
+      system: CHAT_SYSTEM_PROMPT,
+      prompt: message,
+      history,
+      maxTokens: 1024,
+    },
+    provider ? { provider } : undefined,
+  );
 
   const replyEntry = await knowledgeService.createEntry({
     workspaceId,

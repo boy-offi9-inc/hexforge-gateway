@@ -5,6 +5,12 @@ export interface Workspace {
   name: string;
   targetLabel: string; // e.g. "com.example.app" - a user-supplied reference, not a file
   status: WorkspaceStatus;
+  /**
+   * Optional workspace-scoped AI provider override (per-workspace provider
+   * selection). A built-in name or one from the AI_PROVIDERS_PATH file;
+   * validated at set time. Unset means the global AI_PROVIDER applies.
+   */
+  aiProvider?: string;
   createdAt: string;
   updatedAt: string;
 }

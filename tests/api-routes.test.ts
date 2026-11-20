@@ -46,6 +46,8 @@ async function buildApp(opts: { aiConfigured?: boolean } = {}) {
       listWorkspaces: vi.fn(),
       getOrCreateWorkspace: vi.fn(),
       updateWorkspaceStatus: vi.fn(),
+      setWorkspaceAiProvider: vi.fn(),
+      availableAiProviders: vi.fn(() => new Set(["anthropic", "groq"])),
     },
     orchestrator: { dispatch: vi.fn(), listTasksForWorkspace: vi.fn() },
     inbox: { listInboxApks: vi.fn() },
@@ -228,6 +230,83 @@ describe("workspace routes", () => {
     expect(missing.statusCode).toBe(404);
     expect(found.statusCode).toBe(200);
     expect(found.json()).toEqual(workspace);
+  });
+
+  it("PATCH /workspaces/:id/ai-provider sets a workspace-scoped provider", async () => {
+    const { app: a, m } = await buildApp();
+    app = a;
+    const updated = { ...workspace, aiProvider: "groq" };
+    m.workspace.setWorkspaceAiProvider.mockResolvedValue(updated);
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: "/workspaces/ws1/ai-provider",
+      payload: { aiProvider: "groq" },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual(updated);
+    expect(m.workspace.setWorkspaceAiProvider).toHaveBeenCalledWith("ws1", "groq");
+  });
+
+  it("PATCH /workspaces/:id/ai-provider accepts null to clear the override", async () => {
+    const { app: a, m } = await buildApp();
+    app = a;
+    m.workspace.setWorkspaceAiProvider.mockResolvedValue(workspace);
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: "/workspaces/ws1/ai-provider",
+      payload: { aiProvider: null },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(m.workspace.setWorkspaceAiProvider).toHaveBeenCalledWith("ws1", null);
+  });
+
+  it("PATCH /workspaces/:id/ai-provider returns 400 on an unknown provider", async () => {
+    const { app: a, m } = await buildApp();
+    app = a;
+    m.workspace.setWorkspaceAiProvider.mockImplementation(() => {
+      throw new Error('Unknown AI provider "nope". Available: anthropic, groq.');
+    });
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: "/workspaces/ws1/ai-provider",
+      payload: { aiProvider: "nope" },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toContain("Unknown AI provider");
+  });
+
+  it("PATCH /workspaces/:id/ai-provider rejects a malformed body", async () => {
+    const { app: a, m } = await buildApp();
+    app = a;
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: "/workspaces/ws1/ai-provider",
+      payload: { aiProvider: 42 },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(m.workspace.setWorkspaceAiProvider).not.toHaveBeenCalled();
+  });
+
+  it("PATCH /workspaces/:id/ai-provider 404s on a missing workspace", async () => {
+    const { app: a, m } = await buildApp();
+    app = a;
+    m.workspace.setWorkspaceAiProvider.mockResolvedValue(null);
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: "/workspaces/missing/ai-provider",
+      payload: { aiProvider: "groq" },
+    });
+
+    expect(res.statusCode).toBe(404);
   });
 
   describe("POST /workspaces/:id/tasks", () => {

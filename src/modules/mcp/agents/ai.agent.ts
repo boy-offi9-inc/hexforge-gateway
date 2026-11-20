@@ -1,5 +1,6 @@
 import type { McpTask } from "../../../core/types.js";
 import * as aiProvider from "../../../providers/ai.provider.js";
+import * as workspaceService from "../../../modules/workspace/workspace.service.js";
 
 interface SummarizePayload {
   content: string;
@@ -37,11 +38,19 @@ export async function aiHandler(task: McpTask): Promise<unknown> {
 
   const { content, instructions } = assertSummarizePayload(task.payload);
 
-  const summary = await aiProvider.complete({
-    system: SUMMARIZE_SYSTEM_PROMPT,
-    prompt: instructions ? `${instructions}\n\n---\n\n${content}` : content,
-    maxTokens: 512,
-  });
+  // The workspace's provider override (if set) applies to the ai agent too,
+  // same as chat and summarize.
+  const workspace = await workspaceService.getWorkspace(task.workspaceId);
+  const provider = workspace?.aiProvider;
+
+  const summary = await aiProvider.complete(
+    {
+      system: SUMMARIZE_SYSTEM_PROMPT,
+      prompt: instructions ? `${instructions}\n\n---\n\n${content}` : content,
+      maxTokens: 512,
+    },
+    provider ? { provider } : undefined,
+  );
 
   return { summary };
 }

@@ -6,6 +6,7 @@ nine AI providers, Terminal chat, the MCP Server Frontend, the Plugin
 System, local storage, and CI. This page tracks what's still open.
 
 - [x] Headless native analysis (`ghidra` agent): Ghidra 12.2 (pinned in `Dockerfile.runtime`, JDK 25) runs `analyzeHeadless` on an ELF/.so (or any Ghidra-importable binary) in a temporary project - a plain-Java post-script decompiles every function (8 KiB/function cap, 2,000-function cap with truncation flagged) and records xrefs and call targets into one JSON report artifact, with a 50-function preview in the result. See `docs/AGENTS.md`
+- [x] JNI correlation (`graph/native-indexer.ts`): the ghidra agent's native-analysis reports become `native-function` entities (name, address, size, 20k cap), and every exported symbol following the JNI naming rule (`Java_com_acme_Foo_bar`, escapes decoded, overload suffix dropped) gets a `maps-to` edge to the `native` Java method it implements - overloads all match the same symbol. The Java method keeps only its decompile artifacts as evidence; the edge links the two without faking observations. See `docs/ARCHITECTURE.md`
 ## Open
 
 - [ ] Graph URLs and strings: extract URL and string entities from decoded

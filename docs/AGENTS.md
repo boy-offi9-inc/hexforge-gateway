@@ -299,7 +299,10 @@ curl -X POST http://localhost:8080/workspaces/<workspaceId>/tasks \
   -d '{"agent": "ghidra", "operation": "analyze", "payload": {"filePath": "/absolute/path/to/libnative.so"}}'
 ```
 
-Output goes to `WORKSPACES_ROOT/<workspaceId>/ghidra/`; the result carries a
+Indexed into the knowledge graph: every function becomes a `native-function`
+entity, and `Java_...` JNI symbols get `maps-to` edges to the `native` Java
+methods they implement (see `docs/ARCHITECTURE.md`). Output goes to
+`WORKSPACES_ROOT/<workspaceId>/ghidra/`; the result carries a
 50-function preview and the full report path (the artifact). Analysis runs a
 temporary project and deletes it afterwards; per-function decompile output is
 capped at 8 KiB and the report at 2,000 functions (the response flags

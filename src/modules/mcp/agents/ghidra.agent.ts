@@ -185,6 +185,7 @@ export async function ghidraHandler(task: McpTask): Promise<unknown> {
 
   return {
     reportPath,
+    outputPath: reportPath,
     program: report.program,
     language: report.language,
     functionCount: report.functionCount,

@@ -18,6 +18,7 @@ import { register as registerGraphIndexer } from "../graph/java-indexer.js";
 import { register as registerSmaliIndexer } from "../graph/smali-indexer.js";
 import { register as registerSecretIndexer } from "../graph/secret-indexer.js";
 import { register as registerManifestIndexer } from "../graph/manifest-indexer.js";
+import { register as registerNativeIndexer } from "../graph/native-indexer.js";
 import { loadPlugins } from "../plugins/loader.js";
 import { registerWebsocketGateway } from "./websocket.js";
 import { registerAuth } from "./auth.js";
@@ -83,6 +84,11 @@ export async function buildServer() {
   // The same for decoded apktool projects: smali classes and packages, merged with
   // the Java entities where jadx saw the same class (see graph/smali-indexer.ts).
   registerSmaliIndexer();
+
+  // Turns the ghidra agent's native-analysis reports into native-function
+  // entities and links JNI symbols to their Java methods with maps-to edges
+  // (see graph/native-indexer.ts).
+  registerNativeIndexer();
 
   // Turns secret-scan artifacts into redacted secret-candidate entities in
   // the knowledge graph (see graph/secret-indexer.ts).

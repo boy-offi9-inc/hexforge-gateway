@@ -27,6 +27,11 @@ export class GraphError extends Error {}
  * same entity (or adding the same edge) twice finds the existing record with
  * a single lookup instead of scanning the collection.
  */
+/** The stable entity id for a workspace + type + name (same derivation the upserts use). */
+export function entityId(workspaceId: string, ref: { type: EntityType; name: string }): string {
+  return stableId(workspaceId, ref.type, ref.name);
+}
+
 function stableId(...parts: string[]): string {
   return createHash("sha256").update(parts.join("\0")).digest("hex").slice(0, 16);
 }

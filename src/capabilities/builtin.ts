@@ -73,7 +73,8 @@ export const builtinDescriptors = {
     ],
   },
   triage: {
-    description: "Fingerprint-first triage of an APK or decoded project: manifest, native libs, Kotlin name recovery.",
+    description:
+      "Fingerprint-first triage of an APK or decoded project: manifest, native libs, Kotlin name recovery.",
     backends: [{ tool: "apkid" }],
     permissions: ["fs:workspace"],
     operations: [
@@ -262,6 +263,21 @@ export const builtinDescriptors = {
         name: "summarize",
         capability: "ai.summarize",
         inputs: { required: ["content"], optional: ["instructions"] },
+      },
+    ],
+  },
+  verifyClaims: {
+    description:
+      "Claim verification: re-checks each finding's cited evidence (artifact exists, " +
+      "file:line is real and in range, graph entity observed in the artifact) and can " +
+      "apply the verdict to the finding's status. The workflow step that keeps AI " +
+      "summaries honest.",
+    permissions: ["fs:workspace"],
+    operations: [
+      {
+        name: "verify",
+        capability: "evidence.verify",
+        inputs: { required: [], optional: ["findingIds", "apply"] },
       },
     ],
   },

@@ -13,6 +13,7 @@ import { filesystemHandler } from "./agents/filesystem.agent.js";
 import { adbHandler } from "./agents/adb.agent.js";
 import { fridaHandler } from "./agents/frida.agent.js";
 import { apkidHandler } from "./agents/apkid.agent.js";
+import { verifyClaimsHandler } from "./agents/verify-claims.agent.js";
 import { triageHandler } from "./agents/triage.agent.js";
 
 /**
@@ -127,3 +128,4 @@ orchestrator.registerAgent("adb", adbHandler, d.adb);
 orchestrator.registerAgent("frida", fridaHandler, d.frida);
 orchestrator.registerAgent("apkid", apkidHandler, d.apkid);
 orchestrator.registerAgent("triage", triageHandler, d.triage);
+orchestrator.registerAgent("verify-claims", verifyClaimsHandler, d.verifyClaims);

@@ -7,12 +7,25 @@ System, local storage, and CI. This page tracks what's still open.
 
 ## Open
 
-- [ ] Per-workspace AI provider selection: a workspace-scoped provider override, not just the global `AI_PROVIDER` - the `AI_PROVIDERS_PATH` file shipped in 1.6.0 (`docs/AI.md`) is the base to build on
-- [ ] Neon/Postgres hosting guide: a `docs/SETUP.md` section walking through the Neon free tier with `DATABASE_URL`, schema apply, and verifying with a live boot (the Postgres backend shipped in 1.6.0, the guide does not exist yet)
-- [ ] Graph population (methods, URLs, manifest/resources, calls/invokes/accesses edges) and the claim-verification workflow step - **in progress**: the manifest-and-resources slice is DONE (`graph/manifest-indexer.ts`: the decoded manifest's components/permissions/intent-filters and the `res/`+`assets/` files become graph entities and edges, registered beside the smali indexer; see ARCHITECTURE.md's "Manifest and resources"). STILL OPEN in this item: `calls`/`invokes` edges between methods (from smali `invoke-*` opcodes), `url` entities extracted from resources and code, `accesses` edges from resource references across files, `maps-to` edges from manifest components to their indexed code entities, and the claim-verification workflow step (a workflow operation that re-checks every finding's evidence at the end of a run) - not started
 - [ ] Web interface (once this exists, `STORAGE_BACKEND=supabase` becomes worth turning back on for shared state)
 
 ## Done
+- [x] Per-workspace AI provider selection: `PATCH /workspaces/:id/ai-provider` stores a
+  workspace-scoped override (built-in or `AI_PROVIDERS_PATH` name, validated at set time
+  against everything the AI layer can dispatch on) that applies to that workspace's chat,
+  knowledge summarize and `ai` agent calls; `null` clears it back to the global
+  `AI_PROVIDER` (`docs/AI.md` documents it).
+- [x] Neon/Postgres hosting guide in `docs/SETUP.md`: the Neon free tier end to end -
+  pooled connection string, `postgres.schema.sql`, `DATABASE_URL` +
+  `STORAGE_BACKEND=postgres`, the `/health` boot check, and the outage/fallback
+  behavior spelled out.
+- [x] Claim-verification workflow step (`verify-claims` agent): re-runs every finding in a
+  workspace (or an explicit id list) through the evidence verifier - artifact exists,
+  cited `file:line` is real and in range, graph entity observed in the artifact - and
+  with `apply: true` writes the verdict back (`verified`/`partial` -> `confirmed`,
+  `unverified` -> stays, `failed` -> `contradicted`). A claim with no checkable evidence
+  is flagged, never silently trusted. Manifest/resources graph population remains the
+  one open graph item (methods/URLs/calls-edges slices).
 
 - [x] MCP server frontend auth hardening: per-key rate limiting on `/mcp` (`MCP_HTTP_RATE_LIMIT_MAX`/`MCP_HTTP_RATE_LIMIT_WINDOW_MS`, fixed-window, 429 + Retry-After; client IP as the identity without auth), the existing Origin allowlist (`MCP_HTTP_ALLOWED_ORIGINS`) now documented as the CORS story, and an optional append-only audit log of every `/mcp` request (`MCP_HTTP_AUDIT_LOG`, JSON Lines, keys fingerprinted, tool arguments never recorded). See `src/mcp-server/auth-hardening.ts` and `docs/MCP_SERVER.md`
 - [x] 1.6.0: custom AI providers via `AI_PROVIDERS_PATH` (file-defined providers with per-call override, alongside the nine built-ins) and a Postgres storage backend (`DATABASE_URL`, Neon works) - see `docs/AI.md` and `docs/SETUP.md`. The storage layer became a `getStorage()` factory, so services no longer import the supabase/local providers directly

@@ -322,6 +322,24 @@ exists, not that the claim about it is true, so a finding's `status` stays
 whatever someone or something set it to. The check is computed on demand and
 not stored, so it can't go stale.
 
+### Claim verification as a workflow step
+
+The `verify-claims` agent (`mcp/agents/verify-claims.agent.ts`) turns that
+on-demand check into a step a workflow can compose after an AI summary:
+dispatch `agent: "verify-claims", operation: "verify"` and it re-runs
+`verifyFinding` for every finding in the workspace (or an explicit
+`findingIds` list) and returns a per-finding report plus a tally
+(`verified` / `partial` / `unverified` / `failed`). By default it is
+read-only and nothing changes. With `apply: true` the verdict is written
+back to each finding's status: `verified` and `partial` become
+`confirmed`, `failed` becomes `contradicted`, and `unverified` - a claim
+nothing checkable supports - stays `unverified`, i.e. flagged rather
+than trusted. That is the "the AI must cite artifacts for each claim"
+guarantee in executable form: an AI summary whose findings cite files
+that don't exist comes out `failed`, and anything downstream that
+filters on `status === "confirmed"` only sees claims whose evidence
+survived the re-check.
+
 ### Findings report
 
 `GET /workspaces/:id/report` (`report/`) turns a workspace's findings into

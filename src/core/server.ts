@@ -19,6 +19,7 @@ import { register as registerSmaliIndexer } from "../graph/smali-indexer.js";
 import { register as registerSecretIndexer } from "../graph/secret-indexer.js";
 import { register as registerManifestIndexer } from "../graph/manifest-indexer.js";
 import { register as registerNativeIndexer } from "../graph/native-indexer.js";
+import { register as registerUrlStringIndexer } from "../graph/url-string-indexer.js";
 import { loadPlugins } from "../plugins/loader.js";
 import { registerWebsocketGateway } from "./websocket.js";
 import { registerAuth } from "./auth.js";
@@ -89,6 +90,11 @@ export async function buildServer() {
   // entities and links JNI symbols to their Java methods with maps-to edges
   // (see graph/native-indexer.ts).
   registerNativeIndexer();
+
+  // Extracts URL and string entities from decompiles and apktool projects
+  // and maps them to the classes they appear in (see
+  // graph/url-string-indexer.ts) - the last graph population slice.
+  registerUrlStringIndexer();
 
   // Turns secret-scan artifacts into redacted secret-candidate entities in
   // the knowledge graph (see graph/secret-indexer.ts).

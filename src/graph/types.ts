@@ -5,6 +5,7 @@ export const ENTITY_TYPES = [
   "native-function",
   "resource",
   "url",
+  "string",
   "secret-candidate",
   "runtime-event",
   "traffic-event",

@@ -291,7 +291,8 @@ export const AGENT_TOOLS: AgentToolSpec[] = [
         },
         timeoutSeconds: {
           type: "number",
-          description: "Forwarded to apkid's per-file YARA scan timeout when the target is an .apk. Default 30.",
+          description:
+            "Forwarded to apkid's per-file YARA scan timeout when the target is an .apk. Default 30.",
           default: 30,
           minimum: 1,
         },
@@ -835,6 +836,7 @@ export const META_TOOL_DEFINITIONS: ToolDefinition[] = [
             "native-function",
             "resource",
             "url",
+            "string",
             "secret-candidate",
             "runtime-event",
             "traffic-event",

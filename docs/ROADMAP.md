@@ -7,11 +7,9 @@ System, local storage, and CI. This page tracks what's still open.
 
 - [x] Headless native analysis (`ghidra` agent): Ghidra 12.2 (pinned in `Dockerfile.runtime`, JDK 25) runs `analyzeHeadless` on an ELF/.so (or any Ghidra-importable binary) in a temporary project - a plain-Java post-script decompiles every function (8 KiB/function cap, 2,000-function cap with truncation flagged) and records xrefs and call targets into one JSON report artifact, with a 50-function preview in the result. See `docs/AGENTS.md`
 - [x] JNI correlation (`graph/native-indexer.ts`): the ghidra agent's native-analysis reports become `native-function` entities (name, address, size, 20k cap), and every exported symbol following the JNI naming rule (`Java_com_acme_Foo_bar`, escapes decoded, overload suffix dropped) gets a `maps-to` edge to the `native` Java method it implements - overloads all match the same symbol. The Java method keeps only its decompile artifacts as evidence; the edge links the two without faking observations. See `docs/ARCHITECTURE.md`
+- [x] Graph URLs and strings (`graph/url-string-indexer.ts`): the last graph population slice - URL and string entities extracted from jadx decompiles and apktool projects (5k URL / 10k string caps, bare words and boilerplate skipped), each carrying the file and line it first appeared in, with `maps-to` edges to the class of the file it was seen in (resources record the entity but attach to nothing rather than fabricating a class). A URL seen in smali and in decompiled Java converges on one entity. See `docs/ARCHITECTURE.md`
 ## Open
 
-- [ ] Graph URLs and strings: extract URL and string entities from decoded
-  resources and sources and link them to their artifacts (`maps-to` edges) - the
-  last graph population slice after classes, inheritance and methods/calls
 - [ ] Web interface (once this exists, `STORAGE_BACKEND=supabase` becomes worth turning back on for shared state)
 
 ## Done

@@ -4,7 +4,11 @@ import { eventBus } from "../events/event-bus.js";
 import type { EventMap } from "../events/types.js";
 import type { Artifact } from "../artifacts/types.js";
 import * as graphService from "./graph.service.js";
-import { parseInheritanceEdges, MAX_EDGES as INHERITANCE_MAX_EDGES } from "./inheritance-indexer.js";
+import {
+  parseInheritanceEdges,
+  MAX_EDGES as INHERITANCE_MAX_EDGES,
+} from "./inheritance-indexer.js";
+import { parseMethodAndCallGraph, MAX_CALL_EDGES, MAX_METHOD_ENTITIES } from "./calls-indexer.js";
 import type { BatchEdge, BatchEntity } from "./types.js";
 
 /**
@@ -108,12 +112,32 @@ export async function indexJavaArtifact(artifact: Artifact) {
       `[graph-indexer] ${artifact.path}: inheritance indexing capped at the first ${INHERITANCE_MAX_EDGES} edges`,
     );
   }
+  const calls = await collectCalls(root, files);
+  if (calls.truncated) {
+    console.warn(
+      `[graph-indexer] ${artifact.path}: method/call indexing capped (${MAX_METHOD_ENTITIES} methods / ${MAX_CALL_EDGES} edges)`,
+    );
+  }
   return graphService.indexBatch({
     workspaceId: artifact.workspaceId,
     artifactId: artifact.id,
-    entities,
-    edges: [...edges, ...inherited.edges],
+    entities: [...entities, ...calls.entities],
+    edges: [...edges, ...inherited.edges, ...calls.edges],
   });
+}
+
+/** Reads each class file and extracts `calls`/`invokes` edges and `method` entities. Never fatal. */
+async function collectCalls(root: string, files: string[]) {
+  const contents = new Map<string, string>();
+  for (const file of files) {
+    if (!file.endsWith(".java")) continue;
+    try {
+      contents.set(file, await readFile(path.join(root, file), "utf8"));
+    } catch {
+      // unreadable file - skip it, the class entity still exists
+    }
+  }
+  return parseMethodAndCallGraph({ files: contents });
 }
 
 /** Reads each class file and extracts `inherits` edges. Never fatal. */

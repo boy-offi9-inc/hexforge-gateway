@@ -431,6 +431,28 @@ package, a fully-qualified one is kept as written, generics are stripped
 decompiles. Edges to classes outside this artifact (JDK types, another
 artifact's classes) are still written - the name itself is evidence.
 
+The same read also feeds `graph/calls-indexer.ts`, which turns method
+declarations and call sites into graph pieces:
+
+- one `method` entity per declared method, named by signature -
+  `com.acme.Login.performLogin(String)`, constructors as `<init>`,
+  overloads kept distinct by their parameter types. A `native` declaration
+  carries `native: true` - the hook the Java <-> JNI correlation will use.
+- a `calls` edge from the calling class to the called class. The receiver's
+  last segment resolves when it is a class simple name (`Api.send(...)`) or
+  a field whose declared type is one (`Api api` field, then `api.send(...)`);
+  calls whose target is outside this artifact's class set (JDK, other
+  artifacts) are skipped rather than fabricated.
+- an `invokes` edge, self-looped on the calling class, when a file uses
+  reflection (`Class.forName`, `getMethod`, `invoke`) - a coarse whole-file
+  flag, marked as such, instead of a precise-but-guessed call site.
+
+Caps guard the parse (60,000 method entities / 60,000 call edges) with a
+logged warning on the cut. Comments, string literals and control keywords
+(`if (`, `while (`) are stripped before matching; the parse is heuristic and
+never mutates anything - it enriches the same class entities the sources
+indexer created.
+
 It reads jadx's `sources/` folder (a sibling `resources/` is ignored), or the
 artifact directory itself when there is no `sources/`. Files that aren't
 `.java`, and `package-info` / `module-info`, are skipped; a class at the top

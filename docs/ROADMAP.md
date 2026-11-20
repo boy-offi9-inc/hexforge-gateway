@@ -10,6 +10,12 @@ System, local storage, and CI. This page tracks what's still open.
 - [ ] Web interface (once this exists, `STORAGE_BACKEND=supabase` becomes worth turning back on for shared state)
 
 ## Done
+- [x] Graph methods and calls edges (`graph/calls-indexer.ts`): the jadx decompile index
+  now also parses declared methods into signature-named `method` entities (`native`
+  flagged, overloads distinct), resolves call receivers against the artifact's own
+  classes (simple names and declared field types) into `calls` edges, and marks
+  reflection with self-looped `invokes` edges. Targets outside the artifact are never
+  fabricated; comments/strings/keywords are stripped before matching.
 - [x] Per-workspace AI provider selection: `PATCH /workspaces/:id/ai-provider` stores a
   workspace-scoped override (built-in or `AI_PROVIDERS_PATH` name, validated at set time
   against everything the AI layer can dispatch on) that applies to that workspace's chat,
@@ -25,7 +31,8 @@ System, local storage, and CI. This page tracks what's still open.
   with `apply: true` writes the verdict back (`verified`/`partial` -> `confirmed`,
   `unverified` -> stays, `failed` -> `contradicted`). A claim with no checkable evidence
   is flagged, never silently trusted. Manifest/resources graph population remains the
-  one open graph item (methods/URLs/calls-edges slices).
+  one open graph slice (URLs/strings; the methods-and-calls-edges slice is
+  done).
 
 - [x] MCP server frontend auth hardening: per-key rate limiting on `/mcp` (`MCP_HTTP_RATE_LIMIT_MAX`/`MCP_HTTP_RATE_LIMIT_WINDOW_MS`, fixed-window, 429 + Retry-After; client IP as the identity without auth), the existing Origin allowlist (`MCP_HTTP_ALLOWED_ORIGINS`) now documented as the CORS story, and an optional append-only audit log of every `/mcp` request (`MCP_HTTP_AUDIT_LOG`, JSON Lines, keys fingerprinted, tool arguments never recorded). See `src/mcp-server/auth-hardening.ts` and `docs/MCP_SERVER.md`
 - [x] 1.6.0: custom AI providers via `AI_PROVIDERS_PATH` (file-defined providers with per-call override, alongside the nine built-ins) and a Postgres storage backend (`DATABASE_URL`, Neon works) - see `docs/AI.md` and `docs/SETUP.md`. The storage layer became a `getStorage()` factory, so services no longer import the supabase/local providers directly

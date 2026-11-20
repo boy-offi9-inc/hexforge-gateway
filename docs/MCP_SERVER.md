@@ -83,6 +83,9 @@ Point a Streamable-HTTP-capable MCP client at `http://<host>:<port>/mcp`
 | `MCP_HTTP_HOST` | `127.0.0.1` | bind address - see security note below before changing this |
 | `MCP_HTTP_PORT` | `8788` | separate from the Gateway's own `PORT` (default 8080) since this is a different process |
 | `MCP_HTTP_API_KEYS` | unset (no auth) | comma-separated shared keys; checked via `Authorization: Bearer <key>` or `X-API-Key: <key>` on every route except `/health` - same header scheme as the Gateway's own `core/auth.ts`, so one mental model covers both |
+| `MCP_HTTP_RATE_LIMIT_MAX` | `120` (0 disables) | requests per key (or per client IP without auth) allowed per window before a `429`; see below |
+| `MCP_HTTP_RATE_LIMIT_WINDOW_MS` | `60000` | fixed rate-limit window in milliseconds |
+| `MCP_HTTP_AUDIT_LOG` | unset (off) | path to an append-only JSON Lines audit log of every `/mcp` request - keys are fingerprinted, arguments never recorded; see below |
 | `MCP_HTTP_ALLOWED_ORIGINS` | unset | comma-separated origins allowed to send a browser `Origin` header; see below |
 | `HEXFORGE_URL` / `HEXFORGE_API_KEY` | same as stdio | the Gateway this transport forwards tool calls to |
 
@@ -116,6 +119,24 @@ stdio's "reachable by whoever can spawn this process":
 - `MCP_HTTP_API_KEYS` unset (the default) means no auth, matching the
   Gateway's own opt-in-only default for local trusted use - the same
   tradeoff, made the same way, for the same reason.
+- **Per-key rate limiting** (`MCP_HTTP_RATE_LIMIT_MAX`, default 120
+  requests per `MCP_HTTP_RATE_LIMIT_WINDOW_MS`, default 60s, `0`
+  disables): each API key gets its own fixed-window counter, so one
+  runaway client can't starve the others; without auth configured, the
+  client IP (first `X-Forwarded-For` hop, else the socket address) is
+  the identity. Over the limit gets a `429` with a `Retry-After` header.
+  The counter lives in memory - restarting the server resets it, which
+  is the right behavior for a single-operator process.
+- **Audit log** (`MCP_HTTP_AUDIT_LOG`, off by default): when set to a
+  file path, every `/mcp` request appends one JSON line - timestamp,
+  identity (key fingerprint or IP), method, tool name, outcome
+  (`ok`/`error`/`rejected`) and a short detail code for rejections.
+  The raw key is never written (only a 16-hex-character SHA-256
+  fingerprint), and tool arguments are never recorded - a tool call's
+  arguments can contain paths, credentials found in a target app, or
+  command lines, none of which belong in a log file. The file is
+  created (with parent dirs) with `0600` permissions, and an audit
+  write failure logs to stderr rather than failing the request.
 
 ## Tools exposed
 

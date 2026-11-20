@@ -57,6 +57,12 @@
  *    core/auth.ts uses for the Gateway itself, so an operator manages one
  *    mental model for both. Unset (the default) means no auth, matching
  *    the Gateway's own opt-in default for local trusted use.
+ *  - Per-key rate limiting (auth-hardening.ts): MCP_HTTP_RATE_LIMIT_MAX
+ *    requests per key (or client IP without auth) per
+ *    MCP_HTTP_RATE_LIMIT_WINDOW_MS; over the limit gets a 429.
+ *  - Optional audit log of /mcp requests (auth-hardening.ts):
+ *    MCP_HTTP_AUDIT_LOG, a JSON Lines file; off by default, keys are
+ *    fingerprinted and tool arguments never recorded.
  *
  * Usage (after `npm run build`):
  *   node dist/mcp-server/http.js
@@ -64,22 +70,31 @@
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { pathToFileURL } from "node:url";
 import { handleRequest, log, type JsonRpcRequest } from "./protocol.js";
+import { checkRateLimit, fingerprintKey, toolNameOf, writeAuditEntry } from "./auth-hardening.js";
 
 const HOST = process.env.MCP_HTTP_HOST ?? "127.0.0.1";
 const PORT = Number(process.env.MCP_HTTP_PORT ?? 8788);
-const API_KEYS = new Set(
-  (process.env.MCP_HTTP_API_KEYS ?? "")
-    .split(",")
-    .map((k) => k.trim())
-    .filter(Boolean),
-);
-const ALLOWED_ORIGINS = new Set(
-  (process.env.MCP_HTTP_ALLOWED_ORIGINS ?? "")
-    .split(",")
-    .map((o) => o.trim())
-    .filter(Boolean),
-);
+
+// Read lazily (per request) rather than at import, so a restart is the
+// only thing that should pick these up but tests can also configure them.
+function apiKeys(): Set<string> {
+  return new Set(
+    (process.env.MCP_HTTP_API_KEYS ?? "")
+      .split(",")
+      .map((k) => k.trim())
+      .filter(Boolean),
+  );
+}
+function allowedOrigins(): Set<string> {
+  return new Set(
+    (process.env.MCP_HTTP_ALLOWED_ORIGINS ?? "")
+      .split(",")
+      .map((o) => o.trim())
+      .filter(Boolean),
+  );
+}
 
 // Same order of precedence as core/auth.ts: Authorization: Bearer, then
 // X-API-Key, so the two servers behave identically from a client's
@@ -123,7 +138,11 @@ function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
-async function handleMcpPost(req: IncomingMessage, res: ServerResponse) {
+async function handleMcpPost(
+  req: IncomingMessage,
+  res: ServerResponse,
+  audit: { identity: string; key: string | undefined },
+) {
   let raw: string;
   try {
     raw = await readBody(req);
@@ -148,6 +167,12 @@ async function handleMcpPost(req: IncomingMessage, res: ServerResponse) {
     parsed = JSON.parse(raw);
   } catch (err) {
     log("unparseable JSON-RPC request:", err instanceof Error ? err.message : String(err));
+    writeAuditEntry({
+      ...audit,
+      method: req.method ?? "",
+      outcome: "rejected",
+      detail: "unparseable-json",
+    });
     sendJson(res, 400, {
       jsonrpc: "2.0",
       id: null,
@@ -159,7 +184,15 @@ async function handleMcpPost(req: IncomingMessage, res: ServerResponse) {
     return;
   }
 
+  const tool = toolNameOf(parsed);
   const response = await handleRequest(parsed);
+  const result = response?.["result"] as { isError?: boolean } | undefined;
+  writeAuditEntry({
+    ...audit,
+    method: req.method ?? "",
+    tool,
+    outcome: response?.["error"] !== undefined || result?.isError === true ? "error" : "ok",
+  });
   if (!response) {
     // Notification (no "id"): per the MCP Streamable HTTP spec, a POST
     // whose input is only notifications/responses gets 202 Accepted with
@@ -174,16 +207,17 @@ async function handleMcpPost(req: IncomingMessage, res: ServerResponse) {
 function checkOrigin(req: IncomingMessage): boolean {
   const origin = req.headers.origin;
   if (!origin) return true; // non-browser clients don't send one - see file header comment
-  return ALLOWED_ORIGINS.has(origin);
+  return allowedOrigins().has(origin);
 }
 
 function checkAuth(req: IncomingMessage): boolean {
-  if (API_KEYS.size === 0) return true; // auth not configured - matches the Gateway's opt-in default
+  const keys = apiKeys();
+  if (keys.size === 0) return true; // auth not configured - matches the Gateway's opt-in default
   const key = extractApiKey(req);
-  return !!key && API_KEYS.has(key);
+  return !!key && keys.has(key);
 }
 
-async function requestListener(req: IncomingMessage, res: ServerResponse) {
+export async function requestListener(req: IncomingMessage, res: ServerResponse) {
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
 
   if (url.pathname === "/health") {
@@ -200,13 +234,57 @@ async function requestListener(req: IncomingMessage, res: ServerResponse) {
     return;
   }
 
+  // Per-key rate limit, checked before anything else on /mcp - a rejected
+  // request should cost the client nothing further, and the key it would
+  // have used doesn't matter yet. Without auth configured, the client IP
+  // is the identity (best-effort; X-Forwarded-For is trusted only for
+  // picking the first hop, same as a plain reverse-proxy setup).
+  const key = extractApiKey(req);
+  const keys = apiKeys();
+  // Keyed identity uses the key's fingerprint, never the key itself, so
+  // nothing that reaches the audit log (or stderr) can carry the secret.
+  const identity =
+    keys.size > 0 && key
+      ? `key:${fingerprintKey(key)}`
+      : `ip:${(req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() || req.socket.remoteAddress || "unknown"}`;
+  if (!checkRateLimit(identity)) {
+    log("rate limit exceeded for", identity);
+    writeAuditEntry({
+      identity,
+      key,
+      method: req.method ?? "",
+      outcome: "rejected",
+      detail: "rate-limited",
+    });
+    res.writeHead(429, {
+      "Content-Type": "application/json",
+      "Retry-After": String(Math.ceil(60)),
+    });
+    res.end(JSON.stringify({ error: "Too many requests - slow down and retry later." }));
+    return;
+  }
+
   if (!checkOrigin(req)) {
+    writeAuditEntry({
+      identity,
+      key,
+      method: req.method ?? "",
+      outcome: "rejected",
+      detail: "origin-not-allowed",
+    });
     sendJson(res, 403, {
       error: `Origin "${req.headers.origin}" is not in MCP_HTTP_ALLOWED_ORIGINS`,
     });
     return;
   }
   if (!checkAuth(req)) {
+    writeAuditEntry({
+      identity,
+      key,
+      method: req.method ?? "",
+      outcome: "rejected",
+      detail: "unauthenticated",
+    });
     res.writeHead(401, {
       "Content-Type": "application/json",
       "WWW-Authenticate": "Bearer",
@@ -222,7 +300,7 @@ async function requestListener(req: IncomingMessage, res: ServerResponse) {
 
   switch (req.method) {
     case "POST":
-      await handleMcpPost(req, res);
+      await handleMcpPost(req, res, { identity, key });
       return;
     case "GET":
       sendJson(res, 405, {
@@ -243,7 +321,7 @@ async function requestListener(req: IncomingMessage, res: ServerResponse) {
 }
 
 function main() {
-  if (API_KEYS.size === 0) {
+  if (apiKeys().size === 0) {
     log(
       "WARNING: MCP_HTTP_API_KEYS is not set - this endpoint has no auth. Fine for 127.0.0.1; do not bind MCP_HTTP_HOST beyond localhost without setting it.",
     );
@@ -253,10 +331,7 @@ function main() {
     void requestListener(req, res).catch((err) => {
       // Log the message only - the stack could carry internal paths and the
       // 500 body below is already a generic string (nothing is echoed back).
-      log(
-        "unhandled error handling request:",
-        err instanceof Error ? err.message : String(err),
-      );
+      log("unhandled error handling request:", err instanceof Error ? err.message : String(err));
       if (!res.headersSent) sendJson(res, 500, { error: "Internal server error" });
     });
   });
@@ -272,4 +347,7 @@ function main() {
   });
 }
 
-main();
+// Only start the server when this file is the process's entrypoint - so
+// tests can import requestListener without a listener binding 8788.
+const isEntrypoint = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isEntrypoint) main();

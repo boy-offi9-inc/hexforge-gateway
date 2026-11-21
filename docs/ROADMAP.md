@@ -1,9 +1,15 @@
 # Roadmap
 
 Everything core is built and documented in the other `docs/` files: Event
-Bus, Job/Workflow Engines, Knowledge Engine, all eleven MCP agents, Auth,
+Bus, Job/Workflow Engines, Knowledge Engine, all twelve MCP agents, Auth,
 nine AI providers, Terminal chat, the MCP Server Frontend, the Plugin
 System, local storage, and CI. This page tracks what's still open.
+
+## Open
+
+- [ ] Web interface (once this exists, `STORAGE_BACKEND=supabase` becomes worth turning back on for shared state)
+
+## Done
 
 - [x] Headless native analysis (`ghidra` agent): Ghidra 12.2 (pinned in `Dockerfile.runtime`, JDK 25) runs `analyzeHeadless` on an ELF/.so (or any Ghidra-importable binary) in a temporary project - a plain-Java post-script decompiles every function (8 KiB/function cap, 2,000-function cap with truncation flagged) and records xrefs and call targets into one JSON report artifact, with a 50-function preview in the result. See `docs/AGENTS.md`
 - [x] JNI correlation (`graph/native-indexer.ts`): the ghidra agent's native-analysis reports become `native-function` entities (name, address, size, 20k cap), and every exported symbol following the JNI naming rule (`Java_com_acme_Foo_bar`, escapes decoded, overload suffix dropped) gets a `maps-to` edge to the `native` Java method it implements - overloads all match the same symbol. The Java method keeps only its decompile artifacts as evidence; the edge links the two without faking observations. See `docs/ARCHITECTURE.md`
@@ -14,11 +20,7 @@ System, local storage, and CI. This page tracks what's still open.
 - [x] Frida module store (`src/modules/frida-modules/module-store.ts`): trace scripts as versioned, reusable workflow assets - `module-save` drafts, a trace via `moduleRef` records provenance on the module, `module-promote` freezes a tested draft into an immutable semver version (patch/minor/major; drafts stay editable for the next iteration), `module-list`/`module-get` read it, and `trace` accepts `"name"` or `"name@version"` instead of raw script text. See `docs/AGENTS.md`
 - [x] apk-patch/build/sign traceability + v4 signing (`docs/AGENTS.md`): patch lineage in `.hexforge-patches.json`, build reports `sha256` + `patches`, sign reports `sourceSha256` + optional `.idsig` (v4)
 - [x] Frida streaming sessions (`frida-sessions.ts`): capped long-running instrumentation with incremental JSONL event polling, workspace-scoped, restart-safe
-## Open
 
-- [ ] Web interface (once this exists, `STORAGE_BACKEND=supabase` becomes worth turning back on for shared state)
-
-## Done
 - [x] Graph methods and calls edges (`graph/calls-indexer.ts`): the jadx decompile index
   now also parses declared methods into signature-named `method` entities (`native`
   flagged, overloads distinct), resolves call receivers against the artifact's own

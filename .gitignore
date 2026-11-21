@@ -9,3 +9,6 @@ dist/
 
 # CLI wrapper's remembered ids (scripts/hf.sh)
 .hexforge/
+
+# Workspace run output (test + real) never belongs in the repo
+workspaces/

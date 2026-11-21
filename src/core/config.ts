@@ -84,7 +84,8 @@ const envSchema = z.object({
 
   // Local directory where per-workspace agent output (decompiled sources,
   // logs, etc.) gets written. Created automatically if missing.
-  WORKSPACES_ROOT: z.string().default("./workspaces"),
+  // Default OUTSIDE the repo tree: run output must never be able to land inside a git checkout
+  WORKSPACES_ROOT: z.string().default("./.hexforge/workspaces"),
 
   // Opt-in "PC-side APK MCP": a folder you can drop an .apk into instead
   // of typing its full path for every tool call. Unset (the default)

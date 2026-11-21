@@ -25,7 +25,7 @@ set -uo pipefail  # NOT -e - a failed check should be recorded and continue, not
 # it (see filesystem.agent.ts), so a bare relative filename resolves against
 # the server's cwd instead and gets correctly rejected.
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-WORKSPACES_ROOT="${WORKSPACES_ROOT:-./workspaces}"
+WORKSPACES_ROOT="${WORKSPACES_ROOT:-./.hexforge/workspaces}"
 case "$WORKSPACES_ROOT" in
   /*) WORKSPACES_ROOT_ABS="$WORKSPACES_ROOT" ;;
   *) WORKSPACES_ROOT_ABS="$REPO_ROOT/${WORKSPACES_ROOT#./}" ;;

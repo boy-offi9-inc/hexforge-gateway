@@ -146,7 +146,8 @@ export const builtinDescriptors = {
     ],
   },
   frida: {
-    description: "Frida device/process listing, server control and bounded tracing.",
+    description:
+      "Frida device/process listing, server control, bounded tracing and streaming sessions.",
     backends: [{ tool: "frida" }, { tool: "frida-server" }],
     permissions: ["device:adb"],
     operations: [
@@ -197,6 +198,26 @@ export const builtinDescriptors = {
         capability: "instrument.modules",
         inputs: { required: ["name"], optional: ["version"] },
       },
+      {
+        name: "session-start",
+        capability: "instrument.sessions",
+        inputs: {
+          required: ["target"],
+          optional: ["script", "moduleRef", "mode", "deviceSerial", "maxSeconds"],
+        },
+        cancellable: true,
+      },
+      {
+        name: "session-poll",
+        capability: "instrument.sessions",
+        inputs: { required: ["id"], optional: ["since", "limit"] },
+      },
+      {
+        name: "session-stop",
+        capability: "instrument.sessions",
+        inputs: { required: ["id"] },
+      },
+      { name: "session-list", capability: "instrument.sessions" },
     ],
   },
   apkmcp: {

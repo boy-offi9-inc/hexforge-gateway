@@ -3,6 +3,7 @@ import { promisify } from "node:util";
 import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import * as sessions from "./frida-sessions.js";
 import * as moduleStore from "../../frida-modules/module-store.js";
 import type { McpTask } from "../../../core/types.js";
 import { config } from "../../../core/config.js";
@@ -367,6 +368,98 @@ async function moduleGetHandler(task: McpTask): Promise<unknown> {
   };
 }
 
+// ---- Streaming sessions: long-running instrumentation with pollable events ----
+
+async function sessionStartHandler(task: McpTask): Promise<unknown> {
+  const payload = task.payload as {
+    target?: string;
+    script?: string;
+    moduleRef?: string;
+    mode?: "spawn" | "attach";
+    deviceSerial?: string;
+    maxSeconds?: number;
+  };
+  if (!payload.target) throw new Error('session-start requires "target"');
+  let script = payload.script;
+  if (!script) {
+    if (!payload.moduleRef) {
+      throw new Error('session-start requires "script" (raw Frida JS) or "moduleRef"');
+    }
+    script = (await moduleStore.resolveScript(payload.moduleRef)).script;
+  }
+  const session = await sessions.startSession({
+    workspaceId: task.workspaceId,
+    taskId: task.id,
+    target: payload.target,
+    mode: payload.mode ?? "spawn",
+    script,
+    deviceSerial: payload.deviceSerial,
+    maxSeconds: payload.maxSeconds,
+  });
+  return {
+    session: {
+      id: session.id,
+      state: session.state,
+      target: session.target,
+      mode: session.mode,
+      eventsPath: session.eventsPath,
+      maxSeconds: payload.maxSeconds ?? sessions.DEFAULT_MAX_SECONDS,
+    },
+    // poll immediately with session-poll {id}; stop with session-stop {id}
+    next: `session-poll {"id": "${session.id}"}`,
+  };
+}
+
+async function sessionPollHandler(task: McpTask): Promise<unknown> {
+  const payload = task.payload as { id?: string; since?: number; limit?: number };
+  if (!payload.id) throw new Error('session-poll requires "id"');
+  const result = await sessions.pollSession(
+    payload.id,
+    task.workspaceId,
+    payload.since ?? 0,
+    payload.limit,
+  );
+  return {
+    session: {
+      id: result.session.id,
+      state: result.session.state,
+      target: result.session.target,
+      eventCount: result.session.eventCount,
+      exit: result.session.exit,
+      endedAt: result.session.endedAt,
+    },
+    events: result.events,
+    nextSeq: result.nextSeq,
+    ended: result.ended,
+    // pass nextSeq back as "since" for the next poll
+    next: result.ended
+      ? undefined
+      : `session-poll {"id": "${payload.id}", "since": ${result.nextSeq}}`,
+  };
+}
+
+async function sessionStopHandler(task: McpTask): Promise<unknown> {
+  const payload = task.payload as { id?: string };
+  if (!payload.id) throw new Error('session-stop requires "id"');
+  const session = await sessions.stopSession(payload.id, task.workspaceId);
+  return {
+    session: { id: session.id, state: session.state, eventCount: session.eventCount },
+  };
+}
+
+async function sessionListHandler(task: McpTask): Promise<unknown> {
+  return {
+    sessions: sessions.listSessions(task.workspaceId).map((s) => ({
+      id: s.id,
+      state: s.state,
+      target: s.target,
+      mode: s.mode,
+      eventCount: s.eventCount,
+      startedAt: s.startedAt,
+    })),
+  };
+}
+
 export async function fridaHandler(task: McpTask): Promise<unknown> {
   switch (task.operation) {
     case "list-devices":
@@ -389,11 +482,19 @@ export async function fridaHandler(task: McpTask): Promise<unknown> {
       return moduleListHandler();
     case "module-get":
       return moduleGetHandler(task);
+    case "session-start":
+      return sessionStartHandler(task);
+    case "session-poll":
+      return sessionPollHandler(task);
+    case "session-stop":
+      return sessionStopHandler(task);
+    case "session-list":
+      return sessionListHandler(task);
     default:
       throw new Error(
         `Unsupported frida operation "${task.operation}". Supported: "list-devices", "list-processes", ` +
           `"push-server", "start-server", "stop-server", "trace", "module-save", "module-promote", ` +
-          `"module-list", "module-get"`,
+          `"module-list", "module-get", "session-start", "session-poll", "session-stop", "session-list"`,
       );
   }
 }

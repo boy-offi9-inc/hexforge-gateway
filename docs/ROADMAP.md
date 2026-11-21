@@ -13,6 +13,7 @@ System, local storage, and CI. This page tracks what's still open.
 - [x] Split APK / XAPK / APKS handling (`split-bundle.ts`): apktool `decode` extracts a bundle and decodes its `base.apk` (other splits stay beside it); apksigner `sign` signs every APK in a split directory and repacks into an installable `.apks`; `.aab`/`.abb` are flagged as needing Bundletool. See `docs/AGENTS.md`
 - [x] Frida module store (`src/modules/frida-modules/module-store.ts`): trace scripts as versioned, reusable workflow assets - `module-save` drafts, a trace via `moduleRef` records provenance on the module, `module-promote` freezes a tested draft into an immutable semver version (patch/minor/major; drafts stay editable for the next iteration), `module-list`/`module-get` read it, and `trace` accepts `"name"` or `"name@version"` instead of raw script text. See `docs/AGENTS.md`
 - [x] apk-patch/build/sign traceability + v4 signing (`docs/AGENTS.md`): patch lineage in `.hexforge-patches.json`, build reports `sha256` + `patches`, sign reports `sourceSha256` + optional `.idsig` (v4)
+- [x] Frida streaming sessions (`frida-sessions.ts`): capped long-running instrumentation with incremental JSONL event polling, workspace-scoped, restart-safe
 ## Open
 
 - [ ] Web interface (once this exists, `STORAGE_BACKEND=supabase` becomes worth turning back on for shared state)

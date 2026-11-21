@@ -149,6 +149,18 @@ a tested draft into an immutable version (first promotion is `1.0.0`;
 `bump`: patch/minor/major). `module-list` and `module-get` read the store.
 Published versions never change - editing the draft prepares the next
 version, so what a published module already ran stays exactly that.
+
+## Streaming sessions
+
+For long-running instrumentation, `session-start` spawns a capped Frida
+process (default 300s, ceiling 1800s) whose output is appended line by
+line to a per-session JSONL event log inside the workspace.
+`session-poll` reads events incrementally: pass back `nextSeq` as `since`
+to continue exactly where the last poll stopped, never re-reading what
+was already seen. `session-stop` ends a session (idempotent), and
+`session-list` shows the workspace's running sessions. A session survives
+a daemon restart in its log: polling a dead session still returns its
+recorded events. `session-start` accepts `moduleRef` like `trace` does.
 ### jadx
 
 Requires `jadx` on `PATH`. Produces readable Java-like source for browsing.

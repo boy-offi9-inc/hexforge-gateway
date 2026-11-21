@@ -9,6 +9,7 @@ System, local storage, and CI. This page tracks what's still open.
 
 - [ ] Web interface (once this exists, `STORAGE_BACKEND=supabase` becomes worth turning back on for shared state)
 
+- [x] Gadget injection (apktool `inject-gadget`): frida-gadget embedded into a decoded project (lib/<abi> + loadLibrary call in the application class's onCreate, .locals bumped), optional script-loading gadget config, recorded in patch lineage - non-root devices get full Frida via the normal build/sign/install chain. See `docs/AGENTS.md`
 ## Done
 
 - [x] Headless native analysis (`ghidra` agent): Ghidra 12.2 (pinned in `Dockerfile.runtime`, JDK 25) runs `analyzeHeadless` on an ELF/.so (or any Ghidra-importable binary) in a temporary project - a plain-Java post-script decompiles every function (8 KiB/function cap, 2,000-function cap with truncation flagged) and records xrefs and call targets into one JSON report artifact, with a 50-function preview in the result. See `docs/AGENTS.md`

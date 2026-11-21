@@ -230,6 +230,19 @@ XAPK and APKS bundles decode transparently: the bundle is extracted to
 inside it is what gets decoded; the result's `bundle` field carries the
 bundle directory and file count.
 
+## Gadget injection
+
+`inject-gadget` embeds frida-gadget into a decoded project so a non-root
+device gets full Frida instrumentation from a normal build, sign and
+install: the gadget .so is copied to `lib/<abi>/libfrida-gadget.so`
+(abi: arm64-v8a default, or armeabi-v7a / x86 / x86_64), and the manifest's
+application class (or an explicit `entryClass`) gets a `const-string` +
+`System.loadLibrary("frida-gadget")` pair inserted at the top of its
+`onCreate` (falling back to `<init>`), with the method's `.locals` bumped
+to pay for the register. A `scriptPath` writes the gadget's config file so
+it loads a script from the device at startup. The injection is recorded in
+the project's patch lineage like any other modification. Requires the
+matching-ABI `frida-gadget.so` release for the Frida version in use.
 ## Patch traceability
 
 Every "patch" operation appends what it changed (task, file, replacement

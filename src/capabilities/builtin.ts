@@ -51,6 +51,15 @@ export const builtinDescriptors = {
         inputs: { required: ["inputDir"], optional: [] },
         outputs: [],
       },
+      {
+        name: "inject-gadget",
+        capability: "android.gadget",
+        inputs: {
+          required: ["projectDir", "gadgetPath"],
+          optional: ["abi", "entryClass", "scriptPath"],
+        },
+        outputs: ["apk-gadget"],
+      },
     ],
   },
   apksigner: {

@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { existsSync, statSync } from "node:fs";
+import { copyFileSync, existsSync, statSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile, realpath, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -75,6 +75,20 @@ interface PatchPayload {
   find?: string; // exact text to replace
   replace?: string;
   all?: boolean; // replace every match instead of requiring exactly one
+}
+
+interface GadgetPayload {
+  projectDir?: string; // decoded project directory (`inputDir` / `outputDir` also accepted)
+  inputDir?: string;
+  outputDir?: string;
+  /** Local path to the frida-gadget .so for the target ABI. */
+  gadgetPath?: string;
+  /** ABI directory the gadget goes into (default arm64-v8a). */
+  abi?: string;
+  /** Class whose onCreate loads the gadget (default: the manifest's application class). */
+  entryClass?: string;
+  /** Frida script the gadget should load (writes the gadget config file). */
+  scriptPath?: string;
 }
 
 function resolveExistingApk(apkPath: string): string {
@@ -355,6 +369,175 @@ async function patchHandler(task: McpTask): Promise<unknown> {
   return { ...saved, projectDir: dir };
 }
 
+// ---- Gadget injection: frida-gadget on non-root devices ----
+
+const KNOWN_ABIS = ["arm64-v8a", "armeabi-v7a", "x86", "x86_64"];
+
+/**
+ * Embeds frida-gadget into a decoded project: copies the gadget .so into
+ * lib/<abi>/ and makes the application class load it before anything else
+ * runs. After this, the normal build -> sign -> install path gives a
+ * non-root device full Frida instrumentation (no frida-server, no root).
+ *
+ * The loader call is inserted at the top of the entry class's onCreate
+ * (its <init> is the fallback): a one-register const-string +
+ * invoke-static pair, with the method's .locals bumped to pay for it -
+ * the same register-slot discipline smali requires everywhere else here.
+ */
+async function injectGadgetHandler(task: McpTask): Promise<unknown> {
+  const payload = task.payload as unknown as GadgetPayload;
+  const projectDir = payload.projectDir ?? payload.inputDir ?? payload.outputDir;
+  if (!projectDir) {
+    throw new Error('inject-gadget requires "projectDir" (a decoded apktool project directory)');
+  }
+  if (!payload.gadgetPath) {
+    throw new Error(
+      'inject-gadget requires "gadgetPath" (a local frida-gadget .so for the target ABI)',
+    );
+  }
+
+  const dir = path.resolve(projectDir);
+  if (!existsSync(dir) || !statSync(dir).isDirectory()) {
+    throw new Error(`Directory not found at path: ${dir}`);
+  }
+  if (!existsSync(path.join(dir, "apktool.yml"))) {
+    throw new Error(`"${dir}" doesn't look like an apktool project (no apktool.yml found)`);
+  }
+  const gadget = path.resolve(payload.gadgetPath);
+  if (!existsSync(gadget) || !statSync(gadget).isFile()) {
+    throw new Error(`Gadget .so not found at path: ${gadget}`);
+  }
+  const abi = payload.abi ?? "arm64-v8a";
+  if (!KNOWN_ABIS.includes(abi)) {
+    throw new Error(`"abi" must be one of: ${KNOWN_ABIS.join(", ")}`);
+  }
+
+  // 1. which class loads the gadget
+  const manifestPath = path.join(dir, "AndroidManifest.xml");
+  const manifest = await readFile(manifestPath, "utf8");
+  let entryClass = payload.entryClass;
+  if (!entryClass) {
+    const app = manifest.match(/<application[^>]*android:name="([^"]+)"/);
+    if (!app?.[1]) {
+      throw new Error(
+        'The manifest declares no application class - pass "entryClass" explicitly (a class in the project whose onCreate can load the gadget)',
+      );
+    }
+    entryClass = app[1];
+  }
+
+  // 2. find its smali file (projects can have smali, smali_classes2, ...)
+  const classPath = `${entryClass.split(".").join("/")}.smali`;
+  let smaliFile: string | undefined;
+  const smaliRoots = (await readdir(dir, { withFileTypes: true }))
+    .filter((e) => e.isDirectory() && /^smali(_classes\d+)?$/.test(e.name))
+    .map((e) => path.join(dir, e.name));
+  for (const root of smaliRoots) {
+    const candidate = path.join(root, classPath);
+    if (existsSync(candidate)) {
+      smaliFile = candidate;
+      break;
+    }
+  }
+  if (!smaliFile) {
+    throw new Error(
+      `No smali file for "${entryClass}" (${classPath}) in the project's smali directories - is "entryClass" in this APK?`,
+    );
+  }
+
+  // 3. insert the loadLibrary pair at the top of onCreate (or <init>)
+  const smali = await readFile(smaliFile, "utf8");
+  const methodHeader = /\.(method|method public|method protected)/;
+  const methodRe =
+    /^\s*\.method\s+(?:public|protected|private)?\s*(?:static\s+)?(onCreate\(Landroid\/os\/Bundle;\)V|constructor <init>\(\)V)/gm;
+  let insertAt = -1;
+  let localsLine = "";
+  let insertMethodKind = "<init>";
+  let match: RegExpExecArray | null;
+  // prefer onCreate, fall back to the constructor
+  for (const preferred of ["onCreate(Landroid/os/Bundle;)V", "constructor <init>()V"]) {
+    methodRe.lastIndex = 0;
+    while ((match = methodRe.exec(smali)) !== null) {
+      if (match[1] !== preferred) continue;
+      // the .locals/.registers declaration follows the method header
+      const rest = smali.slice(match.index);
+      const localsMatch =
+        rest.match(/^\s*\.locals\s+(\d+)\s*$/m) ?? rest.match(/^\s*\.registers\s+(\d+)\s*$/m);
+      if (localsMatch && localsMatch.index !== undefined) {
+        insertAt = match.index + localsMatch.index + localsMatch[0].length;
+        localsLine = localsMatch[0].trim();
+        insertMethodKind = preferred.startsWith("onCreate") ? "onCreate" : "<init>";
+        break;
+      }
+    }
+    if (insertAt !== -1) break;
+  }
+  if (insertAt === -1) {
+    throw new Error(
+      `No onCreate or constructor with a .locals declaration found in ${entryClass}'s smali - cannot place the loader call`,
+    );
+  }
+  const isRegisters = localsLine.includes(".registers");
+  const count = Number(localsLine.match(/\d+/)?.[0] ?? 0);
+  const newLocal = isRegisters
+    ? `v${count - 1}` // .registers counts parameters too; the top param slot is taken? No - use a fresh register beyond locals: bump registers
+    : `v${count}`;
+  // Bump the declaration by one to pay for the new register.
+  const bumped = localsLine.replace(/\d+/, String(count + 1));
+  const loader = [
+    bumped,
+    `    const-string ${newLocal}, "frida-gadget"`,
+    `    invoke-static {${newLocal}}, Ljava/lang/System;->loadLibrary(Ljava/lang/String;)V`,
+    "",
+  ].join("\n");
+  const patchedSmali = smali.slice(0, insertAt) + "\n" + loader + smali.slice(insertAt);
+  await writeFile(smaliFile, patchedSmali, "utf8");
+
+  // 4. gadget .so into lib/<abi>/ as the name loadLibrary looks for
+  const libDir = path.join(dir, "lib", abi);
+  await mkdir(libDir, { recursive: true });
+  const gadgetTarget = path.join(libDir, "libfrida-gadget.so");
+  copyFileSync(gadget, gadgetTarget);
+
+  // 5. optional gadget config: load a script from the device
+  let configPath: string | undefined;
+  if (payload.scriptPath) {
+    configPath = path.join(libDir, "libfrida-gadget.config.so");
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        interaction: { type: "script", path: path.resolve(payload.scriptPath) },
+      }),
+      "utf8",
+    );
+  }
+
+  // 6. traceability: this counts as a patch on the project
+  await appendLineage(dir, {
+    taskId: task.id,
+    patchedFile: `lib/${abi}/libfrida-gadget.so + ${path.relative(dir, smaliFile)}`,
+    replacements: 1,
+    sha256After: sha256(await readFile(gadget)),
+    at: new Date().toISOString(),
+  });
+
+  const record = {
+    entryClass,
+    abi,
+    gadgetTarget,
+    smaliFile: path.relative(dir, smaliFile),
+    insertMethod: insertMethodKind,
+    configPath,
+  };
+  const saved = await withSavedOutput(task, "apktool/gadget", record);
+  return {
+    ...saved,
+    projectDir: dir,
+    // next steps: the normal build -> sign chain, unchanged
+    next: "build this projectDir, then sign the rebuilt APK - install runs the gadget without root",
+  };
+}
+
 export async function apktoolHandler(task: McpTask): Promise<unknown> {
   switch (task.operation) {
     case "decode":
@@ -365,9 +548,11 @@ export async function apktoolHandler(task: McpTask): Promise<unknown> {
       return buildHandler(task);
     case "patch":
       return patchHandler(task);
+    case "inject-gadget":
+      return injectGadgetHandler(task);
     default:
       throw new Error(
-        `Unsupported apktool operation "${task.operation}". Supported: "decode", "patch", "validate", "build"`,
+        `Unsupported apktool operation "${task.operation}". Supported: "decode", "patch", "validate", "build", "inject-gadget"`,
       );
   }
 }

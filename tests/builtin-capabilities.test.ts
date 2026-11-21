@@ -63,6 +63,7 @@ describe("built-in capability descriptors", () => {
       "apksigner.sign",
       "apktool.build",
       "apktool.decode",
+      "apktool.inject-gadget",
       "apktool.patch",
       "filesystem.scan-secrets",
       "frida.trace",

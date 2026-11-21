@@ -3,6 +3,7 @@ import { promisify } from "node:util";
 import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import * as moduleStore from "../../frida-modules/module-store.js";
 import type { McpTask } from "../../../core/types.js";
 import { config } from "../../../core/config.js";
 import { withSavedOutput } from "./task-output.js";
@@ -52,7 +53,8 @@ interface ServerControlPayload extends DeviceScopedPayload {
 interface TracePayload extends DeviceScopedPayload {
   target: string; // package name (spawn mode) or PID/process name (attach mode)
   mode?: "spawn" | "attach"; // default "spawn"
-  script: string; // raw Frida JS - written to a temp file under the workspace dir before running
+  script?: string; // raw Frida JS - written to a temp file under the workspace dir before running; or resolved from "moduleRef"
+  moduleRef?: string; // a stored module: "name" (latest) or "name@version"
   timeoutSeconds?: number; // default 15, capped at 60 - how long to let the script run before killing it
 }
 
@@ -207,8 +209,21 @@ async function stopServerHandler(task: McpTask): Promise<unknown> {
 }
 
 async function traceHandler(task: McpTask): Promise<unknown> {
-  const payload = task.payload as unknown as TracePayload;
+  let payload = { ...(task.payload as unknown as TracePayload) };
   if (!payload.target) throw new Error('trace requires "target" in the task payload');
+  // script OR moduleRef: a moduleRef resolves to the store's script and
+  // records the run as provenance on the module
+  let moduleName: string | undefined;
+  if (!payload.script) {
+    if (!payload.moduleRef) {
+      throw new Error(
+        'trace requires "script" (raw Frida JS) or "moduleRef" (a stored module, "name" or "name@version")',
+      );
+    }
+    const resolved = await moduleStore.resolveScript(payload.moduleRef);
+    payload = { ...payload, script: resolved.script };
+    moduleName = resolved.module.name;
+  }
   if (!payload.script)
     throw new Error('trace requires "script" (raw Frida JS) in the task payload');
 
@@ -238,10 +253,18 @@ async function traceHandler(task: McpTask): Promise<unknown> {
       killSignal: "SIGTERM",
       maxBuffer: 1024 * 1024 * 10,
     });
+    if (moduleName) {
+      await moduleStore
+        .recordTestRun(moduleName, { taskId: task.id, target: payload.target })
+        .catch(
+          () => {}, // provenance is best-effort; the trace result matters more
+        );
+    }
     return withSavedOutput(task, "frida/traces", {
       target: payload.target,
       mode,
       scriptPath,
+      module: moduleName,
       timedOut: false,
       stdout,
       stderr,
@@ -270,6 +293,80 @@ async function traceHandler(task: McpTask): Promise<unknown> {
   }
 }
 
+// ---- Module store: trace scripts as versioned, reusable assets ----
+
+async function moduleSaveHandler(task: McpTask): Promise<unknown> {
+  const payload = task.payload as { name?: string; script?: string; notes?: string };
+  if (!payload.name) throw new Error('module-save requires "name"');
+  if (!payload.script) throw new Error('module-save requires "script"');
+  const draft = await moduleStore.saveDraft({
+    name: payload.name,
+    script: payload.script,
+    notes: payload.notes,
+  });
+  return {
+    module: {
+      name: draft.name,
+      status: draft.status,
+      notes: draft.notes,
+      updatedAt: draft.updatedAt,
+    },
+  };
+}
+
+async function modulePromoteHandler(task: McpTask): Promise<unknown> {
+  const payload = task.payload as {
+    name?: string;
+    bump?: "patch" | "minor" | "major";
+    notes?: string;
+  };
+  if (!payload.name) throw new Error('module-promote requires "name"');
+  const published = await moduleStore.promote(payload.name, payload.bump ?? "patch", payload.notes);
+  return {
+    module: {
+      name: published.name,
+      version: published.version,
+      status: published.status,
+      notes: published.notes,
+      testRuns: published.testRuns.length,
+    },
+    // use it in a trace via moduleRef: "<name>@<version>"
+    usage: `trace with {"moduleRef": "${published.name}@${published.version}"}`,
+  };
+}
+
+async function moduleListHandler(): Promise<unknown> {
+  const modules = await moduleStore.listModules();
+  return {
+    modules: modules.map((m) => ({
+      name: m.name,
+      version: m.version,
+      status: m.status,
+      testRuns: m.testRuns.length,
+      notes: m.notes,
+      updatedAt: m.updatedAt,
+    })),
+  };
+}
+
+async function moduleGetHandler(task: McpTask): Promise<unknown> {
+  const payload = task.payload as { name?: string; version?: string };
+  if (!payload.name) throw new Error('module-get requires "name" (and optional "version")');
+  const module = await moduleStore.getModule(payload.name, payload.version);
+  if (!module)
+    throw new Error(`No module "${payload.name}"${payload.version ? `@${payload.version}` : ""}`);
+  return {
+    module: {
+      name: module.name,
+      version: module.version,
+      status: module.status,
+      script: module.script,
+      notes: module.notes,
+      testRuns: module.testRuns,
+    },
+  };
+}
+
 export async function fridaHandler(task: McpTask): Promise<unknown> {
   switch (task.operation) {
     case "list-devices":
@@ -284,10 +381,19 @@ export async function fridaHandler(task: McpTask): Promise<unknown> {
       return stopServerHandler(task);
     case "trace":
       return traceHandler(task);
+    case "module-save":
+      return moduleSaveHandler(task);
+    case "module-promote":
+      return modulePromoteHandler(task);
+    case "module-list":
+      return moduleListHandler();
+    case "module-get":
+      return moduleGetHandler(task);
     default:
       throw new Error(
         `Unsupported frida operation "${task.operation}". Supported: "list-devices", "list-processes", ` +
-          `"push-server", "start-server", "stop-server", "trace"`,
+          `"push-server", "start-server", "stop-server", "trace", "module-save", "module-promote", ` +
+          `"module-list", "module-get"`,
       );
   }
 }

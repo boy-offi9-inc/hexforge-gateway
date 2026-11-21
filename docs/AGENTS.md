@@ -138,6 +138,17 @@ and its path returned as `outputPath`, so a trace can be recorded as an
 Non-root devices need Frida's Gadget-based injection instead of a
 `frida-server` push, which this agent doesn't implement.
 
+
+## Module store
+
+Trace scripts live in a versioned store instead of being one-shot payloads.
+`module-save` drafts a script under a lowercase name, `trace` accepts a
+`moduleRef` (`"name"` or `"name@version"`) instead of raw `script` and
+records each run on the module as provenance, and `module-promote` freezes
+a tested draft into an immutable version (first promotion is `1.0.0`;
+`bump`: patch/minor/major). `module-list` and `module-get` read the store.
+Published versions never change - editing the draft prepares the next
+version, so what a published module already ran stays exactly that.
 ### jadx
 
 Requires `jadx` on `PATH`. Produces readable Java-like source for browsing.

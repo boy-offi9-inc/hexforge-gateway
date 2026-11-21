@@ -379,6 +379,14 @@ temporary project and deletes it afterwards; per-function decompile output is
 capped at 8 KiB and the report at 2,000 functions (the response flags
 truncation). Large `.so` files can take minutes - the agent allows 30.
 
+### verify-claims
+
+Re-runs findings through the evidence verifier - every cited `file:line`
+against the artifact, every cited graph entity against what the artifact
+actually observed - and, with `apply: true`, writes the verdict back
+(`confirmed` / `contradicted`, partial stays). A claim without checkable
+evidence is flagged, never silently trusted. See `docs/ARCHITECTURE.md`.
+
 ### apkmcp
 
 A generic Model Context Protocol client with convenience operations

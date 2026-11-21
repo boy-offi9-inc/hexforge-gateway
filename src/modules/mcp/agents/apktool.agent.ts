@@ -424,6 +424,16 @@ async function injectGadgetHandler(task: McpTask): Promise<unknown> {
       );
     }
     entryClass = app[1];
+    // a manifest may name the class relatively (".App") - resolve against the package
+    if (entryClass.startsWith(".")) {
+      const pkg = manifest.match(/<manifest[^>]*package="([^"]+)"/)?.[1];
+      if (!pkg) {
+        throw new Error(
+          `The manifest names the application class relatively ("${entryClass}") but declares no package - pass "entryClass" explicitly`,
+        );
+      }
+      entryClass = `${pkg}${entryClass}`;
+    }
   }
 
   // 2. find its smali file (projects can have smali, smali_classes2, ...)
@@ -477,11 +487,12 @@ async function injectGadgetHandler(task: McpTask): Promise<unknown> {
       `No onCreate or constructor with a .locals declaration found in ${entryClass}'s smali - cannot place the loader call`,
     );
   }
-  const isRegisters = localsLine.includes(".registers");
+  // Both declaration styles gain one free register at the same index: with
+  // .registers the parameter block sits at the END of the range and shifts up
+  // when the total grows, so the freed slot is v<count>; with .locals the new
+  // local is v<count> directly.
   const count = Number(localsLine.match(/\d+/)?.[0] ?? 0);
-  const newLocal = isRegisters
-    ? `v${count - 1}` // .registers counts parameters too; the top param slot is taken? No - use a fresh register beyond locals: bump registers
-    : `v${count}`;
+  const newLocal = `v${count}`;
   // Bump the declaration by one to pay for the new register.
   const bumped = localsLine.replace(/\d+/, String(count + 1));
   const loader = [

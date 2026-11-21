@@ -232,6 +232,8 @@ export async function pollSession(
   since = 0,
   limit = 200,
 ): Promise<PollResult> {
+  const effectiveLimit = Math.min(Math.max(limit, 1), 1000);
+  const effectiveSince = Math.max(since, 0);
   const entry = findLive(id, workspaceId);
   const session = entry ? serialize(entry) : await sessionFromLog(id, workspaceId);
   if (!session) throw new Error(`No streaming session "${id}" in this workspace`);
@@ -249,8 +251,8 @@ export async function pollSession(
     } catch {
       continue; // a torn final line while the writer is mid-append
     }
-    if (event.seq <= since) continue;
-    if (events.length >= limit) break;
+    if (event.seq <= effectiveSince) continue;
+    if (events.length >= effectiveLimit) break;
     events.push(event);
   }
 
@@ -258,7 +260,7 @@ export async function pollSession(
   return {
     session,
     events,
-    nextSeq: last ? last.seq : since,
+    nextSeq: last ? last.seq : effectiveSince,
     ended: session.state !== "running",
   };
 }

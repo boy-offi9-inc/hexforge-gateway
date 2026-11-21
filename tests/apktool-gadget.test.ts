@@ -193,6 +193,44 @@ describe("apktool inject-gadget", () => {
     ).rejects.toThrow(/No smali file for/);
   });
 
+  it("resolves a relative manifest application name against the package", async () => {
+    const gp = await gadget();
+    await writeFile(
+      path.join(project, "AndroidManifest.xml"),
+      '<manifest package="com.acme"><application android:name=".App" /></manifest>',
+    );
+    const result = await run({ projectDir: project, gadgetPath: gp });
+    expect(result.entryClass).toBe("com.acme.App");
+    expect(result.smaliFile).toBe("smali/com/acme/App.smali");
+  });
+
+  it("bumps .registers correctly when the entry method declares .registers", async () => {
+    const gp = await gadget();
+    await writeFile(
+      path.join(project, "smali", "com", "acme", "App.smali"),
+      `.class public Lcom/acme/App;
+.super Landroid/app/Application;
+
+.method public onCreate(Landroid/os/Bundle;)V
+    .registers 4
+
+    invoke-super {p0, p1}, Landroid/app/Application;->onCreate(Landroid/os/Bundle;)V
+
+    return-void
+.end method
+`,
+    );
+    await run({ projectDir: project, gadgetPath: gp });
+    const { readFile } = await import("node:fs/promises");
+    const text = String(
+      await readFile(path.join(project, "smali", "com", "acme", "App.smali"), "utf8"),
+    );
+    const onCreate = text.slice(text.indexOf(".method public onCreate"));
+    expect(onCreate).toContain(".registers 5");
+    // the new register is the freed top slot of the old range (v4), not v3 (a parameter)
+    expect(onCreate).toContain('const-string v4, "frida-gadget"');
+  });
+
   it("refuses a manifest with no application class and no explicit entryClass", async () => {
     const gp = await gadget();
     await writeFile(

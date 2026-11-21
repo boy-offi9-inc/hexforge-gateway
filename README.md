@@ -20,7 +20,7 @@
 
 **HexForge Gateway is an AI-assisted APK reverse-engineering workspace API.**
 It dispatches tasks to MCP agents (jadx, apktool, apksigner, adb, frida, ghidra,
-filesystem, MT Manager's APK MCP, AI providers) and streams updates over
+triage, verify-claims, filesystem, MT Manager's APK MCP, AI providers) and streams updates over
 WebSocket. It runs entirely on-device (Termux + MT Manager on Android) or on
 a normal PC — no cloud required.
 
@@ -74,8 +74,8 @@ HexForge Gateway
 ├── Clients            hf CLI · MCP clients (Claude / Cursor) · REST / WS
 ├── API layer          Fastify routes · opt-in auth · Event Bus
 ├── Engines            Job Engine (retry + timeout) · Workflow Engine (parallel + resume)
-├── MCP agents         jadx · apktool · apksigner · apkid · triage · apkmcp · ghidra
-│                      filesystem · adb · frida · ai
+├── MCP agents         jadx · apktool · apksigner · apkid · triage · verify-claims
+│                      apkmcp · ghidra · filesystem · adb · frida · ai
 ├── Backend tools      jadx · apktool · apksigner · apkid · adb · frida on PATH
 │                      MT Manager's APK MCP service · 9 AI providers
 └── Evidence layer     Artifacts (typed + provenance) · Knowledge graph
@@ -125,13 +125,23 @@ components), native library inventory per ABI, and **Kotlin name recovery** —
 R8/ProGuard-renamed classes keep their original names in `@kotlin.Metadata`,
 so obfuscated classes get recovered statically. ([AGENTS](docs/AGENTS.md#triage))
 
+## Dynamic instrumentation
+
+Frida without a terminal attached: a versioned **module store** (draft a
+trace script, test it, promote it to an immutable semver version with run
+provenance), **streaming sessions** whose events land line by line in a
+JSONL log you poll incrementally — restart-safe, workspace-scoped — and
+**gadget injection**, which embeds frida-gadget into a decoded APK so a
+stock, non-root device gets full instrumentation from the normal
+build → sign → install chain. ([AGENTS](docs/AGENTS.md#frida))
+
 ## Stack
 
 Node.js 22+ / TypeScript, Fastify (+ `@fastify/websocket`), Zod. Storage is
 local files by default; Supabase (`STORAGE_BACKEND=supabase`) or any Postgres
 - Neon included (`STORAGE_BACKEND=postgres` + `DATABASE_URL`) is opt-in. Auth
 is an opt-in API key check, off by default (`AUTH_ENABLED=false`). `npm test`
-runs the Vitest unit suite (600+ tests, no live instance needed);
+runs the Vitest unit suite (700+ tests, no live instance needed);
 `scripts/smoke-test.sh` covers end-to-end happy paths against a running
 Gateway — see `tests/README.md` for the split.
 

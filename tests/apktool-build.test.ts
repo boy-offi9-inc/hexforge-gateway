@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import type { McpTask } from "../src/core/types.js";
@@ -40,6 +41,12 @@ beforeEach(async () => {
   vi.doMock("node:child_process", () => ({
     execFile: vi.fn((file: string, args: string[], _o: unknown, cb: (...a: unknown[]) => void) => {
       calls.push({ file, args });
+      // the real apktool writes the output APK; the fake does too so the
+      // traceability fields (sha256) can be computed
+      const outIdx = args.indexOf("-o");
+      if (outIdx !== -1) {
+        writeFileSync(args[outIdx + 1], "fake-apk-bytes");
+      }
       cb(null, { stdout: "Built apk", stderr: "" });
     }),
   }));
@@ -89,5 +96,40 @@ describe("apktool build", () => {
   it("still insists on a decoded project", async () => {
     await expect(build({})).rejects.toThrow(/requires "inputDir"/);
     await expect(build({ inputDir: root })).rejects.toThrow(/apktool project/);
+  });
+
+  it("reports sha256 and no patch lineage for an unpatched project", async () => {
+    const result = await build({ inputDir: project });
+    expect(result.sha256).toMatch(/^[0-9a-f]{64}$/);
+    expect(result.patchCount).toBe(0);
+    expect(result.patches).toBeUndefined();
+  });
+
+  it("carries the patch lineage into the build result", async () => {
+    await writeFile(
+      path.join(project, ".hexforge-patches.json"),
+      JSON.stringify([
+        {
+          taskId: "t0",
+          patchedFile: "smali/com/acme/A.smali",
+          replacements: 1,
+          sha256After: "ab",
+          at: "2026-11-21T00:00:00Z",
+        },
+        {
+          taskId: "t0b",
+          patchedFile: "res/values/strings.xml",
+          replacements: 2,
+          sha256After: "cd",
+          at: "2026-11-21T00:01:00Z",
+        },
+      ]),
+    );
+    const result = await build({ inputDir: project });
+    expect(result.patchCount).toBe(2);
+    expect(result.patches.map((x: { patchedFile: string }) => x.patchedFile)).toEqual([
+      "smali/com/acme/A.smali",
+      "res/values/strings.xml",
+    ]);
   });
 });

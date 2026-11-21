@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
 import { promisify } from "node:util";
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { bundleKind, repackBundle } from "./split-bundle.js";
@@ -29,6 +30,7 @@ interface SignPayload {
   apkPath?: string; // the APK to sign
   outputPath?: string; // a workflow can leave apkPath out and use the previous step's outputPath
   outputName?: string; // file name written under WORKSPACES_ROOT/<workspaceId>/apksigner/signed/
+  v4Signing?: boolean; // also produce a .idsig file (v4 signature, for incremental installs)
   flavor?: SignerFlavor; // override the detected apksigner type
   keystorePath?: string; // own keystore (absolute path on the Gateway host); default: the generated debug key
   keystorePass?: string; // password for the own keystore (also used as the key password)
@@ -60,6 +62,12 @@ async function signerFlavor(requested?: SignerFlavor): Promise<SignerFlavor> {
     detectedFlavor = "lite";
   }
   return detectedFlavor;
+}
+
+/** SHA-256 of the file being signed - traceability back to what was patched/built. */
+function sha256Of(file: string): string {
+  const data = readFileSync(file);
+  return createHash("sha256").update(data).digest("hex");
 }
 
 async function run(binary: string, args: string[], timeout = 120_000) {
@@ -110,6 +118,7 @@ async function signSdk(
   output: string,
   taskId: string,
   own?: { keystore: string; pass: string; alias: string },
+  v4Signing = false,
 ) {
   const warnings: string[] = [];
   const keystore = own?.keystore ?? (await ensureKeystore());
@@ -134,7 +143,7 @@ async function signSdk(
   }
 
   try {
-    await run("apksigner", [
+    const signArgs = [
       "sign",
       "--ks",
       keystore,
@@ -144,10 +153,13 @@ async function signSdk(
       `pass:${keyPass}`,
       "--key-pass",
       `pass:${keyPass}`,
+      "--v4-signing-enabled",
+      v4Signing ? "true" : "false",
       "--out",
       output,
       toSign,
-    ]);
+    ];
+    await run("apksigner", signArgs);
   } finally {
     await rm(alignedPath, { force: true });
   }
@@ -160,7 +172,12 @@ async function signSdk(
     await rm(output, { force: true });
     throw err;
   }
-  return { aligned, schemes: verifiedSchemes(verified), warnings };
+  const expectedIdSig = v4Signing ? `${output}.idsig` : undefined;
+  const idsigPath = expectedIdSig && existsSync(expectedIdSig) ? expectedIdSig : undefined;
+  if (expectedIdSig && !idsigPath) {
+    warnings.push("v4 signing was requested but no .idsig file was produced.");
+  }
+  return { aligned, schemes: verifiedSchemes(verified), idsigPath, warnings };
 }
 
 async function signLite(input: string, output: string, own?: { keystore: string; pass: string }) {
@@ -214,9 +231,10 @@ export async function apksignerHandler(task: McpTask): Promise<unknown> {
   }
 
   const flavor = await signerFlavor(payload.flavor);
+  const sourceSha256 = sha256Of(input);
   const details =
     flavor === "sdk"
-      ? await signSdk(input, output, task.id, own)
+      ? await signSdk(input, output, task.id, own, payload.v4Signing === true)
       : await signLite(input, output, own);
   if (own) {
     details.warnings.push(
@@ -235,7 +253,7 @@ export async function apksignerHandler(task: McpTask): Promise<unknown> {
       const outFile = path.join(signedDir, f);
       const one =
         (await signerFlavor(payload.flavor)) === "sdk"
-          ? await signSdk(inFile, outFile, task.id, own)
+          ? await signSdk(inFile, outFile, task.id, own, payload.v4Signing === true)
           : await signLite(inFile, outFile, own);
       details.warnings.push(...one.warnings);
     }
@@ -253,6 +271,9 @@ export async function apksignerHandler(task: McpTask): Promise<unknown> {
     apkPath: output,
     signed: true,
     flavor,
+    sourceSha256,
+    // v4 signature sidecar (present when "v4Signing" was requested).
+    idsigPath: (details as { idsigPath?: string }).idsigPath,
     ...details,
     warnings: details.warnings.length > 0 ? details.warnings : undefined,
   };

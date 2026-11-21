@@ -16,6 +16,40 @@ const execFileAsync = promisify(execFile);
 
 const ALLOWED_EXTENSIONS = [".apk", ".jar", ".zip"];
 
+/**
+ * Patch lineage file: every "patch" operation appends what it changed, so a
+ * rebuilt APK can say exactly which edits produced it. Lives inside the
+ * project (and is ignored by apktool - it is not under res/ or smali/).
+ */
+const LINEAGE_FILE = ".hexforge-patches.json";
+
+interface PatchLineageEntry {
+  /** The task that made the edit. */
+  taskId: string;
+  patchedFile: string;
+  replacements: number;
+  sha256After: string;
+  at: string;
+}
+
+/** Reads the project's patch lineage; an unpatched project has none. */
+async function readLineage(projectDir: string): Promise<PatchLineageEntry[]> {
+  try {
+    const raw = await readFile(path.join(projectDir, LINEAGE_FILE), "utf8");
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as PatchLineageEntry[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Appends one patch record to the project's lineage file. */
+async function appendLineage(projectDir: string, entry: PatchLineageEntry): Promise<void> {
+  const all = await readLineage(projectDir);
+  all.push(entry);
+  await writeFile(path.join(projectDir, LINEAGE_FILE), JSON.stringify(all, null, 2), "utf8");
+}
+
 interface DecodePayload {
   apkPath: string;
   noSrc?: boolean; // skip smali disassembly (resources only, faster)
@@ -206,12 +240,19 @@ async function buildHandler(task: McpTask): Promise<unknown> {
       maxBuffer: 1024 * 1024 * 20,
     });
 
+    // Traceability: the rebuilt APK reports every patch that went into it.
+    const lineage = await readLineage(inputDir);
+    const apkBytes = await readFile(outputPath);
+
     return {
       outputPath,
+      sha256: sha256(apkBytes),
       // Rebuilt APKs from apktool are NOT signed - a real device/emulator
       // install needs signing first: the apksigner agent's "sign" operation
       // takes this outputPath as its input.
       signed: false,
+      patches: lineage.length > 0 ? lineage : undefined,
+      patchCount: lineage.length,
       stdoutTail: stdout.slice(-2000),
       stderrTail: stderr ? stderr.slice(-2000) : undefined,
     };
@@ -292,6 +333,14 @@ async function patchHandler(task: McpTask): Promise<unknown> {
   const before = original.toString("utf8");
   const outcome = applyTextPatch(before, payload.find, payload.replace, payload.all === true);
   await writeFile(target, outcome.text, "utf8");
+
+  await appendLineage(root, {
+    taskId: task.id,
+    patchedFile: relative,
+    replacements: outcome.replacements,
+    sha256After: sha256(outcome.text),
+    at: new Date().toISOString(),
+  });
 
   const record = {
     patchedFile: relative,

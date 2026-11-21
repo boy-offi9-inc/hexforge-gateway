@@ -28,7 +28,15 @@ function sdkTools(over: Tools = {}): Tools {
     apksigner: (args) => {
       if (args[0] === "--version") return "0.9\n";
       if (args[0] === "sign") {
-        copyFileSync(args[args.length - 1] as string, flagValue(args, "--out"));
+        const out = flagValue(args, "--out");
+        copyFileSync(args[args.length - 1] as string, out);
+        // a real apksigner writes the .idsig sidecar when v4 signing is on
+        if (
+          args.includes("--v4-signing-enabled") &&
+          flagValue(args, "--v4-signing-enabled") === "true"
+        ) {
+          writeFileSync(`${out}.idsig`, "idsig");
+        }
         return;
       }
       if (args[0] === "verify") return VERIFY_OUTPUT;
@@ -258,5 +266,52 @@ describe("apksigner sign input", () => {
     await expect(
       handler({ id: "t", workspaceId: "ws1", operation: "verify", payload: {} } as McpTask),
     ).rejects.toThrow(/Supported: "sign"/);
+  });
+});
+
+describe("apksigner traceability and v4 signing", () => {
+  it("reports the sha256 of the APK it signed", async () => {
+    await load(sdkTools());
+    const result = await sign();
+    expect(result.sourceSha256).toMatch(/^[0-9a-f]{64}$/);
+    expect(result.idsigPath).toBeUndefined();
+  });
+
+  it("passes --v4-signing-enabled true and reports the idsig sidecar when asked", async () => {
+    await load(sdkTools());
+    const result = await sign({ v4Signing: true });
+    const signCall = calls.find((c) => c.file === "apksigner" && c.args[0] === "sign");
+    expect(signCall?.args).toContain("--v4-signing-enabled");
+    expect(flagValue(signCall?.args ?? [], "--v4-signing-enabled")).toBe("true");
+    expect(result.idsigPath).toBe(`${result.outputPath}.idsig`);
+    expect(existsSync(result.idsigPath)).toBe(true);
+  });
+
+  it("keeps v4 off by default", async () => {
+    await load(sdkTools());
+    const result = await sign();
+    const signCall = calls.find((c) => c.file === "apksigner" && c.args[0] === "sign");
+    expect(flagValue(signCall?.args ?? [], "--v4-signing-enabled")).toBe("false");
+    expect(result.idsigPath).toBeUndefined();
+  });
+
+  it("warns when v4 was requested but no idsig came back", async () => {
+    await load(sdkTools()); // this fake never writes an idsig unless asked - it is not asked here
+    // simulate a signer that ignores v4: sign with v4Signing but the tool omits the file
+    const broken = sdkTools({
+      apksigner: (args) => {
+        if (args[0] === "--version") return "0.9\n";
+        if (args[0] === "sign") {
+          copyFileSync(args[args.length - 1] as string, flagValue(args, "--out"));
+          return;
+        }
+        if (args[0] === "verify") return VERIFY_OUTPUT;
+        throw Object.assign(new Error("usage"), { code: 2 });
+      },
+    });
+    await load(broken);
+    const result = await sign({ v4Signing: true });
+    expect(result.idsigPath).toBeUndefined();
+    expect(result.warnings.some((w: string) => w.includes("no .idsig file"))).toBe(true);
   });
 });

@@ -63,7 +63,14 @@ export const builtinDescriptors = {
         capability: "android.sign",
         inputs: {
           required: ["apkPath"],
-          optional: ["outputName", "flavor", "keystorePath", "keystorePass", "keystoreAlias"],
+          optional: [
+            "outputName",
+            "flavor",
+            "v4Signing",
+            "keystorePath",
+            "keystorePass",
+            "keystoreAlias",
+          ],
         },
         outputs: ["signed-apk"],
       },

@@ -217,6 +217,15 @@ XAPK and APKS bundles decode transparently: the bundle is extracted to
 `WORKSPACES_ROOT/<workspaceId>/apktool/bundles/<name>/` and the `base.apk`
 inside it is what gets decoded; the result's `bundle` field carries the
 bundle directory and file count.
+
+## Patch traceability
+
+Every "patch" operation appends what it changed (task, file, replacement
+count, resulting sha256, time) to a `.hexforge-patches.json` lineage file
+inside the project. The "build" operation reads it: a rebuilt APK reports
+its own `sha256` and the full `patches` list that went into it, so a
+finding citing the rebuilt APK can trace back through every edit that
+produced it.
 ### apksigner
 
 Aligns and signs an APK so it installs. One operation, `sign`:
@@ -249,6 +258,15 @@ keystore instead (the password stays in the task payload and the spawned
 process - it is never logged or stored). A directory containing
 `base.apk` plus splits is signed APK-by-APK with the same key and repacked
 into an installable `.apks` bundle.
+
+## Traceability and v4 signatures
+
+The "sign" operation reports the `sourceSha256` of the APK it signed -
+the same hash the "build" operation reported - closing the
+decode -> patch -> build -> sign chain. `"v4Signing": true` also produces
+a `.idsig` sidecar (v4 signature for incremental installs), returned as
+`idsigPath` and verified to exist; if the signer did not produce one, the
+result says so in `warnings`.
 ### apkid
 
 Requires `apkid` on `PATH` (`pip install apkid` - needs a yara-python

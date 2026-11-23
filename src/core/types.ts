@@ -82,6 +82,8 @@ export interface Job {
   updatedAt: string;
   result?: unknown;
   error?: string;
+  /** How many times a failed job has been resumed. */
+  resumeCount?: number;
 }
 
 // --- Workflow Engine types ------------------------------------------------
@@ -118,7 +120,29 @@ export interface WorkflowParallelStepSpec {
   continueOnError?: boolean;
 }
 
-export type WorkflowStepSpec = WorkflowSingleStepSpec | WorkflowParallelStepSpec;
+/**
+ * A fan-out step: one step template that is cloned once per item of a list
+ * that only exists at runtime - the previous step's result. The list is
+ * resolved from the previous result: an array result is the list itself; an
+ * object result is looked up at the `from` key (dot paths like
+ * "output.files" work). Each item is shallow-merged into the step's payload
+ * when the item is an object, otherwise it lands under the `item` key - the
+ * same per-branch payload rules a parallel group uses, except the branches
+ * are derived from data instead of written out.
+ */
+export interface WorkflowFanOutStepSpec {
+  fanOut: WorkflowSingleStepSpec;
+  /** Key (dot path) in the previous step's result holding the list, for object results. */
+  from?: string;
+  /** Safety cap on branch count (default 20, matching a parallel group's max). */
+  maxBranches?: number;
+  continueOnError?: boolean;
+}
+
+export type WorkflowStepSpec =
+  | WorkflowSingleStepSpec
+  | WorkflowParallelStepSpec
+  | WorkflowFanOutStepSpec;
 
 export interface WorkflowSpec {
   workspaceId: string;
@@ -144,6 +168,12 @@ export interface WorkflowStepState {
    */
   branches?: WorkflowBranchState[];
   continueOnError?: boolean;
+  /**
+   * Present on a fan-out step (`agent: "fanout"`, `operation: "list"`); the
+   * branches are derived from the previous step's result when the step runs,
+   * not at submit time. Persisted so a resume re-derives the same list.
+   */
+  fanOut?: WorkflowFanOutStepSpec;
 }
 
 export type WorkflowBranchState = Omit<WorkflowStepState, "branches" | "continueOnError">;

@@ -21,6 +21,7 @@ System, local storage, and CI. This page tracks what's still open.
 - [x] Frida module store (`src/modules/frida-modules/module-store.ts`): trace scripts as versioned, reusable workflow assets - `module-save` drafts, a trace via `moduleRef` records provenance on the module, `module-promote` freezes a tested draft into an immutable semver version (patch/minor/major; drafts stay editable for the next iteration), `module-list`/`module-get` read it, and `trace` accepts `"name"` or `"name@version"` instead of raw script text. See `docs/AGENTS.md`
 - [x] apk-patch/build/sign traceability + v4 signing (`docs/AGENTS.md`): patch lineage in `.hexforge-patches.json`, build reports `sha256` + `patches`, sign reports `sourceSha256` + optional `.idsig` (v4)
 - [x] Frida streaming sessions (`frida-sessions.ts`): capped long-running instrumentation with incremental JSONL event polling, workspace-scoped, restart-safe
+- [x] Fan-out over a list of unknown length (Workflow Engine `fanOut` step): a step template cloned once per item of the previous step's result (array result, or an object looked up at `from`), branch-capped, same group semantics - and plain-job resume (`POST /jobs/:id/resume`): a failed job restarted from the beginning with `resumeCount` tracked. See `docs/ARCHITECTURE.md`
 
 - [x] Graph methods and calls edges (`graph/calls-indexer.ts`): the jadx decompile index
   now also parses declared methods into signature-named `method` entities (`native`

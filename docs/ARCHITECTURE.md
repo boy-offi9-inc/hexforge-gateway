@@ -141,7 +141,24 @@ branches, can't contain another group, and a step is either a group or a plain
 step, never both. In stored workflows a group's step has `agent: "parallel"`,
 `operation: "group"` and a `branches` array with each branch's own status and result.
 
-There is no fan-out over a list of unknown length: the branches are written out.
+There is no cap on how creative the branches get, but a step whose branches
+follow the *data* is a fan-out step instead:
+
+```json
+{ "fanOut": { "agent": "jadx", "operation": "decompile", "payload": { "mode": "full" } },
+  "from": "files", "continueOnError": true }
+```
+
+The list is resolved from the previous step's result when the step runs - an
+array result is the list itself; an object result is looked up at the `from`
+key (dot paths like `output.files` work). The one template step is cloned once
+per item: an object item is shallow-merged into the template's payload, any
+other item lands under the `item` key. A branch cap guards against a runaway
+list (20 by default, raise it with `maxBranches`); an empty list completes the
+step with an empty result rather than failing. The group runs exactly like a
+written-out parallel group - same `{ results, failed, errors? }` shape, same
+`continueOnError` semantics, and a resume re-derives the same list, keeping
+the results of branches that had completed.
 
 ### Resuming a failed workflow
 
@@ -163,8 +180,18 @@ running is marked `failed` - along with the step or branches that were in flight
 with the error "Interrupted by a Gateway restart" - and its error says which step
 it stopped at. It is not run again automatically because a step that was half done
 may not be safe to repeat (an `adb install`, a `patch`); resuming is you deciding it is.
-Plain jobs that were running at a restart are failed the same way and are not resumable:
-submit them again.
+Plain jobs that were running at a restart are failed the same way. A failed
+job - by its own error or by a restart - can be resumed from the beginning:
+
+```bash
+curl -X POST http://localhost:8080/jobs/<jobId>/resume     # or: hf job-resume
+```
+
+It answers `202` (`404` if there is no such job, `409` if it isn't failed),
+resets `attempts`, and re-dispatches a fresh task with the same payload -
+`resumeCount` on the job counts how many times that has happened. As with a
+workflow resume, this is an explicit caller decision: the attempt that failed
+may have half-run (an `adb install`, a `patch`), so nothing retries by itself.
 
 
 ## Knowledge Engine

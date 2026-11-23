@@ -62,6 +62,29 @@ class JobEngine {
     }
   }
 
+  /**
+   * Continues a failed job from the beginning (attempt 1 again, same payload)
+   * - for a job that failed on its own or was failed by a Gateway restart.
+   * The in-flight task backing a failed attempt may have half-run, so this is
+   * an explicit caller decision, exactly like WorkflowEngine.resume().
+   */
+  resume(id: string): { job: Job } | { error: "not_found" | "not_resumable" } {
+    const existing = this.jobs.get(id);
+    if (!existing) return { error: "not_found" };
+    if (existing.status !== "failed") return { error: "not_resumable" };
+    const updated = this.update(id, {
+      status: "queued",
+      attempts: 0,
+      currentTaskId: undefined,
+      result: undefined,
+      error: undefined,
+      resumeCount: (existing.resumeCount ?? 0) + 1,
+    });
+    if (!updated) return { error: "not_found" };
+    void this.runAttempt(id);
+    return { job: updated };
+  }
+
   listJobsForWorkspace(workspaceId: string): Job[] {
     return Array.from(this.jobs.values()).filter((j) => j.workspaceId === workspaceId);
   }

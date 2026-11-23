@@ -3,6 +3,7 @@ import type {
   Job,
   Workflow,
   WorkflowBranchState,
+  WorkflowFanOutStepSpec,
   WorkflowSingleStepSpec,
   WorkflowSpec,
   WorkflowStepSpec,
@@ -34,7 +35,20 @@ function singleState(step: WorkflowSingleStepSpec): WorkflowBranchState {
   };
 }
 
+const DEFAULT_FANOUT_MAX = 20;
+
 function stepState(step: WorkflowStepSpec): WorkflowStepState {
+  if ("fanOut" in step) {
+    return {
+      agent: "fanout",
+      operation: "list",
+      payload: {},
+      maxAttempts: 1,
+      mergePreviousResult: false,
+      status: "pending",
+      fanOut: step,
+    };
+  }
   if (!("parallel" in step)) return singleState(step);
   if (step.parallel.length < 2) {
     throw new Error("A parallel step needs at least two branches; use a plain step for one");
@@ -49,6 +63,46 @@ function stepState(step: WorkflowStepSpec): WorkflowStepState {
     branches: step.parallel.map(singleState),
     continueOnError: step.continueOnError ?? false,
   };
+}
+
+/**
+ * Resolves the fan-out list from the previous step's result: an array result
+ * is the list itself; an object result is looked up at the `from` key (dot
+ * paths like "output.files" work). Anything else isn't a list.
+ */
+function resolveFanOutList(
+  previous: WorkflowStepState | undefined,
+  from: string | undefined,
+): unknown[] {
+  let at: unknown = previous?.result;
+  if (from) {
+    for (const key of from.split(".")) {
+      if (at && typeof at === "object" && key in (at as Record<string, unknown>)) {
+        at = (at as Record<string, unknown>)[key];
+      } else {
+        at = undefined;
+        break;
+      }
+    }
+  }
+  if (!Array.isArray(at)) {
+    throw new Error(
+      from
+        ? `fanOut: previous step's result has no list at "${from}"`
+        : "fanOut: the previous step's result is not a list",
+    );
+  }
+  return at;
+}
+
+/** The per-branch payload for one fan-out item, same merge rules as a group branch. */
+function fanOutPayload(
+  template: WorkflowSingleStepSpec,
+  item: unknown,
+): Record<string, unknown> {
+  return typeof item === "object" && item !== null
+    ? { ...(template.payload ?? {}), ...(item as Record<string, unknown>) }
+    : { ...(template.payload ?? {}), item };
 }
 
 /** The payload to dispatch: the step's own, with the previous step's result merged in if asked. */
@@ -297,9 +351,24 @@ class WorkflowEngine {
     const previous = index > 0 ? workflow.steps[index - 1] : undefined;
     this.update(workflowId, { status: "running", currentStepIndex: index });
 
-    const advanced = step.branches
-      ? await this.runGroup(workflowId, index, step, previous)
-      : await this.runSingle(workflowId, index, step, previous);
+    let advanced: boolean;
+    if (step.fanOut) {
+      try {
+        advanced = await this.runFanOut(workflowId, index, step, previous);
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        this.updateStep(workflowId, index, { status: "failed", error: reason });
+        this.update(workflowId, {
+          status: "failed",
+          error: `Step ${index} (fan-out) failed: ${reason}`,
+        });
+        advanced = false;
+      }
+    } else if (step.branches) {
+      advanced = await this.runGroup(workflowId, index, step, previous);
+    } else {
+      advanced = await this.runSingle(workflowId, index, step, previous);
+    }
     if (advanced) await this.runStep(workflowId, index + 1);
   }
 
@@ -339,6 +408,61 @@ class WorkflowEngine {
       error: `Step ${index} ("${step.agent}:${step.operation}") failed: ${done.error}`,
     });
     return false;
+  }
+
+  /**
+   * A fan-out step: clones the one template step once per item of the list
+   * resolved from the previous step's result, then runs the resulting group -
+   * so the branch count follows the data instead of being written out.
+   */
+  private async runFanOut(
+    workflowId: string,
+    index: number,
+    step: WorkflowStepState,
+    previous: WorkflowStepState | undefined,
+  ): Promise<boolean> {
+    const spec = step.fanOut as WorkflowFanOutStepSpec;
+    const list = resolveFanOutList(previous, spec.from);
+    const max = spec.maxBranches && spec.maxBranches > 0 ? spec.maxBranches : DEFAULT_FANOUT_MAX;
+    if (list.length === 0) {
+      // Nothing to fan out over: the step completes empty rather than failing.
+      this.updateStep(workflowId, index, {
+        status: "completed",
+        result: { results: [], failed: 0 },
+        error: undefined,
+      });
+      return true;
+    }
+    if (list.length > max) {
+      throw new Error(
+        `fanOut: resolved ${list.length} items, over the cap of ${max} (set maxBranches to raise it)`,
+      );
+    }
+    const template = spec.fanOut;
+    const existing = step.branches;
+    // A resume re-derives the same list; keep the stored branch states (a
+    // completed branch keeps its result) instead of rebuilding from scratch.
+    const branches =
+      existing && existing.length === list.length
+        ? existing.map((branch, b) => ({
+            ...branch,
+            payload: fanOutPayload(template, list[b]),
+          }))
+        : list.map((item) => ({
+            ...singleState(template),
+            payload: fanOutPayload(template, item),
+          }));
+    // Run it exactly like a written-out parallel group: same result shape,
+    // same continueOnError semantics, and a resume re-derives the same list.
+    // Store the derived branches on the step itself (a resume re-derives the
+    // same list, and runGroup tracks branch state through the stored step).
+    const updated = this.updateStep(workflowId, index, {
+      branches,
+      continueOnError: spec.continueOnError ?? false,
+    });
+    const stored = updated?.steps[index];
+    if (!stored?.branches) return false;
+    return this.runGroup(workflowId, index, stored, previous);
   }
 
   private async runGroup(

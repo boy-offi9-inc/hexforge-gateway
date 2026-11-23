@@ -38,6 +38,17 @@ export async function jobRoutes(app: FastifyInstance) {
     return jobEngine.listJobsForWorkspace(id);
   });
 
+  app.post("/jobs/:jobId/resume", async (req, reply) => {
+    const { jobId } = req.params as { jobId: string };
+    const outcome = jobEngine.resume(jobId);
+    if ("error" in outcome) {
+      return outcome.error === "not_found"
+        ? reply.code(404).send({ error: "Job not found" })
+        : reply.code(409).send({ error: "Only a failed job can be resumed" });
+    }
+    return reply.code(202).send(outcome.job);
+  });
+
   app.get("/jobs/:jobId", async (req, reply) => {
     const { jobId } = req.params as { jobId: string };
     const job = jobEngine.getJob(jobId);

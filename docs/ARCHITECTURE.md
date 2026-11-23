@@ -184,7 +184,7 @@ Plain jobs that were running at a restart are failed the same way. A failed
 job - by its own error or by a restart - can be resumed from the beginning:
 
 ```bash
-curl -X POST http://localhost:8080/jobs/<jobId>/resume     # or: hf job-resume
+curl -X POST http://localhost:8080/jobs/<jobId>/resume
 ```
 
 It answers `202` (`404` if there is no such job, `409` if it isn't failed),

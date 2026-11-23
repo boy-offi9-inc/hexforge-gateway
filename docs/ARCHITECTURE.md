@@ -420,7 +420,8 @@ Rules enforced in `graph.service.ts`:
 
 - cited artifacts must exist in the same workspace;
 - both ends of an edge must be entities of that workspace, and can't be the
-  same entity;
+  same entity - except an `invokes` edge, which is the sanctioned self-loop
+  marking a class's reflective file;
 - violations raise `GraphError`, which the routes return as a `400`.
 
 Because ids are derived, creating and merging are single lookups; the list

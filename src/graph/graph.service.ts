@@ -105,12 +105,14 @@ export async function listEntities(
 }
 
 /**
- * Adds a directed edge. Both ends must be entities of this workspace and
- * can't be the same entity. Adding an edge that already exists changes
- * nothing and reports `created: false`.
+ * Adds a directed edge. Both ends must be entities of this workspace; the
+ * only allowed self-edge is `invokes` (reflection's whole-file marker). Adding
+ * an edge that already exists changes nothing and reports `created: false`.
  */
 export async function addEdge(input: EdgeInput): Promise<{ edge: GraphEdge; created: boolean }> {
-  if (input.from === input.to) {
+  // Reflection is recorded as a self-looped `invokes` edge on the calling
+  // class (see calls-indexer.ts) - the one sanctioned self-edge.
+  if (input.from === input.to && input.relation !== "invokes") {
     throw new GraphError("An edge can't connect an entity to itself");
   }
   for (const entityId of [input.from, input.to]) {
@@ -202,7 +204,11 @@ export async function indexBatch(input: BatchInput): Promise<BatchResult> {
         `Edge ${e.relation} ${e.from.name} -> ${e.to.name} names an entity that isn't in the batch`,
       );
     }
-    if (from === to) throw new GraphError("An edge can't connect an entity to itself");
+    // Reflection's `invokes` marker is a sanctioned self-loop; anything
+    // else connecting an entity to itself is a parser bug.
+    if (from === to && e.relation !== "invokes") {
+      throw new GraphError("An edge can't connect an entity to itself");
+    }
     const id = stableId(input.workspaceId, from, e.relation, to);
     edgeIds.set(id, { from, to, relation: e.relation });
   }

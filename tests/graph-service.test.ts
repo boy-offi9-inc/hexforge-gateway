@@ -302,7 +302,20 @@ describe("graph indexBatch", () => {
         edges: [{ from: ref("A"), to: ref("A"), relation: "calls" }],
       }),
     ).rejects.toThrow(/itself/);
-    expect(await graph.listEntities("ws1")).toEqual([]);
-    expect(await graph.listEdges("ws1")).toEqual([]);
+    // Reflection's `invokes` marker is a sanctioned self-loop (calls-indexer).
+    await expect(
+      graph.indexBatch({
+        ...base,
+        entities: [cls("A")],
+        edges: [{ from: ref("A"), to: ref("A"), relation: "invokes" }],
+      }),
+    ).resolves.toEqual({
+      entities: { created: 1, updated: 0 },
+      edges: { created: 1, existing: 0 },
+    });
+    // the rejected batches above wrote nothing; the sanctioned invokes
+    // self-loop right above is the one thing that did
+    expect(await graph.listEntities("ws1")).toHaveLength(1);
+    expect(await graph.listEdges("ws1")).toHaveLength(1);
   });
 });

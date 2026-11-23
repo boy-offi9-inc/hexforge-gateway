@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir, rm, readdir, stat } from "node:fs/promises";
+import { open, readFile, writeFile, mkdir, rm, readdir, stat } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { Worker } from "node:worker_threads";
@@ -126,8 +126,15 @@ async function readHandler(task: McpTask): Promise<unknown> {
 
   const encoding = payload.encoding ?? "utf8";
   const truncated = s.size > MAX_READ_BYTES;
-  const buffer = await readFile(filePath);
-  const slice = truncated ? buffer.subarray(0, MAX_READ_BYTES) : buffer;
+  const handle = await open(filePath, "r");
+  let slice: Buffer;
+  try {
+    slice = truncated
+      ? await handle.read(Buffer.alloc(MAX_READ_BYTES), 0, MAX_READ_BYTES, 0).then((r) => r.buffer)
+      : await handle.readFile();
+  } finally {
+    await handle.close();
+  }
 
   return {
     filePath,
@@ -268,7 +275,6 @@ async function searchHandler(task: McpTask): Promise<unknown> {
   });
 }
 
-
 interface ScanSecretsPayload {
   dirPath: string;
   extensions?: string[];
@@ -342,7 +348,10 @@ async function scanSecretsHandler(task: McpTask): Promise<unknown> {
   }
   candidates.length = Math.min(candidates.length, maxResults);
 
-  const byConfidence = { high: 0, medium: 0, low: 0 } as Record<SecretCandidate["confidence"], number>;
+  const byConfidence = { high: 0, medium: 0, low: 0 } as Record<
+    SecretCandidate["confidence"],
+    number
+  >;
   for (const c of candidates) byConfidence[c.confidence]++;
 
   const result = {

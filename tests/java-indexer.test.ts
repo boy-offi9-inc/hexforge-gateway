@@ -170,6 +170,20 @@ describe("indexJavaArtifact", () => {
     expect(classes.map((c) => c.name)).toEqual(["com.acme.Api", "com.acme.Login"]);
   });
 
+  it("indexes a reflective file - its self-looped invokes edge no longer aborts the batch", async () => {
+    const { artifact, graph, indexer } = await setup("flat");
+    await writeFile(
+      path.join(path.dirname(path.join(outDir, "com/acme/Api.java")), "Reflect.java"),
+      'package com.acme;\nclass Reflect { void go() throws Exception { Class.forName("X").getMethod("y").invoke(null); } }',
+    );
+
+    const result = await indexer.indexJavaArtifact(artifact);
+
+    expect(result.edges.created).toBeGreaterThanOrEqual(2);
+    const classes = await graph.listEntities("ws1", { type: "class" });
+    expect(classes.map((c) => c.name)).toContain("com.acme.Reflect");
+  });
+
   it("is idempotent: indexing the same artifact again creates nothing new", async () => {
     const { artifact, graph, indexer } = await setup("sources");
 

@@ -7,6 +7,19 @@ full picture.
 
 ## Unreleased
 
+## 1.9.0 — 2026-11-25
+- feat(graph): traffic-capture indexing. A `traffic-capture` artifact (JSONL
+  events or a HAR document) becomes `traffic-event` entities in the knowledge
+  graph, each mapped with a `maps-to` edge to the `url` entity it hit, so
+  runtime requests converge with statically discovered URLs. Redaction by
+  design: query parameter names are kept, their values never are; no header
+  values or request/response bodies are stored.
+- fix(security): the XML well-formedness check's tag scan is now a linear
+  character walk (the previous regex was catastrophically backtracking on
+  hostile input); audit-log key fingerprints are HMAC-SHA256 with a per-boot
+  key; nested generics fully reduce in the calls indexer; the invalid
+  AI_PROVIDER error no longer echoes the configured value.
+
 ## 1.8.2 — 2026-11-24
 - fix(graph): a reflective `invokes` self-edge no longer aborts the whole
   `indexBatch`; filesystem reads are capped for memory.

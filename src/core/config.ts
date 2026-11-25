@@ -150,7 +150,7 @@ if (
     ", ",
   );
   console.error(
-    `\u274c AI_PROVIDER "${config.AI_PROVIDER}" is not a known provider. Available: ${names}.`,
+    `\u274c AI_PROVIDER is not a known provider. Available: ${names}. (The unrecognized value is in AI_PROVIDER in .env - not echoed here to keep config values out of logs.)`,
   );
   process.exit(1);
 }

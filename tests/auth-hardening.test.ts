@@ -89,7 +89,7 @@ describe("fingerprintKey", () => {
 
   it("is deterministic, short, and does not contain the key", () => {
     const fp = fingerprintKey("super-secret-key-value");
-    expect(fp).toMatch(/^sha256:[0-9a-f]{16}$/);
+    expect(fp).toMatch(/^hmac:[0-9a-f]{16}$/);
     expect(fp).toBe(fingerprintKey("super-secret-key-value"));
     expect(fp).not.toContain("super-secret");
   });
@@ -143,7 +143,7 @@ describe("audit log", () => {
         .map((l) => JSON.parse(l));
       expect(lines).toHaveLength(2);
       expect(lines[0].identity).toBe("key:abc");
-      expect(lines[0].key).toMatch(/^sha256:[0-9a-f]{16}$/);
+      expect(lines[0].key).toMatch(/^hmac:[0-9a-f]{16}$/);
       expect(JSON.stringify(lines)).not.toContain("secret-value");
       expect(lines[0].tool).toBe("read_file");
       expect(lines[0].outcome).toBe("ok");

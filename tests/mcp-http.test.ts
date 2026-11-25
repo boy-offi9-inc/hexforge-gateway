@@ -173,7 +173,7 @@ describe("mcp http transport - auth hardening wiring", () => {
       const line = JSON.parse(readFileSync(auditPath, "utf8"));
       expect(line.outcome).toBe("ok");
       expect(line.tool).toBe("adb_shell");
-      expect(line.key).toMatch(/^sha256:[0-9a-f]{16}$/);
+      expect(line.key).toMatch(/^hmac:[0-9a-f]{16}$/);
       expect(JSON.stringify(line)).not.toContain("k1");
       expect(JSON.stringify(line)).not.toContain("echo hi");
     } finally {

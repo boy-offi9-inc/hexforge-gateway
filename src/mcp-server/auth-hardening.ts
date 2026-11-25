@@ -27,7 +27,7 @@
  *    duplicate it.
  */
 
-import { createHash } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 import { appendFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { mkdirSync } from "node:fs";
@@ -55,10 +55,16 @@ export function resetRateLimiterForTests() {
   counters.clear();
 }
 
+/** Per-boot random HMAC key: fingerprints are consistent within one
+ * Gateway process, differ across restarts (audit-log lines from previous
+ * boots can't be correlated to new ones - acceptable for a single-boot
+ * audit trail), and the keyed digest resists offline recovery of the key. */
+const FINGERPRINT_SECRET = randomBytes(32);
+
 /** Short, non-reversible fingerprint of an API key for the audit log. */
 export function fingerprintKey(key: string | null | undefined): string | null {
   if (!key) return null;
-  return "sha256:" + createHash("sha256").update(key).digest("hex").slice(0, 16);
+  return "hmac:" + createHmac("sha256", FINGERPRINT_SECRET).update(key).digest("hex").slice(0, 16);
 }
 
 /** What a tool call's method name was, for the audit log - nothing more. */

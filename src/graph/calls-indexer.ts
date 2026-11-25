@@ -85,8 +85,7 @@ function splitParams(params: string): string[] {
     // treated as the type itself (untyped, jadx rarely writes this).
     const typeToken = tokens.length >= 2 ? tokens[tokens.length - 2] : tokens[0];
     if (!typeToken) continue;
-    const type = typeToken
-      .replace(/<[^<>]*>/g, "")
+    const type = stripGenerics(typeToken)
       .replace(/\[\]/g, "")
       .replace(/^final\s+/, "");
     if (/^[A-Za-z_$][\w$.]*$/.test(type)) out.push(type);
@@ -117,13 +116,25 @@ const REFLECT_RE =
 const FIELD_RE =
   /(?:^|\n|[;{}])[ \t]*(?:(?:public|private|protected|static|final|volatile|transient|\s)*)\s*([A-Za-z_$][\w$.]*(?:<[^>\n]*>)?(?:\[\])?)\s+([A-Za-z_$][\w$]*)\s*(?:=[^\n]*)?;/g;
 
+/** Strip generics repeatedly so nested angle brackets (`Map<String, List<int>>`)
+ * fully reduce to the raw type instead of leaving stray `<` behind. */
+function stripGenerics(type: string): string {
+  let prev = type;
+  let current = type.replace(/<[^<>]*>/g, "");
+  while (current !== prev) {
+    prev = current;
+    current = current.replace(/<[^<>]*>/g, "");
+  }
+  return current;
+}
+
 /** Map of field name -> bare declared type for one file. */
 function parseFieldTypes(source: string): Map<string, string> {
   const out = new Map<string, string>();
   for (const match of source.matchAll(FIELD_RE)) {
     const [, type, name] = match;
     if (!type || !name || NOT_METHOD_NAMES.has(name)) continue;
-    const bare = type.replace(/<[^<>]*>/g, "").replace(/\[\]/g, "");
+    const bare = stripGenerics(type).replace(/\[\]/g, "");
     if (!out.has(name) && /^[A-Za-z_$][\w$.]*$/.test(bare)) out.set(name, bare);
   }
   return out;

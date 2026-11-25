@@ -50,11 +50,18 @@ export function checkXmlWellFormed(text: string): ValidationIssue | null {
     .replace(/<\?[\s\S]*?\?>/g, "")
     .replace(/<!DOCTYPE[^>[]*(\[[\s\S]*?\])?[^>]*>/g, "");
   const stack: string[] = [];
-  const tagRe = /<(\/?)([A-Za-z_][\w:.-]*)((?:"[^"]*"|'[^']*'|[^>])*?)(\/?)>/g;
-  let m: RegExpExecArray | null;
-  while ((m = tagRe.exec(cleaned)) !== null) {
-    const [, closing, name, attrs, selfClose] = m;
-    // an unbalanced quote inside attributes leaves junk the regex can't see;
+  // tag scanning is a manual linear walk, not a regex: an attribute region
+  // with quoted segments can't be expressed as a single backtrack-free
+  // regex alternation (quoted pairs, lone quotes and [^>] overlap, which
+  // is catastrophic on hostile input), so the tag end is found by walking
+  // characters and skipping quoted spans
+  const scanned = scanTags(cleaned);
+  if (scanned.unterminatedQuoteTag) {
+    return { problem: `unbalanced quote inside <${scanned.unterminatedQuoteTag}> tag` };
+  }
+  for (const tag of scanned.tags) {
+    const { closing, name, attrs, selfClose } = tag;
+    // an unbalanced quote inside attributes leaves junk the scan can't trust;
     // detect it: an odd number of quotes in the attribute region
     const quotes = (attrs.match(/"/g) ?? []).length + (attrs.match(/'/g) ?? []).length;
     if (quotes % 2 !== 0) {
@@ -77,6 +84,55 @@ export function checkXmlWellFormed(text: string): ValidationIssue | null {
     };
   }
   return null;
+}
+
+interface ScannedTag {
+  closing: boolean;
+  name: string;
+  attrs: string;
+  selfClose: boolean;
+}
+
+/** Walks `cleaned` and yields every well-shaped tag it opens. Linear time:
+ * each character is visited once; quoted attribute spans are skipped whole.
+ * A `<` that never forms a complete tag (unbalanced quote, no `>`) is
+ * skipped, and the odd-quote check on the attrs region catches the
+ * unbalanced-quote case. */
+function scanTags(cleaned: string): { tags: ScannedTag[]; unterminatedQuoteTag?: string } {
+  const tags: ScannedTag[] = [];
+  let i = cleaned.indexOf("<");
+  while (i !== -1) {
+    const m = /^<(\/?)([A-Za-z_][\w:.-]*)/.exec(cleaned.slice(i, i + 256));
+    if (!m) {
+      i = cleaned.indexOf("<", i + 1);
+      continue;
+    }
+    const closing = m[1] === "/";
+    const name = m[2];
+    let j = i + m[0].length;
+    let quote: string | null = null;
+    let selfClose = false;
+    while (j < cleaned.length) {
+      const ch = cleaned[j];
+      if (quote !== null) {
+        if (ch === quote) quote = null;
+      } else if (ch === '"' || ch === "'") {
+        quote = ch;
+      } else if (ch === ">") {
+        selfClose = cleaned[j - 1] === "/";
+        break;
+      }
+      j++;
+    }
+    if (j >= cleaned.length) {
+      // ran off the end mid-tag: an open quote swallowed the closing '>'
+      return { tags, unterminatedQuoteTag: quote !== null ? name : undefined };
+    }
+    const attrs = cleaned.slice(i + m[0].length, selfClose ? j - 1 : j);
+    tags.push({ closing, name, attrs, selfClose });
+    i = cleaned.indexOf("<", j + 1);
+  }
+  return { tags };
 }
 
 function looksLikeApktoolProject(dir: string): boolean {

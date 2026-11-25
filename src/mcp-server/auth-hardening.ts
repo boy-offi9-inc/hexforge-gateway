@@ -37,18 +37,24 @@ import { log, type JsonRpcRequest } from "./protocol.js";
 // vars per test, and so a long-running process picks up intentional
 // restarts cleanly.
 export function rateLimitMax(): number {
-  return Number(process.env.MCP_HTTP_RATE_LIMIT_MAX ?? 120);
+  const n = Number(process.env.MCP_HTTP_RATE_LIMIT_MAX ?? 120);
+  return Number.isFinite(n) && n >= 0 ? n : 120;
 }
 export function rateLimitWindowMs(): number {
-  return Number(process.env.MCP_HTTP_RATE_LIMIT_WINDOW_MS ?? 60_000);
+  const n = Number(process.env.MCP_HTTP_RATE_LIMIT_WINDOW_MS ?? 60_000);
+  // a NaN window would make `now - start >= NaN` false forever, bricking
+  // every identity once it hits max requests - fall back to the default
+  return Number.isFinite(n) && n > 0 ? n : 60_000;
 }
 function auditLogPath(): string {
   return process.env.MCP_HTTP_AUDIT_LOG ?? "";
 }
 
 // key/identity -> { windowStart, count }. Fixed-window counter per
-// identity; entries are never evicted (bounded by the number of distinct
-// keys/IPs, which for a single-operator server is small).
+// identity; when an unauthenticated deployment faces an identity flood
+// (rotated client IPs) the map is capped by evicting the oldest inserted
+// entries - bounded memory, at the cost of the oldest identities' windows.
+const MAX_RATE_LIMIT_IDENTITIES = 10_000;
 const counters = new Map<string, { windowStart: number; count: number }>();
 
 export function resetRateLimiterForTests() {
@@ -85,6 +91,11 @@ export function checkRateLimit(identity: string): boolean {
   const now = Date.now();
   let entry = counters.get(identity);
   if (!entry || now - entry.windowStart >= rateLimitWindowMs()) {
+    if (!counters.has(identity) && counters.size >= MAX_RATE_LIMIT_IDENTITIES) {
+      // evict the oldest inserted identity (Map preserves insertion order)
+      const oldest = counters.keys().next().value;
+      if (oldest !== undefined) counters.delete(oldest);
+    }
     counters.set(identity, { windowStart: now, count: 1 });
     return true;
   }

@@ -81,7 +81,7 @@ describe("normalizeEvent", () => {
 
 describe("parseCapture", () => {
   it("parses JSONL and skips malformed lines", () => {
-    const events = parseCapture(jsonl);
+    const { events } = parseCapture(jsonl);
     expect(events).toHaveLength(2);
     expect(events[0].method).toBe("GET");
     expect(events[1].status).toBe(401);
@@ -91,25 +91,30 @@ describe("parseCapture", () => {
     const har = JSON.stringify({
       log: { entries: [{ request: { method: "GET", url: "https://h.co/a" }, response: { status: 200 } }] },
     });
-    expect(parseCapture(har)).toHaveLength(1);
+    expect(parseCapture(har).events).toHaveLength(1);
   });
 
   it("honors the cap", () => {
     const lines = Array.from({ length: 20 }, (_, i) => JSON.stringify({ method: "GET", url: `https://h${i}.co/` }));
-    expect(parseCapture(lines.join("\n"), 5)).toHaveLength(5);
+    const { events: capped, truncated } = parseCapture(lines.join("\n"), 5);
+    expect(capped).toHaveLength(5);
+    expect(truncated).toBe(true);
+    const { events: exact, truncated: exactTrunc } = parseCapture(lines.slice(0, 5).join("\n"));
+    expect(exact).toHaveLength(5);
+    expect(exactTrunc).toBe(false); // exactly-max capture is not a truncation
   });
 });
 
 describe("toEntitiesAndEdges", () => {
   it("makes one entity per request shape and a maps-to edge to its url entity", () => {
-    const events = parseCapture(jsonl);
+    const { events } = parseCapture(jsonl);
     const { entities, edges } = toEntitiesAndEdges(events);
     expect(entities).toHaveLength(2);
-    expect(entities[0].name).toBe("GET api.acme.com /v1/login");
+    expect(entities[0].name).toBe("GET https://api.acme.com/v1/login");
     expect(entities[0].attributes).toMatchObject({ scheme: "https", status: 200, queryKeys: "user,token" });
     expect(edges).toHaveLength(2);
     expect(edges[0]).toEqual({
-      from: { type: "traffic-event", name: "GET api.acme.com /v1/login" },
+      from: { type: "traffic-event", name: "GET https://api.acme.com/v1/login" },
       to: { type: "url", name: "https://api.acme.com/v1/login" },
       relation: "maps-to",
     });
@@ -124,10 +129,35 @@ describe("toEntitiesAndEdges", () => {
     expect(entities).toHaveLength(1);
   });
 
-  it("names events without any query string", () => {
+  it("names events with scheme and without any query string", () => {
     expect(eventName({ method: "GET", scheme: "https", host: "h.co", path: "/a", queryKeys: ["x"] })).toBe(
-      "GET h.co /a",
+      "GET https://h.co/a",
     );
+    // http and https to the same host/path are distinct entities
+    expect(eventName({ method: "GET", scheme: "http", host: "h.co", path: "/a" })).toBe("GET http://h.co/a");
+  });
+
+  it("survives malformed percent-encoding in query keys", () => {
+    const e = normalizeEvent({ method: "GET", url: "https://h.co/p?%zz=1&ok=2" })!;
+    expect(e.queryKeys).toEqual(["%zz", "ok"]); // raw fallback, no throw
+  });
+
+  it("rejects junk events: whitespace method, out-of-range status, negative duration", () => {
+    expect(normalizeEvent({ method: "   ", url: "https://h.co/" })).toBeNull();
+    expect(normalizeEvent({ method: "GET", url: "https://h.co/", status: 1e9 })).toMatchObject({ status: undefined });
+    expect(normalizeEvent({ method: "GET", url: "https://h.co/", durationMs: -5 })).toMatchObject({ durationMs: undefined });
+  });
+
+  it("keeps valid entries of a HAR that contains a malformed one", () => {
+    const har = JSON.stringify({
+      log: {
+        entries: [
+          { request: { method: "GET", url: "https://a.co/1?%zz=2" }, response: { status: 200 } },
+          { request: { method: "GET", url: "https://b.co/2" }, response: { status: 200 } },
+        ],
+      },
+    });
+    expect(parseCapture(har).events).toHaveLength(2);
   });
 });
 
@@ -160,7 +190,7 @@ describe("indexTrafficCapture", () => {
     expect(result).not.toBeNull();
     const batch = vi.mocked(graphService.indexBatch).mock.calls[0][0];
     expect(batch.entities).toHaveLength(2);
-    expect(batch.entities[0].name).toBe("GET api.acme.com /v1/login");
+    expect(batch.entities[0].name).toBe("GET https://api.acme.com/v1/login");
     expect(batch.edges).toEqual([]); // edges go through addEdge, not the batch
     expect(result!.edges.existing).toBe(2); // both edges skipped, url entities absent
     expect(vi.mocked(graphService.addEdge)).not.toHaveBeenCalled();

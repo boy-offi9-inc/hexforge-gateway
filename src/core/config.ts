@@ -12,7 +12,12 @@ const envSchema = z.object({
   // for a local single-user tool but not once it's reachable beyond
   // localhost. Set AUTH_ENABLED=true and API_KEYS once that's the case -
   // see core/auth.ts.
-  AUTH_ENABLED: z.coerce.boolean().default(false),
+  // Strict string parsing, not z.coerce.boolean(): Boolean("false") is
+  // true, so AUTH_ENABLED=false in .env would silently ENABLE auth.
+  AUTH_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
   // Comma-separated list of accepted keys, so more than one person/device
   // can have their own (and you can revoke one without rotating all of them).
   API_KEYS: z.string().optional(),

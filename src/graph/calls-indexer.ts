@@ -79,7 +79,23 @@ export function parseDeclaredMethods(source: string): DeclaredMethod[] {
 function splitParams(params: string): string[] {
   if (params.trim().length === 0) return [];
   const out: string[] = [];
-  for (const piece of params.split(",")) {
+  // split on commas at angle-bracket depth 0, so a generic argument's own
+  // commas (Map<String, String>) don't split one parameter in half
+  const pieces: string[] = [];
+  let depth = 0;
+  let current = "";
+  for (const ch of params) {
+    if (ch === "<") depth++;
+    else if (ch === ">") depth = Math.max(0, depth - 1);
+    if (ch === "," && depth === 0) {
+      pieces.push(current);
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  pieces.push(current);
+  for (const piece of pieces) {
     const tokens = piece.trim().split(/\s+/).filter(Boolean);
     // `Type name` -> type is the token before the name; a single token is
     // treated as the type itself (untyped, jadx rarely writes this).

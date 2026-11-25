@@ -49,6 +49,12 @@ export function checkXmlWellFormed(text: string): ValidationIssue | null {
     .replace(/<!\[CDATA\[[\s\S]*?\]\]>/g, "")
     .replace(/<\?[\s\S]*?\?>/g, "")
     .replace(/<!DOCTYPE[^>[]*(\[[\s\S]*?\])?[^>]*>/g, "");
+  // the strip regexes above require closed delimiters, so an unterminated
+  // comment or CDATA section survives into `cleaned` and its contents would
+  // be scanned as real elements - exactly the truncated-patch class this
+  // checker exists to catch, so report it instead of misdiagnosing nesting
+  if (cleaned.includes("<!--")) return { problem: "unterminated comment (missing -->)" };
+  if (cleaned.includes("<![CDATA[")) return { problem: "unterminated CDATA section (missing ]]>)" };
   const stack: string[] = [];
   // tag scanning is a manual linear walk, not a regex: an attribute region
   // with quoted segments can't be expressed as a single backtrack-free

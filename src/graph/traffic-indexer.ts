@@ -35,9 +35,15 @@ export interface TrafficEvent {
   queryKeys?: string[];
 }
 
-/** Entity name for one event: `METHOD host path` - query dropped on purpose. */
+/** Entity name for one event: `METHOD scheme://host path`. The scheme is
+ * part of the name so an http and an https request to the same host/path
+ * stay distinct entities (they can point at different url entities). The
+ * query string is dropped on purpose - see the redaction note above. Note:
+ * a request's url-entity edge only converges with a static url entity when
+ * the static side recorded the bare origin+path (no query) - URLs with a
+ * query in the code don't converge yet. */
 export function eventName(e: TrafficEvent): string {
-  return `${e.method} ${e.host} ${e.path}`;
+  return `${e.method} ${e.scheme}://${e.host}${e.path}`;
 }
 
 /** The url-entity name a request to this event would have hit statically. */
@@ -45,14 +51,29 @@ function urlEntityName(e: TrafficEvent): string {
   return `${e.scheme}://${e.host}${e.path}`;
 }
 
-/** Parse query key names (never values) from a URL query string. */
+/** Parse query key names (never values) from a URL query string. A key
+ * with malformed percent-encoding falls back to its raw form rather than
+ * throwing - one hostile query string must not kill the event. */
 export function queryKeysOf(search: string): string[] | undefined {
   if (!search || search === "?") return undefined;
-  const keys = [...new Set(search.replace(/^\?/, "").split("&").filter(Boolean).map((pair) => {
-    const eq = pair.indexOf("=");
-    const key = eq === -1 ? pair : pair.slice(0, eq);
-    return decodeURIComponent(key).trim();
-  }).filter(Boolean))];
+  const keys = [
+    ...new Set(
+      search
+        .replace(/^\?/, "")
+        .split("&")
+        .filter(Boolean)
+        .map((pair) => {
+          const eq = pair.indexOf("=");
+          const key = eq === -1 ? pair : pair.slice(0, eq);
+          try {
+            return decodeURIComponent(key).trim();
+          } catch {
+            return key.trim();
+          }
+        })
+        .filter(Boolean),
+    ),
+  ];
   return keys.length > 0 ? keys : undefined;
 }
 
@@ -75,15 +96,19 @@ export function normalizeEvent(raw: unknown): TrafficEvent | null {
   if ("request" in r && typeof r.request === "object" && r.request !== null) {
     const req = r.request as Record<string, unknown>;
     const res = (typeof r.response === "object" && r.response !== null ? r.response : {}) as Record<string, unknown>;
-    const method = typeof req.method === "string" ? req.method.toUpperCase() : "";
+    const method = (typeof req.method === "string" ? req.method : "").trim().toUpperCase();
     const url = typeof req.url === "string" ? req.url : "";
     const parsed = parseUrl(url);
-    if (!method || !parsed) return null;
+    if (!/^[A-Z]+$/.test(method) || !parsed) return null;
     const headers = Array.isArray(req.headers) ? (req.headers as Array<Record<string, unknown>>) : [];
     const contentType =
       headers.find((h) => typeof h.name === "string" && h.name.toLowerCase() === "content-type")?.value;
-    const time = typeof r.time === "number" ? Math.round(r.time) : undefined;
-    const status = typeof res.status === "number" ? res.status : undefined;
+    const time =
+      typeof r.time === "number" && Number.isFinite(r.time) && r.time >= 0 ? Math.round(r.time) : undefined;
+    const status =
+      typeof res.status === "number" && Number.isInteger(res.status) && res.status >= 0 && res.status <= 599
+        ? res.status
+        : undefined;
     return {
       method,
       scheme: parsed.scheme,
@@ -97,25 +122,36 @@ export function normalizeEvent(raw: unknown): TrafficEvent | null {
   }
 
   // flat JSONL event shape: { method, url, status?, contentType?, durationMs? }
-  const method = typeof r.method === "string" ? r.method.toUpperCase() : "";
+  const method = (typeof r.method === "string" ? r.method : "").trim().toUpperCase();
   const url = typeof r.url === "string" ? r.url : "";
   const parsed = parseUrl(url);
-  if (!method || !parsed) return null;
+  if (!/^[A-Z]+$/.test(method) || !parsed) return null;
+  const status = typeof r.status === "number" && Number.isInteger(r.status) && r.status >= 0 && r.status <= 599
+    ? r.status
+    : undefined;
+  const durationMs =
+    typeof r.durationMs === "number" && Number.isFinite(r.durationMs) && r.durationMs >= 0
+      ? Math.round(r.durationMs)
+      : undefined;
   return {
     method,
     scheme: parsed.scheme,
     host: parsed.host,
     path: parsed.path,
-    status: typeof r.status === "number" ? r.status : undefined,
+    status,
     contentType: typeof r.contentType === "string" ? r.contentType.split(";")[0] : undefined,
-    durationMs: typeof r.durationMs === "number" ? Math.round(r.durationMs) : undefined,
+    durationMs,
     queryKeys: queryKeysOf(parsed.search),
   };
 }
 
 /** Pure part: a capture file's text -> normalized events (JSONL or HAR). */
-export function parseCapture(content: string, max = MAX_TRAFFIC_EVENTS): TrafficEvent[] {
+export function parseCapture(content: string, max = MAX_TRAFFIC_EVENTS): {
+  events: TrafficEvent[];
+  truncated: boolean;
+} {
   const out: TrafficEvent[] = [];
+  let truncated = false;
   // HAR is a JSON document; JSONL is one event per line. A HAR document
   // starts with a '{' and its first line is never a complete JSON object.
   const firstLine = content.slice(0, content.indexOf("\n") === -1 ? content.length : content.indexOf("\n")).trim();
@@ -123,17 +159,27 @@ export function parseCapture(content: string, max = MAX_TRAFFIC_EVENTS): Traffic
     try {
       const har = JSON.parse(content) as { log?: { entries?: unknown[] } };
       for (const entry of har.log?.entries ?? []) {
-        if (out.length >= max) break;
-        const e = normalizeEvent(entry);
-        if (e) out.push(e);
+        if (out.length >= max) {
+          truncated = true;
+          break;
+        }
+        try {
+          const e = normalizeEvent(entry);
+          if (e) out.push(e);
+        } catch {
+          // one malformed HAR entry never kills the rest of the capture
+        }
       }
-      return out;
+      return { events: out, truncated };
     } catch {
       // fall through to JSONL - a malformed HAR yields nothing either way
     }
   }
   for (const line of content.split("\n")) {
-    if (out.length >= max) break;
+    if (out.length >= max) {
+      truncated = true;
+      break;
+    }
     const trimmed = line.trim();
     if (!trimmed) continue;
     try {
@@ -143,7 +189,7 @@ export function parseCapture(content: string, max = MAX_TRAFFIC_EVENTS): Traffic
       // skip malformed lines - a partial capture still indexes
     }
   }
-  return out;
+  return { events: out, truncated };
 }
 
 /** Pure part: events -> entities and maps-to edges (to url entities). */
@@ -181,9 +227,9 @@ export async function indexTrafficCapture(artifact: Artifact): Promise<BatchResu
   if (artifact.pathType !== "file") return null;
   const content = await readFile(artifact.path, "utf8").catch(() => null);
   if (content === null) return null;
-  const events = parseCapture(content);
+  const { events, truncated } = parseCapture(content);
   if (events.length === 0) return null;
-  if (events.length >= MAX_TRAFFIC_EVENTS) {
+  if (truncated) {
     console.warn(`[traffic-indexer] ${artifact.path}: traffic event extraction capped at ${MAX_TRAFFIC_EVENTS}`);
   }
 
@@ -217,6 +263,9 @@ export async function indexTrafficCapture(artifact: Artifact): Promise<BatchResu
     if (created) createdEdges++;
     else existingEdges++;
   }
+  console.log(
+    `[traffic-indexer] ${artifact.path}: ${result.entities.created} created, ${result.entities.updated} updated, ${createdEdges} edges`,
+  );
   return {
     entities: result.entities,
     edges: { created: createdEdges, existing: existingEdges + skipped },

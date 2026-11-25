@@ -236,17 +236,23 @@ export async function requestListener(req: IncomingMessage, res: ServerResponse)
 
   // Per-key rate limit, checked before anything else on /mcp - a rejected
   // request should cost the client nothing further, and the key it would
-  // have used doesn't matter yet. Without auth configured, the client IP
-  // is the identity (best-effort; X-Forwarded-For is trusted only for
-  // picking the first hop, same as a plain reverse-proxy setup).
+  // have used doesn't matter yet.
   const key = extractApiKey(req);
   const keys = apiKeys();
   // Keyed identity uses the key's fingerprint, never the key itself, so
   // nothing that reaches the audit log (or stderr) can carry the secret.
+  // Without auth configured, the client IP is the identity. The socket's
+  // remote address is used directly - trusting client-controlled
+  // X-Forwarded-For here would let one client rotate a fresh rate-limit
+  // window per request. Set MCP_HTTP_TRUST_PROXY=true only behind a
+  // reverse proxy you control, which makes the proxy-set XFF first hop
+  // the identity again.
+  const trustProxy = (process.env.MCP_HTTP_TRUST_PROXY ?? "") === "true";
+  const xff = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim();
   const identity =
     keys.size > 0 && key
       ? `key:${fingerprintKey(key)}`
-      : `ip:${(req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() || req.socket.remoteAddress || "unknown"}`;
+      : `ip:${(trustProxy && xff) || req.socket.remoteAddress || "unknown"}`;
   if (!checkRateLimit(identity)) {
     log("rate limit exceeded for", identity);
     writeAuditEntry({

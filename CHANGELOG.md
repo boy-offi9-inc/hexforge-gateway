@@ -7,6 +7,24 @@ full picture.
 
 ## Unreleased
 
+## 1.9.1 — 2026-11-25
+- fix(config): `AUTH_ENABLED=false` in .env no longer silently enables auth
+  (strict `true`/`false` parsing instead of `Boolean("false")` coercion).
+- fix(graph): one traffic-capture event with malformed percent-encoding no
+  longer aborts the whole HAR or JSONL capture; junk events rejected
+  (whitespace methods, out-of-range status, negative durations); the
+  exactly-max capture no longer logs a spurious truncation warning; traffic
+  event names carry the scheme so http/https stay distinct.
+- fix(security): the /mcp rate limiter no longer trusts client-controlled
+  `X-Forwarded-For` by default (`MCP_HTTP_TRUST_PROXY=true` opts back in
+  behind a trusted reverse proxy); the identity map is capped; a NaN
+  `MCP_HTTP_RATE_LIMIT_WINDOW_MS` falls back to the default instead of
+  bricking every identity at max requests.
+- fix(validate): an unterminated comment or CDATA section in a patched XML
+  is reported as such instead of misdiagnosing tag nesting.
+- fix(graph): method parameters are split on commas at angle-bracket depth
+  zero, so `Map<String, String> m` no longer vanishes from call edges.
+
 ## 1.9.0 — 2026-11-25
 - feat(graph): traffic-capture indexing. A `traffic-capture` artifact (JSONL
   events or a HAR document) becomes `traffic-event` entities in the knowledge

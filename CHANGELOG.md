@@ -7,6 +7,15 @@ full picture.
 
 ## Unreleased
 
+## 1.10.0 — 2026-11-25
+- feat(agents): the `resilience` agent (`resilience.assess`) - instrumentation
+  resilience assessment. Composes APKiD fingerprints (for an APK) with a scan
+  of a decoded project's smali, Java and native libraries for detection
+  idioms across seven categories (frida, xposed, substrate, root, debugger,
+  emulator, integrity), each signal citing the file it was seen in. Output is
+  a `hardening-assessment` artifact - assessment language ("detected"/"not
+  observed"), never a guarantee, so it can back findings without overclaiming.
+
 ## 1.9.1 — 2026-11-25
 - fix(config): `AUTH_ENABLED=false` in .env no longer silently enables auth
   (strict `true`/`false` parsing instead of `Boolean("false")` coercion).

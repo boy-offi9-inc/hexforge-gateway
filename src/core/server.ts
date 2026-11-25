@@ -20,6 +20,7 @@ import { register as registerSecretIndexer } from "../graph/secret-indexer.js";
 import { register as registerManifestIndexer } from "../graph/manifest-indexer.js";
 import { register as registerNativeIndexer } from "../graph/native-indexer.js";
 import { register as registerUrlStringIndexer } from "../graph/url-string-indexer.js";
+import { register as registerTrafficIndexer } from "../graph/traffic-indexer.js";
 import { loadPlugins } from "../plugins/loader.js";
 import { registerWebsocketGateway } from "./websocket.js";
 import { registerAuth } from "./auth.js";
@@ -99,6 +100,11 @@ export async function buildServer() {
   // Turns secret-scan artifacts into redacted secret-candidate entities in
   // the knowledge graph (see graph/secret-indexer.ts).
   registerSecretIndexer();
+
+  // Turns traffic-capture artifacts (JSONL events or HAR) into
+  // traffic-event entities, mapped to the url entities they hit
+  // (see graph/traffic-indexer.ts).
+  registerTrafficIndexer();
 
   // Turns an apktool project's decoded manifest and resources into
   // component, permission and intent-filter entities in the knowledge

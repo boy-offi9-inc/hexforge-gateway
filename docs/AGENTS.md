@@ -1,7 +1,7 @@
 # MCP Agents
 
 `src/modules/mcp/orchestrator.ts` registers a handler per agent kind.
-`jadx`, `apktool`, `apksigner`, `apkid`, `triage`, `apkmcp`, `filesystem`, `adb`,
+`jadx`, `apktool`, `apksigner`, `apkid`, `triage`, `resilience`, `apkmcp`, `filesystem`, `adb`,
 `frida`, and `ghidra` all have real implementations - `frida` has the biggest asterisk on "real"
 (see below). Dispatching a task (`POST /workspaces/:id/tasks`) is
 fire-and-forget: it returns immediately with `status: "queued"`, then
@@ -355,6 +355,40 @@ observed" language, never "safe"/"protected" - marker absence doesn't
 prove a target doesn't detect instrumentation. Anything that couldn't
 run (apkid missing, no manifest found) is listed in `warnings` instead
 of silently absent.
+
+### resilience
+
+Instrumentation-resilience assessment: what does the target look for when
+it tries to detect instrumentation and environment tampering? Composes
+signals rather than reimplementing them:
+
+- **APKiD fingerprints** (`fingerprints`) when the target is an `.apk`
+  and `apkid` is installed - packer/anti-disassembly markers;
+- **Detection-idiom scan** (`signals`) over a decoded project's smali,
+  Java and native libraries, across seven categories: frida, xposed,
+  substrate, root, debugger, emulator and integrity. Each signal cites
+  the file (and line, for text) it was seen in, capped at 10 occurrences
+  per category; native libraries are scanned for ASCII needles
+  (frida-gadget, gum-js-loop, ptrace, qemu, ...).
+
+```bash
+curl -X POST http://localhost:8080/workspaces/<id>/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"agent": "resilience", "operation": "assess", "payload": {"target": "/absolute/path/to/decoded-project"}}'
+```
+
+Operation: `assess` (`target` - an `.apk` file or a project directory,
+`timeoutSeconds?` - forwarded to apkid). The assessment is saved as
+`WORKSPACES_ROOT/<id>/resilience/<taskId>.json` and its path returned as
+`outputPath`, tracked as a
+[hardening-assessment artifact](ARCHITECTURE.md#artifacts) and citable as
+evidence.
+
+The output is an assessment, not a guarantee: "detected" means the
+indicator was observed in the artifact, "not observed" means nothing
+matched - not that the target is unprotected. Detection logic is often
+obfuscated, string-encrypted or native-only. Anything that couldn't run
+is listed in `warnings`.
 
 ### ghidra
 

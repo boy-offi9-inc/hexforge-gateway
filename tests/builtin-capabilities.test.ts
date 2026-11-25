@@ -14,7 +14,7 @@ function loadAll() {
 }
 
 describe("built-in capability descriptors", () => {
-  it("cover all twelve built-in agents and pass registry validation", () => {
+  it("cover all thirteen built-in agents and pass registry validation", () => {
     expect(() => loadAll()).not.toThrow();
     expect(Object.keys(builtinDescriptors).sort()).toEqual(
       [
@@ -28,6 +28,7 @@ describe("built-in capability descriptors", () => {
         "frida",
         "ghidra",
         "jadx",
+        "resilience",
         "triage",
         "verifyClaims",
       ].sort(),
@@ -69,6 +70,7 @@ describe("built-in capability descriptors", () => {
       "frida.trace",
       "ghidra.analyze",
       "jadx.decompile",
+      "resilience.assess",
       "triage.assess",
     ]);
   });

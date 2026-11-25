@@ -111,6 +111,20 @@ export const builtinDescriptors = {
       },
     ],
   },
+  resilience: {
+    description:
+      "Instrumentation-resilience assessment: what does the target look for (Frida, Xposed, root, debugger, emulator, integrity)? Assessment language, evidence-cited.",
+    backends: [{ tool: "apkid" }],
+    permissions: ["fs:workspace"],
+    operations: [
+      {
+        name: "assess",
+        capability: "android.resilience",
+        inputs: { required: ["target"], optional: ["timeoutSeconds"] },
+        outputs: ["hardening-assessment"],
+      },
+    ],
+  },
   adb: {
     description: "Android Debug Bridge device control.",
     backends: [{ tool: "adb" }],

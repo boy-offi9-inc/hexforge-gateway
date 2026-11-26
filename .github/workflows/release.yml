@@ -7,7 +7,7 @@ name: Release
 on:
   push:
     branches: [main]
-    paths: [package.json]
+    paths: [package.json, package-lock.json]
   workflow_dispatch:
     inputs:
       dry_run:

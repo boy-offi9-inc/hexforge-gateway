@@ -7,6 +7,10 @@ full picture.
 
 ## Unreleased
 
+## 1.10.1 — 2026-11-26
+- chore(deps): @supabase/supabase-js 2.119.2, @fastify/rate-limit 11.3.0,
+  vitest 5.1.1 — landed via merged Dependabot PRs #26–#28; release cut
+
 ## 1.10.0 — 2026-11-25
 - feat(agents): the `resilience` agent (`resilience.assess`) - instrumentation
   resilience assessment. Composes APKiD fingerprints (for an APK) with a scan

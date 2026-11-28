@@ -99,3 +99,44 @@ jobs:
       - name: Stop the Gateway
         if: always()
         run: kill "$(cat gateway.pid)" 2>/dev/null || true
+
+  security-scan:
+    # Secrets in the tree, known-vulnerable dependencies, and license risk on
+    # PRs. gitleaks runs over the full history (cheap here, catches anything
+    # ever committed by accident); npm audit fails on high/critical in prod
+    # deps; dependency-review adds license + vulnerability diffing where it
+    # has a base to diff against (PRs only).
+    runs-on: ubuntu-latest
+    if: ${{ !cancelled() }}
+    needs: [typecheck-and-build]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: gitleaks (full history)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: npm audit (prod dependencies, high+critical)
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: dependency-review (PRs)
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          deny-licenses: AGPL-3.0, AGPL-3.0-only, AGPL-3.0-or-later
+
+      - name: Upload gitleaks report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-report
+          path: gitleaks-report.json
+          if-no-files-found: ignore

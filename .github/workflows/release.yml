@@ -169,3 +169,31 @@ jobs:
             ghcr.io/${{ github.repository }}:latest-runtime
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Trivy scan - MCP-introspection image
+        # Blocks the release on critical/highs in the published image itself:
+        # the artifact we tell people to `docker pull` is the one that gets
+        # scanned, every release, not a one-off audit.
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ghcr.io/${{ github.repository }}:v${{ needs.detect.outputs.version }}
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+
+      - name: Trivy scan - runtime image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ghcr.io/${{ github.repository }}:v${{ needs.detect.outputs.version }}-runtime
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          # The runtime image pins a real toolchain (Ghidra, jadx, JDK, their
+          # OS deps) - a finding there is usually an unfixed OS package, which
+          # would block releases indefinitely. Report for now: flip this to 1
+          # once the baseline is clean.
+          exit-code: "0"
+          output: trivy-runtime.txt
+
+      - name: Show runtime-image findings
+        if: always()
+        run: grep -E 'TOTAL|CRITICAL|HIGH' trivy-runtime.txt | tail -5 || true

@@ -872,6 +872,59 @@ export const META_TOOL_DEFINITIONS: ToolDefinition[] = [
     },
   },
   {
+    name: "query_graph",
+    description:
+      "Ask the knowledge graph a question, not just list it: walk outward (or inward) from one entity following edges - who calls this class (relation=calls, direction=in), what fields does this method access (relation=accesses), which runtime hooks observed this method (relation=maps-to, direction=in), what does this package contain (relation=contains) - up to 3 hops deep. Returns { root, edges: [{ relation, from, to }], entities: [...], truncated }, where from/to are FULL entities ({ id, type, name, attributes }) so no second lookup is needed. entity comes from list_graph_entities; relations available: contains, calls, invokes, maps-to, accesses, observed-by, supports, inherits. Only reads.",
+    annotations: {
+      title: "Query the knowledge graph",
+      readOnlyHint: true,
+      openWorldHint: false,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        workspace: workspaceProp,
+        entityId: {
+          type: "string",
+          description: "Entity id to walk from, from list_graph_entities.",
+        },
+        relation: {
+          type: "string",
+          enum: [
+            "contains",
+            "calls",
+            "invokes",
+            "maps-to",
+            "accesses",
+            "observed-by",
+            "supports",
+            "inherits",
+          ],
+          description: "Only follow edges of this relation. Omit to follow every edge.",
+        },
+        direction: {
+          type: "string",
+          enum: ["out", "in", "both"],
+          description:
+            "out = edges leaving the entity (default), in = edges arriving (e.g. who calls it), both = either way.",
+        },
+        depth: {
+          type: "number",
+          minimum: 1,
+          maximum: 3,
+          description: "How many hops to walk (default 1). Start with 1 - deeper walks grow fast.",
+        },
+        maxEdges: {
+          type: "number",
+          minimum: 1,
+          maximum: 2000,
+          description: "Cap on collected edges (default 500); truncated=true means it cut early.",
+        },
+      },
+      required: ["workspace", "entityId"],
+    },
+  },
+  {
     name: "list_findings",
     description:
       "List a workspace's findings - claims about the target with their status, confidence and evidence - newest first. Returns an array of { id, claim, status, confidence?, reasoning?, evidence: [{ artifactId, entityId?, location?, note? }], source, createdAt, updatedAt }. Check it before create_finding so you don't record the same claim twice. Only reads, apart from creating the workspace if it doesn't exist.",

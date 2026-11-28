@@ -164,6 +164,85 @@ export async function getEntityWithEdges(
   return { entity, edges: await listEdges(entity.workspaceId, { entityId: id }) };
 }
 
+export interface TraverseOptions {
+  /** Only walk edges of this relation, e.g. `calls` for a who-calls query. */
+  relation?: Relation;
+  /** Which way to walk from the start node. Default `out`. */
+  direction?: "out" | "in" | "both";
+  /** How many hops to walk (1-3). Default 1. */
+  depth?: number;
+  /** Hard cap on collected edges, so a hub node cannot stall a request. */
+  maxEdges?: number;
+}
+
+export interface TraversalResult {
+  root: GraphEntity;
+  /** Every edge found within the depth budget, both ends resolved. */
+  edges: { edge: GraphEdge; from: GraphEntity; to: GraphEntity }[];
+  /** Distinct entities touched, root included. Sorted by type then name. */
+  entities: GraphEntity[];
+  /** True when the cap cut the walk short before the depth budget ran out. */
+  truncated: boolean;
+}
+
+/**
+ * Answers graph questions, not list questions: walk the graph out from one
+ * entity following `relation` edges (who calls this class, what does this
+ * method access, which runtime events hooked it), BFS up to `depth` hops,
+ * both ends resolved to full entities so a consumer never needs a second
+ * round trip. Bounded by maxEdges - a `contains` walk from a package root
+ * must not load the whole graph.
+ */
+export async function traverseGraph(
+  workspaceId: string,
+  startId: string,
+  { relation, direction = "out", depth = 1, maxEdges = 500 }: TraverseOptions = {},
+): Promise<TraversalResult | null> {
+  const root = await getEntity(startId);
+  if (!root || root.workspaceId !== workspaceId) return null;
+
+  const hops = Math.min(3, Math.max(1, Math.floor(depth)));
+  const cap = Math.min(2000, Math.max(1, Math.floor(maxEdges)));
+
+  const entities = new Map<string, GraphEntity>([[root.id, root]]);
+  const edges: TraversalResult["edges"] = [];
+  let truncated = false;
+  let frontier = [root.id];
+
+  for (let hop = 0; hop < hops && frontier.length > 0; hop++) {
+    const next: string[] = [];
+    for (const nodeId of frontier) {
+      const found = await listEdges(workspaceId, { entityId: nodeId, relation });
+      for (const edge of found) {
+        const neighborId = edge.from === nodeId ? edge.to : edge.from;
+        const outgoing = edge.from === nodeId;
+        if (direction === "out" && !outgoing) continue;
+        if (direction === "in" && outgoing) continue;
+        if (edges.some((e) => e.edge.id === edge.id)) continue;
+        if (edges.length >= cap) {
+          truncated = true;
+          break;
+        }
+        const from = entities.get(edge.from) ?? (await getEntity(edge.from));
+        const to = entities.get(edge.to) ?? (await getEntity(edge.to));
+        if (!from || !to) continue;
+        entities.set(from.id, from);
+        entities.set(to.id, to);
+        edges.push({ edge, from, to });
+        if (!next.includes(neighborId)) next.push(neighborId);
+      }
+      if (truncated) break;
+    }
+    if (truncated) break;
+    frontier = next;
+  }
+
+  const sorted = [...entities.values()].sort(
+    (a, b) => a.type.localeCompare(b.type) || a.name.localeCompare(b.name),
+  );
+  return { root, edges, entities: sorted, truncated };
+}
+
 /**
  * Adds many entities and edges in one go, for indexers that report thousands
  * of things from a single artifact. Same merge rules as upsertEntity and

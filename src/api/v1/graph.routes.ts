@@ -76,6 +76,29 @@ export async function graphRoutes(app: FastifyInstance) {
     return result;
   });
 
+  const traverseQuerySchema = z.object({
+    workspace: z.string().min(1),
+    relation: relationSchema.optional(),
+    direction: z.enum(["out", "in", "both"]).optional(),
+    depth: z.coerce.number().int().min(1).max(3).optional(),
+    maxEdges: z.coerce.number().int().min(1).max(2000).optional(),
+  });
+
+  app.get("/graph/entities/:entityId/traverse", async (req, reply) => {
+    const { entityId } = req.params as { entityId: string };
+    const parsed = traverseQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: parsed.error.flatten() });
+    }
+    const result = await graphService.traverseGraph(
+      parsed.data.workspace,
+      entityId,
+      parsed.data,
+    );
+    if (!result) return reply.code(404).send({ error: "Entity not found in this workspace" });
+    return result;
+  });
+
   app.post("/workspaces/:id/graph/edges", async (req, reply) => {
     const { id } = req.params as { id: string };
     const workspace = await workspaceService.getWorkspace(id);

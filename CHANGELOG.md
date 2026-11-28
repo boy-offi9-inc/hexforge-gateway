@@ -7,6 +7,15 @@ full picture.
 
 ## Unreleased
 
+## 1.13.0 — 2026-11-28
+- feat(graph): graph-native queries - `traverseGraph` in the graph service
+  (BFS up to 3 hops, relation/direction filters, edge cap with truncation
+  flag, both ends resolved to full entities), exposed as
+  `GET /graph/entities/:entityId/traverse` and the read-only `query_graph`
+  MCP tool. Answers who-calls / who-accesses / what-hooked-this questions
+  in one call instead of entity-by-entity listing - the typed knowledge
+  graph becomes queryable, not just listable.
+
 ## 1.12.1 — 2026-11-28
 - fix(graph): the accesses indexer no longer attaches an abstract/native
   method's signature to the next method's body (a `;`-terminated declaration

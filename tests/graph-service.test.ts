@@ -319,3 +319,80 @@ describe("graph indexBatch", () => {
     expect(await graph.listEdges("ws1")).toHaveLength(1);
   });
 });
+
+describe("traverseGraph", () => {
+  const cls = (name: string) => ({ type: "class" as const, name });
+  const ref = (name: string, type: "class" | "package" = "class") => ({ type, name });
+  const setupChain = async () => {
+    const a = await record("ws1");
+    await graph.indexBatch({
+      workspaceId: "ws1",
+      artifactId: a.id,
+      entities: [cls("com.acme.Api"), cls("com.acme.Login"), cls("com.acme.Session")],
+      edges: [
+        { from: ref("com.acme.Login"), to: ref("com.acme.Api"), relation: "calls" },
+        { from: ref("com.acme.Api"), to: ref("com.acme.Session"), relation: "calls" },
+      ],
+    });
+    return graph;
+  };
+
+  it("walks one hop out and resolves both ends to full entities", async () => {
+    await setupChain();
+    const [login] = await graph.listEntities("ws1", { q: "Login" });
+    const result = await graph.traverseGraph("ws1", login!.id);
+    expect(result).not.toBeNull();
+    expect(result!.edges).toHaveLength(1);
+    expect(result!.edges[0]!.from.name).toBe("com.acme.Login");
+    expect(result!.edges[0]!.to.name).toBe("com.acme.Api");
+    expect(result!.edges[0]!.to.attributes).toBeDefined();
+    expect(result!.entities.map((e) => e.name).sort()).toEqual([
+      "com.acme.Api",
+      "com.acme.Login",
+    ]);
+  });
+
+  it("answers who-calls with direction=in and a relation filter", async () => {
+    await setupChain();
+    const [api] = await graph.listEntities("ws1", { q: "Api" });
+    const result = await graph.traverseGraph("ws1", api!.id, { relation: "calls", direction: "in" });
+    expect(result!.edges.map((e) => e.from.name)).toEqual(["com.acme.Login"]);
+    // out-only walk from Api sees Session, not Login
+    const out = await graph.traverseGraph("ws1", api!.id, { relation: "calls", direction: "out" });
+    expect(out!.edges.map((e) => e.to.name)).toEqual(["com.acme.Session"]);
+  });
+
+  it("walks depth=2 BFS", async () => {
+    await setupChain();
+    const [login] = await graph.listEntities("ws1", { q: "Login" });
+    const result = await graph.traverseGraph("ws1", login!.id, { depth: 2 });
+    expect(result!.edges).toHaveLength(2);
+    expect(result!.entities.map((e) => e.name)).toEqual([
+      "com.acme.Api",
+      "com.acme.Login",
+      "com.acme.Session",
+    ]);
+  });
+
+  it("clamps depth, honours the edge cap and flags truncation", async () => {
+    const a = await record("ws1");
+    const entities = Array.from({ length: 6 }, (_, i) => cls(`com.acme.H${i}`));
+    const edges = entities.slice(1).map((_, i) => ({
+      from: ref("com.acme.H0"),
+      to: ref(`com.acme.H${i + 1}`),
+      relation: "calls" as const,
+    }));
+    await graph.indexBatch({ workspaceId: "ws1", artifactId: a.id, entities, edges });
+    const [root] = await graph.listEntities("ws1", { q: "H0" });
+    const result = await graph.traverseGraph("ws1", root!.id, { maxEdges: 2 });
+    expect(result!.edges).toHaveLength(2);
+    expect(result!.truncated).toBe(true);
+  });
+
+  it("returns null for a missing entity or a cross-workspace id", async () => {
+    await setupChain();
+    expect(await graph.traverseGraph("ws1", "ghost")).toBeNull();
+    const [login] = await graph.listEntities("ws1", { q: "Login" });
+    expect(await graph.traverseGraph("ws-other", login!.id)).toBeNull();
+  });
+});

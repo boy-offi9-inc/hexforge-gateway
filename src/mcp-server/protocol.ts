@@ -126,6 +126,21 @@ async function callTool(
         if (!entityId) return toolTextResult('"entityId" is required', true);
         return toolTextResult(JSON.stringify(await gateway.getGraphEntity(entityId)));
       }
+      case "query_graph": {
+        const entityId = args.entityId as string;
+        if (!entityId) return toolTextResult('"entityId" is required', true);
+        return toolTextResult(
+          JSON.stringify(
+            await gateway.queryGraph(entityId, {
+              workspace: workspaceName,
+              relation: args.relation as string | undefined,
+              direction: args.direction as string | undefined,
+              depth: args.depth as number | undefined,
+              maxEdges: args.maxEdges as number | undefined,
+            }),
+          ),
+        );
+      }
       case "list_findings": {
         const ws = await gateway.getOrCreateWorkspace(workspaceName);
         const findings = await gateway.listFindings(ws.id, {

@@ -130,6 +130,29 @@ export async function getGraphEntity(entityId: string): Promise<unknown> {
   return request<unknown>("GET", `/graph/entities/${encodeURIComponent(entityId)}`);
 }
 
+export async function queryGraph(
+  entityId: string,
+  filter: {
+    workspace: string;
+    relation?: string;
+    direction?: string;
+    depth?: number;
+    maxEdges?: number;
+  },
+): Promise<unknown> {
+  const params: Record<string, string | undefined> = {
+    workspace: filter.workspace,
+    relation: filter.relation,
+    direction: filter.direction,
+    depth: filter.depth === undefined ? undefined : String(filter.depth),
+    maxEdges: filter.maxEdges === undefined ? undefined : String(filter.maxEdges),
+  };
+  return request<unknown>(
+    "GET",
+    `/graph/entities/${encodeURIComponent(entityId)}/traverse${queryString(params)}`,
+  );
+}
+
 export async function listFindings(
   workspaceId: string,
   filter: { status?: string; entityId?: string } = {},

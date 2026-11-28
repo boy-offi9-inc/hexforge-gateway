@@ -137,6 +137,7 @@ describe("tool definitions", () => {
         "list_artifacts",
         "list_graph_entities",
         "get_graph_entity",
+        "query_graph",
         "list_findings",
         "verify_finding",
         "get_report",

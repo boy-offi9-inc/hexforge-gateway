@@ -38,9 +38,15 @@ async function buildApp(opts: { workspaceExists?: boolean } = {}) {
       .mockImplementation(async (id: string) => (id === "e1" ? { entity, edges: [edge] } : null)),
     addEdge: vi.fn().mockResolvedValue({ edge, created: true }),
     listEdges: vi.fn().mockResolvedValue([edge]),
+    traverseGraph: vi.fn().mockResolvedValue({ root: entity, edges: [{ edge, from: entity, to: entity }], entities: [entity], truncated: false }),
   };
   const workspaces = {
-    getWorkspace: vi.fn().mockResolvedValue(opts.workspaceExists === false ? null : { id: "ws1" }),
+    getWorkspace: vi
+      .fn()
+      .mockImplementation(async (id: string) => (id === "ws1" && opts.workspaceExists !== false ? { id: "ws1" } : null)),
+    getWorkspaceByName: vi
+      .fn()
+      .mockImplementation(async (name: string) => (name === "acme" ? { id: "ws1" } : null)),
   };
   vi.doMock("../src/modules/workspace/workspace.service.js", () => workspaces);
   vi.doMock("../src/graph/graph.service.js", () => service);
@@ -154,5 +160,30 @@ describe("graph routes", () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual([edge]);
     expect(service.listEdges).toHaveBeenCalledWith("ws1", { entityId: "e1", relation: "calls" });
+  });
+
+  it("GET traverse resolves the workspace NAME to its id before traversing", async () => {
+    // regression: 1.13.0 passed the workspace name straight through as an id,
+    // so every traverse against a real workspace 404'd
+    const { app, service } = await buildApp();
+    const byName = await app.inject({
+      method: "GET",
+      url: "/graph/entities/e1/traverse?workspace=acme&depth=2",
+    });
+    expect(byName.statusCode).toBe(200);
+    expect(service.traverseGraph).toHaveBeenCalledWith("ws1", "e1", expect.objectContaining({ workspace: "acme", depth: 2 }));
+
+    const byId = await app.inject({
+      method: "GET",
+      url: "/graph/entities/e1/traverse?workspace=ws1",
+    });
+    expect(byId.statusCode).toBe(200);
+
+    const ghost = await app.inject({
+      method: "GET",
+      url: "/graph/entities/e1/traverse?workspace=nope",
+    });
+    expect(ghost.statusCode).toBe(404);
+    expect(ghost.json().error).toBe("Workspace not found");
   });
 });

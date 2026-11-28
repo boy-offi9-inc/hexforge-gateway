@@ -125,11 +125,32 @@ export async function indexJavaArtifact(artifact: Artifact) {
       `[graph-indexer] ${artifact.path}: field-access indexing capped (${MAX_FIELD_ENTITIES} fields / ${MAX_ACCESS_EDGES} edges)`,
     );
   }
+
+  // Edges naming an entity outside this batch (an android.* superclass, a
+  // framework method) would fail indexBatch's all-or-nothing validation and
+  // lose the WHOLE decompile's graph - one external superclass used to zero
+  // every real APK's classes. An edge end that isn't observed here has no
+  // entity here, so the edge is dropped, not fabricated; if the other end
+  // arrives in a later artifact, that artifact's own edge takes over.
+  const batchEntities = new Set(
+    [...entities, ...calls.entities, ...accesses.entities].map((e) => `${e.type}:${e.name}`),
+  );
+  const allEdges = [...edges, ...inherited.edges, ...calls.edges, ...accesses.edges];
+  const keptEdges = allEdges.filter(
+    (e) => batchEntities.has(`${e.from.type}:${e.from.name}`) && batchEntities.has(`${e.to.type}:${e.to.name}`),
+  );
+  const dropped = allEdges.length - keptEdges.length;
+  if (dropped > 0) {
+    console.warn(
+      `[graph-indexer] ${artifact.path}: dropped ${dropped} edges naming entities outside this artifact (external superclasses / framework calls)`,
+    );
+  }
+
   return graphService.indexBatch({
     workspaceId: artifact.workspaceId,
     artifactId: artifact.id,
     entities: [...entities, ...calls.entities, ...accesses.entities],
-    edges: [...edges, ...inherited.edges, ...calls.edges, ...accesses.edges],
+    edges: keptEdges,
   });
 }
 

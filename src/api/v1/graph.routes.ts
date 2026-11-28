@@ -90,8 +90,16 @@ export async function graphRoutes(app: FastifyInstance) {
     if (!parsed.success) {
       return reply.code(400).send({ error: parsed.error.flatten() });
     }
+    // `workspace` arrives as a name (what the MCP tool and clients hold) or
+    // an id - resolve it to the record, traverse by the record's id. Passing
+    // the name straight through made every traverse 404 against a real
+    // workspace (1.13.0 shipped with mocked-service tests that hid this).
+    const w =
+      (await workspaceService.getWorkspaceByName(parsed.data.workspace)) ??
+      (await workspaceService.getWorkspace(parsed.data.workspace));
+    if (!w) return reply.code(404).send({ error: "Workspace not found" });
     const result = await graphService.traverseGraph(
-      parsed.data.workspace,
+      w.id,
       entityId,
       parsed.data,
     );

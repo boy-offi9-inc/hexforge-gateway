@@ -184,6 +184,27 @@ describe("indexJavaArtifact", () => {
     expect(classes.map((c) => c.name)).toContain("com.acme.Reflect");
   });
 
+  it("keeps the whole class graph when a class extends something outside the artifact", async () => {
+    // regression: one external superclass used to fail indexBatch's
+    // all-or-nothing validation and lose every class in the decompile
+    const { artifact, graph, indexer } = await setup("sources");
+    await writeFile(
+      path.join(outDir, "sources", "com", "acme", "MainActivity.java"),
+      "package com.acme;\nimport android.app.Activity;\nclass MainActivity extends Activity { void onCreate() { api(); } void api() { } }",
+    );
+
+    const result = await indexer.indexJavaArtifact(artifact);
+
+    const classes = await graph.listEntities("ws1", { type: "class" });
+    expect(classes.map((c) => c.name)).toContain("com.acme.MainActivity");
+    expect(classes.map((c) => c.name)).toContain("com.acme.Login");
+    // no inherits edge to the unobserved android.app.Activity
+    const edges = await graph.listEdges("ws1");
+    expect(edges.every((e) => e.relation !== "inherits")).toBe(true);
+    // the internal calls edge survived
+    expect(result.edges.created).toBeGreaterThanOrEqual(2); // contains + calls
+  });
+
   it("is idempotent: indexing the same artifact again creates nothing new", async () => {
     const { artifact, graph, indexer } = await setup("sources");
 

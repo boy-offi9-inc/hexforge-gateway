@@ -105,8 +105,15 @@ Request/response shapes are in the linked docs:
 - `POST|GET /workspaces/:id/findings` (filter by `status` or a cited `entityId`), `GET|PATCH /findings/:id`, `GET /findings/:id/verification` — claims with evidence checked against real artifacts and graph entities, and re-checked against the cited files ([ARCHITECTURE](docs/ARCHITECTURE.md#findings))
 - `GET /workspaces/:id/report?format=json|markdown|sarif` — a findings report with each piece of evidence re-checked ([ARCHITECTURE](docs/ARCHITECTURE.md#findings-report))
 - `POST|GET /workspaces/:id/graph/entities`, `GET /graph/entities/:id`, `POST|GET /workspaces/:id/graph/edges` — typed entities and relationships observed about the target ([ARCHITECTURE](docs/ARCHITECTURE.md#knowledge-graph))
+- `GET /graph/entities/:id/traverse?relation=&direction=&depth=` — graph questions, not just listing: who calls this class, what does this method access, which hooks observed it, up to 3 hops ([SAFETY](docs/SAFETY.md))
 - `WS /ws` — real-time `task:update`, `job:update`, `workflow:update`, `knowledge:entry_created`, `workspace:status_changed` for every workspace
 - `WS /ws/workspaces/:id` — same events, filtered to one workspace
+
+## Safety
+
+What the Gateway can touch, what it never stores (secret values, captured
+credential data, hook arguments), the tool annotations a client can gate on,
+and what to enforce for unattended agent runs: [docs/SAFETY.md](docs/SAFETY.md).
 
 ## Secret intelligence
 

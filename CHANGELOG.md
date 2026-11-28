@@ -6,6 +6,12 @@ Frontend, Plugin System) predates v1.3.27 — see `docs/ARCHITECTURE.md` for the
 full picture.
 
 ## Unreleased
+- docs(safety): `docs/SAFETY.md` - the explicit safety model: network exposure
+  and opt-in auth, what analysis touches (copies, never the original APK),
+  redaction-by-design guarantees, the tool annotation set clients can gate on
+  with the confirm-list, direct-argv process spawning, plugin trust, and the
+  client-side enforcement checklist for unattended runs. Linked from the
+  README's new Safety section.
 
 ## 1.13.0 — 2026-11-28
 - feat(graph): graph-native queries - `traverseGraph` in the graph service

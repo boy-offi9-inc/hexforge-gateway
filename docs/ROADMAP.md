@@ -37,6 +37,14 @@ System, local storage, and CI. This page tracks what's still open.
   never fabricated, and comments/strings are stripped before matching.
   `R.*` resource-name references remain a follow-up (manifest resource
   entities are named `permission:`/`intent:` and cannot be joined reliably).
+- [x] Graph runtime events (`graph/runtime-indexer.ts`): a `runtime-events`
+  artifact (JSONL hook observations from a Frida-style run) becomes
+  `runtime-event` entities, aggregated per unique hook with a `count`
+  attribute, with `maps-to` edges to the hooked `method` entity and the
+  reached `url` entity when both ends already exist (no fabrication).
+  Hook arguments, return values and stack traces are never stored; URL
+  query values are dropped. Producers record the artifact kind; the indexer
+  is event-driven like every other graph indexer.
 - [x] Per-workspace AI provider selection: `PATCH /workspaces/:id/ai-provider` stores a
   workspace-scoped override (built-in or `AI_PROVIDERS_PATH` name, validated at set time
   against everything the AI layer can dispatch on) that applies to that workspace's chat,

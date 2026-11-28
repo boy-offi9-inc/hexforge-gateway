@@ -7,6 +7,17 @@ full picture.
 
 ## Unreleased
 
+## 1.12.0 — 2026-11-28
+- feat(graph): runtime events feeding the graph. A `runtime-events` artifact
+  (JSONL hook observations from a Frida-style instrumentation run) becomes
+  `runtime-event` entities, aggregated per unique hook with a `count`
+  attribute, and `maps-to` edges to the `method` entity it hooked and the
+  `url` entity it reached - so runtime observations and the static graph
+  converge on the same entities. Edges only land when both ends already
+  exist (same no-fabrication rule as the traffic indexer). Redaction by
+  design: hook arguments, return values and stack traces are never stored;
+  URL query values are dropped, only the path shape kept.
+
 ## 1.11.0 — 2026-11-28
 - feat(graph): `accesses` edges from `method` entities to new `field` entities.
   A method body's field references (bare, `this.`-qualified, or resolved

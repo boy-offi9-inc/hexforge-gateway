@@ -21,6 +21,7 @@ import { register as registerManifestIndexer } from "../graph/manifest-indexer.j
 import { register as registerNativeIndexer } from "../graph/native-indexer.js";
 import { register as registerUrlStringIndexer } from "../graph/url-string-indexer.js";
 import { register as registerTrafficIndexer } from "../graph/traffic-indexer.js";
+import { register as registerRuntimeIndexer } from "../graph/runtime-indexer.js";
 import { loadPlugins } from "../plugins/loader.js";
 import { registerWebsocketGateway } from "./websocket.js";
 import { registerAuth } from "./auth.js";
@@ -105,6 +106,12 @@ export async function buildServer() {
   // traffic-event entities, mapped to the url entities they hit
   // (see graph/traffic-indexer.ts).
   registerTrafficIndexer();
+
+  // Turns runtime-events artifacts (JSONL hook observations from a Frida
+  // style run) into runtime-event entities, mapped to the method entities
+  // they hook and the url entities they reached
+  // (see graph/runtime-indexer.ts).
+  registerRuntimeIndexer();
 
   // Turns an apktool project's decoded manifest and resources into
   // component, permission and intent-filter entities in the knowledge

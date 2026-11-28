@@ -5,9 +5,42 @@ Bus, Job/Workflow Engines, Knowledge Engine, all twelve MCP agents, Auth,
 nine AI providers, Terminal chat, the MCP Server Frontend, the Plugin
 System, local storage, and CI. This page tracks what's still open.
 
+## Release index (1.7.0 – 1.13.1)
+
+| Version | Date | Headline |
+|---|---|---|
+| 1.13.1 | 2026-11-28 | Safety model docs (`docs/SAFETY.md`); Release workflow auto-syncs the lockfile |
+| 1.13.0 | 2026-11-28 | Graph-native queries: `query_graph` MCP tool + `/traverse` route |
+| 1.12.1 | 2026-11-28 | Graph bug fixes: method-body attribution, runtime-event aggregation |
+| 1.12.0 | 2026-11-28 | Runtime hook events indexed into the knowledge graph |
+| 1.11.0 | 2026-11-28 | `accesses` edges: methods → field entities |
+| 1.10.1 | 2026-11-26 | Dependency bumps; Release workflow paths hardened |
+| 1.10.0 | 2026-11-25 | `resilience` agent (APKiD + detection-idiom scan) |
+| 1.9.1 | 2026-11-25 | Strict `AUTH_ENABLED` parsing; traffic-capture hardening |
+| 1.9.0 | 2026-11-25 | Traffic-capture indexing (traffic-event entities → url entities) |
+| 1.8.2 | 2026-11-24 | fix(graph): reflective self-edge, memory caps |
+| 1.8.1 | 2026-11-23 | fix(apktool): gadget injection register, relative manifest names |
+| 1.8.0 | 2026-11-21 | `inject-gadget`: frida-gadget via build/sign/install |
+| 1.7.1 | 2026-11-20 | Roadmap housekeeping |
+| 1.7.0 | 2026-11-19 | Patch → build → sign traceability (patch lineage, sha256, v4 signing) |
+
+Reconciliation note (issue #30): every release above maps to a `Done` item
+below or a `CHANGELOG.md` entry; the only unchecked item (web interface) has
+no implementation by design and its entry criteria are stated.
+
 ## Open
 
-- [ ] Web interface (once this exists, `STORAGE_BACKEND=supabase` becomes worth turning back on for shared state)
+- [ ] Web interface. Entry criteria before building: (1) an actual shared-state
+  need - multiple operators or agent clients working one workspace from
+  different machines; (2) a shared storage backend verified end to end -
+  `STORAGE_BACKEND=supabase` requires `SUPABASE_URL` +
+  `SUPABASE_SERVICE_ROLE_KEY` (workspaces/knowledge/jobs tables), and
+  `STORAGE_BACKEND=postgres` (`DATABASE_URL`, Neon works) is the
+  already-supported alternative; (3) auth enabled (`AUTH_ENABLED=true` +
+  `API_KEYS`) since a web surface is network-reachable by definition. The
+  storage factory from 1.6.0 is the whole backend dependency - no code
+  assumption blocks the interface itself; it is parked as a priority call,
+  not a technical gap.
 
 ## Done
 
@@ -45,6 +78,21 @@ System, local storage, and CI. This page tracks what's still open.
   Hook arguments, return values and stack traces are never stored; URL
   query values are dropped. Producers record the artifact kind; the indexer
   is event-driven like every other graph indexer.
+- [x] Graph-native queries (1.13.0, 2026-11-28): `traverseGraph` BFS over the
+  knowledge graph (up to 3 hops, `relation`/`direction` filters, edge cap with
+  truncation flag, both ends resolved to full entities) exposed as
+  `GET /graph/entities/:entityId/traverse` and the read-only `query_graph` MCP
+  tool - who-calls / who-accesses / what-hooked-this answered in one call
+  instead of entity-by-entity listing
+- [x] Safety model documentation (`docs/SAFETY.md`, 1.13.1, 2026-11-28): what
+  the Gateway can touch, what it never stores (secret values, captured
+  credential data, hook arguments), the tool annotation set clients can gate
+  on with the confirm-list, direct-argv process spawning, plugin trust, and
+  the client-side enforcement checklist for unattended runs
+- [x] Release automation hardening (1.10.1 + CI): the Release workflow fires
+  only when `package.json`/`package-lock.json` change, auto-syncs the lockfile
+  when a version bump forgets it (proven live on 1.13.1), and validates semver
+  before tagging
 - [x] Per-workspace AI provider selection: `PATCH /workspaces/:id/ai-provider` stores a
   workspace-scoped override (built-in or `AI_PROVIDERS_PATH` name, validated at set time
   against everything the AI layer can dispatch on) that applies to that workspace's chat,

@@ -54,6 +54,35 @@ describe("parseMethodBodies", () => {
     expect(bodies[0]!.body).not.toContain("x = local");
     expect(bodies[1]!.body).not.toContain("int local = 1;");
   });
+
+  it("skips abstract and native declarations instead of borrowing the next body", () => {
+    const src = [
+      "class A {",
+      "  int x = 0;",
+      "  abstract void plan(String s);",
+      "  void run() { x = 1; }",
+      "}",
+    ].join("\n");
+    const bodies = parseMethodBodies(src, "A");
+    expect(bodies).toHaveLength(1);
+    expect(bodies[0]!.signature).toBe("A.run()");
+    expect(bodies[0]!.body).toContain("x = 1");
+  });
+
+  it("returns distinct offsets for identical bodies", () => {
+    const src = [
+      "class A {",
+      "  void a() { int p = 1; }",
+      "  void b() { int p = 2; }",
+      "}",
+    ].join("\n");
+    const bodies = parseMethodBodies(src, "A");
+    expect(bodies).toHaveLength(2);
+    // indexOf would map both to the first occurrence - the offsets must not
+    expect(bodies[0]!.start).toBeLessThan(bodies[1]!.start);
+    expect(bodies[0]!.body).toContain("p = 1");
+    expect(bodies[1]!.body).toContain("p = 2");
+  });
 });
 
 describe("parseFieldAccessGraph", () => {

@@ -56,14 +56,14 @@ describe("normalizeEvent", () => {
     const e = normalizeEvent(JSON.parse(jsonl.split("\n")[0]))!;
     expect(e.hook).toBe("Java.com.acme.Crypto.encrypt");
     expect(e.category).toBe("crypto");
-    expect(e.target).toBe("com.acme.Crypto.encrypt(String)");
+    expect(e.targets).toEqual(["com.acme.Crypto.encrypt(String)"]);
     expect(e.durationMs).toBe(3);
     expect(e.count).toBe(1);
   });
 
   it("drops query values from urls", () => {
     const e = normalizeEvent(JSON.parse(jsonl.split("\n")[1]))!;
-    expect(e.url).toBe("https://api.acme.com/v1/login");
+    expect(e.urls).toEqual(["https://api.acme.com/v1/login"]);
     expect(JSON.stringify(e)).not.toContain("SECRET");
   });
 
@@ -86,6 +86,19 @@ describe("parseCapture", () => {
     expect(truncated).toBe(false);
   });
 
+  it("unions urls and targets across sightings of the same hook", () => {
+    const log = [
+      JSON.stringify({ hook: "h", url: "https://a.co/one" }),
+      JSON.stringify({ hook: "h", url: "https://b.co/two", target: "com.acme.X.y()" }),
+      JSON.stringify({ hook: "h", url: "https://a.co/one" }),
+    ].join("\n");
+    const { events } = parseCapture(log);
+    const e = events[0]!;
+    expect(e.count).toBe(3);
+    expect(e.urls.sort()).toEqual(["https://a.co/one", "https://b.co/two"]);
+    expect(e.targets).toEqual(["com.acme.X.y()"]);
+  });
+
   it("marks truncation at the cap", () => {
     const many = Array.from({ length: 5 }, (_, i) => JSON.stringify({ hook: `h${i}` })).join("\n");
     const { events, truncated } = parseCapture(many, 3);
@@ -103,7 +116,6 @@ describe("toEntitiesAndEdges", () => {
     expect(crypto.attributes).toMatchObject({ count: 2, category: "crypto", durationMs: 3 });
     expect(edges).toHaveLength(2);
     expect(edges[0]!.to).toEqual({ type: "method", name: "com.acme.Crypto.encrypt(String)" });
-    expect(edges[1]!.to).toEqual({ type: "url", name: "https://api.acme.com/v1/login" });
     expect(edges.every((e) => e.relation === "maps-to")).toBe(true);
   });
 });

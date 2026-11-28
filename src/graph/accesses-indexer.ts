@@ -78,16 +78,18 @@ export function parseFieldDeclarations(source: string): Map<string, string> {
 export function parseMethodBodies(
   source: string,
   selfClass: string,
-): { signature: string; body: string }[] {
+): { signature: string; body: string; start: number; end: number }[] {
   const cleaned = clean(source);
-  const out: { signature: string; body: string }[] = [];
+  const out: { signature: string; body: string; start: number; end: number }[] = [];
   for (const match of cleaned.matchAll(METHOD_RE)) {
     const [, , , name, params] = match;
     if (!name || NOT_METHOD_NAMES.has(name)) continue;
     const signature = `${selfClass}.${name}(${splitParams(params ?? "").join(",")})`;
-    const open = cleaned.indexOf("{", (match.index ?? 0) + match[0].length - 1);
-    // no `{` anywhere near: abstract/native or a stray match - no body
-    if (open < 0) continue;
+    const declEnd = (match.index ?? 0) + match[0].length;
+    // a declaration ending in `;` is abstract/native - it has no body, and
+    // the next `{` in the file belongs to another method entirely
+    if (cleaned[declEnd - 1] !== "{") continue;
+    const open = declEnd - 1;
     let depth = 0;
     let end = -1;
     for (let i = open; i < cleaned.length; i++) {
@@ -101,7 +103,7 @@ export function parseMethodBodies(
       }
     }
     if (end < 0) continue; // unbalanced (truncated file) - skip, never guess
-    out.push({ signature, body: cleaned.slice(open + 1, end) });
+    out.push({ signature, body: cleaned.slice(open + 1, end), start: open + 1, end });
   }
   return out;
 }
@@ -177,17 +179,17 @@ export function parseFieldAccessGraph({
     const cleaned = clean(content);
     const bodies = parseMethodBodies(content, selfClass);
     // a declaration inside a method body is a local, not a field: exclude
-    // every offset that falls in a method body before matching fields
-    const bodyRanges = bodies.map((b) => {
-      const start = cleaned.indexOf(b.body);
-      return start >= 0 ? [start, start + b.body.length] : null;
-    });
+    // every offset that falls in a method body before matching fields.
+    // Offsets come from the body scan itself - identical bodies (two
+    // identical getters) must never be resolved by indexOf, which would
+    // map every duplicate to the first occurrence.
+    const bodyRanges: [number, number][] = bodies.map((b) => [b.start, b.end]);
     const fields = new Map<string, string>();
     for (const match of cleaned.matchAll(FIELD_RE)) {
       const [, type, name] = match;
       if (!type || !name || NOT_METHOD_NAMES.has(name)) continue;
       const at = (match.index ?? 0) + match[0].length - 1;
-      if (bodyRanges.some((r) => r && at > r[0] && at < r[1])) continue;
+      if (bodyRanges.some(([s, e]) => at > s && at < e)) continue;
       const bare = stripGenerics(type).replace(/\[\]/g, "");
       if (!fields.has(name) && /^[A-Za-z_$][\w$.]*$/.test(bare)) fields.set(name, bare);
     }

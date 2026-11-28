@@ -36,16 +36,17 @@ const CATEGORIES = new Set([
   "other",
 ]);
 
-/** One normalized hook observation. */
+/** One normalized hook observation (aggregated per hook name). */
 export interface RuntimeEvent {
   /** Hook name as the instrumentation named it, e.g. `Java.com.acme.Crypto.encrypt`. */
   hook: string;
   /** One of the known categories, when given recognizably. */
   category?: string;
-  /** Java method the hook targets, e.g. `com.acme.Crypto.encrypt(String)` - matched exactly. */
-  target?: string;
-  /** URL a network-category call reached; stored scheme://host/path, query dropped. */
-  url?: string;
+  /** Java methods the hook targets, e.g. `com.acme.Crypto.encrypt(String)` - matched exactly. */
+  targets: string[];
+  /** URL shapes (scheme://host/path, query dropped) the call reached - a network
+   * hook typically fires against several. */
+  urls: string[];
   /** Thread name the hook fired on, when the producer reports one. */
   thread?: string;
   /** Duration of the hooked call, when measured. */
@@ -99,7 +100,7 @@ export function normalizeEvent(raw: unknown): RuntimeEvent | null {
     typeof r.durationMs === "number" && Number.isFinite(r.durationMs) && r.durationMs >= 0
       ? Math.round(r.durationMs)
       : undefined;
-  return { hook, category, target, url, thread, durationMs, count: 1 };
+  return { hook, category, targets: target ? [target] : [], urls: url ? [url] : [], thread, durationMs, count: 1 };
 }
 
 /** Pure part: a capture file's text -> normalized events (JSONL), aggregated
@@ -128,6 +129,10 @@ export function parseCapture(content: string, max = MAX_RUNTIME_EVENTS): {
     if (seen) {
       seen.count++;
       if (seen.durationMs === undefined && event.durationMs !== undefined) seen.durationMs = event.durationMs;
+      // a hook fires against several methods/urls - union them, never keep
+      // only the first sighting
+      for (const t of event.targets) if (!seen.targets.includes(t)) seen.targets.push(t);
+      for (const u of event.urls) if (!seen.urls.includes(u)) seen.urls.push(u);
       continue;
     }
     byHook.set(event.hook, event);
@@ -148,17 +153,17 @@ export function toEntitiesAndEdges(events: RuntimeEvent[]): {
     if (e.thread) attrs.thread = e.thread;
     if (e.durationMs !== undefined) attrs.durationMs = e.durationMs;
     entities.push({ type: "runtime-event", name: e.hook, attributes: attrs });
-    if (e.target) {
+    for (const target of e.targets) {
       edges.push({
         from: { type: "runtime-event", name: e.hook },
-        to: { type: "method", name: e.target },
+        to: { type: "method", name: target },
         relation: "maps-to",
       });
     }
-    if (e.url) {
+    for (const url of e.urls) {
       edges.push({
         from: { type: "runtime-event", name: e.hook },
-        to: { type: "url", name: e.url },
+        to: { type: "url", name: url },
         relation: "maps-to",
       });
     }

@@ -7,6 +7,17 @@ full picture.
 
 ## Unreleased
 
+## 1.12.1 — 2026-11-28
+- fix(graph): the accesses indexer no longer attaches an abstract/native
+  method's signature to the next method's body (a `;`-terminated declaration
+  has no body - the previous lookup searched forward for the next `{`), and
+  method-body offsets are now taken from the brace scan itself instead of
+  `indexOf`, so identical bodies (two same-shaped getters) resolve to their
+  own ranges when classifying locals vs fields.
+- fix(graph): the runtime indexer unions every url and target a hook was
+  seen with instead of keeping only the first sighting - a network hook that
+  fires against several hosts now maps to all of them.
+
 ## 1.12.0 — 2026-11-28
 - feat(graph): runtime events feeding the graph. A `runtime-events` artifact
   (JSONL hook observations from a Frida-style instrumentation run) becomes

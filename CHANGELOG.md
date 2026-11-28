@@ -5,7 +5,7 @@ Knowledge Engine, the MCP agents, Auth, AI providers, Terminal chat, MCP Server
 Frontend, Plugin System) predates v1.3.27 — see `docs/ARCHITECTURE.md` for the
 full picture.
 
-## Unreleased
+## 1.13.1 — 2026-11-28
 - docs(safety): `docs/SAFETY.md` - the explicit safety model: network exposure
   and opt-in auth, what analysis touches (copies, never the original APK),
   redaction-by-design guarantees, the tool annotation set clients can gate on

@@ -62,7 +62,7 @@ RUN curl -fsSL -o /tmp/jdk.tar.gz "$TEMURIN_JDK_URL" \
       "https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_${GHIDRA_VERSION}_build/ghidra_${GHIDRA_VERSION}_PUBLIC_20261016.zip" \
     && unzip -q /tmp/ghidra.zip -d /opt \
     && rm /tmp/ghidra.zip \
-    && printf '#!/bin/sh\nexec /opt/ghidra_${GHIDRA_VERSION}_PUBLIC/support/analyzeHeadless "$@"\n' > /usr/local/bin/analyzeHeadless \
+    && printf "#!/bin/sh\nexec /opt/ghidra_${GHIDRA_VERSION}_PUBLIC/support/analyzeHeadless \"\$@\"\n" > /usr/local/bin/analyzeHeadless \
     && chmod +x /usr/local/bin/analyzeHeadless \
     && sed -i "s|^JAVA_HOME_OVERRIDE=.*|JAVA_HOME_OVERRIDE=/opt/jdk-${GHIDRA_JDK}|" \
       /opt/ghidra_${GHIDRA_VERSION}_PUBLIC/support/launch.properties

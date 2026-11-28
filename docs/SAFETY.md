@@ -14,15 +14,32 @@ client can gate the mutating ones.
 
 ## Network exposure
 
-- Binds `0.0.0.0:8080` by default but **auth is off unless you turn it on** -
-  the default assumes a single operator on a machine they control. Before
-  exposing the port beyond localhost, set `AUTH_ENABLED=true` and `API_KEYS`
-  (see [SETUP](SETUP.md#auth)). The startup console warns when auth is off
-  while the port is reachable from the network, and `GET /health`'s
-  `authEnabled` only reports `true` once a real key is configured.
+- **Binds `127.0.0.1` by default** (since v1.16.0) - the Gateway is a
+  high-trust API: `adb shell` runs arbitrary commands on a connected device,
+  `filesystem` writes and deletes files, `apktool`/`jadx` rebuild and resign
+  APKs. The old all-interfaces default with auth off was exactly the wrong
+  default for that combination. Localhost covers every documented workflow:
+  a single operator, the MCP stdio server, and Docker with the published
+  compose file (which binds `127.0.0.1` on the host).
+- To listen beyond localhost, set `HOST=0.0.0.0` explicitly **and** turn auth
+  on (`AUTH_ENABLED=true` + `API_KEYS`, see [SETUP](SETUP.md#auth)). On bare
+  metal, startup **refuses to start** with a remote host and auth off - the
+  message says exactly what to set. Inside a container, startup warns
+  instead of refusing: the process can't see the host-side port mapping, and
+  the published compose file keeps the real exposure on `127.0.0.1`. If you
+  publish the port publicly from a container, auth becomes your job.
+- `GET /health` reports `hostExposure` (`localhost-only` / `remote`) and a
+  `degraded` flag (see below), plus the existing `authEnabled` (only `true`
+  once a real key is configured) and `storageBackend`.
 - Strict parsing: `AUTH_ENABLED=false` in the environment means auth **off**
   - a truthy-string coercion bug here would silently disable it, so the
   parse is strict and tested.
+- `degraded` on `/health`: when the configured remote storage backend
+  (postgres/supabase) fails a write and the local provider answers instead,
+  the flag flips on and stays on. Those fallback writes are never replayed
+  to the remote backend on recovery, so this is how an operator finds out
+  the database is no longer the source of truth - reconciliation is a human
+  decision, not an automatic one (see [SETUP](SETUP.md#storage-local-default-supabase-or-postgres)).
 - The MCP server speaks stdio and inherits the operator's own credentials;
   it never opens a network listener by itself.
 

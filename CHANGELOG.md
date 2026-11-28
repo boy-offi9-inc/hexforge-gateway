@@ -5,6 +5,64 @@ Knowledge Engine, the MCP agents, Auth, AI providers, Terminal chat, MCP Server
 Frontend, Plugin System) predates v1.3.27 — see `docs/ARCHITECTURE.md` for the
 full picture.
 
+## 1.16.0 — 2026-11-28
+- Safe-by-default binding: `HOST` now defaults to `127.0.0.1`; a non-loopback
+  `HOST` with auth off **refuses to start** on bare metal (exit, not a
+  warning) — inside a container it warns instead, since the real exposure is
+  the host-side port mapping the process can't see (the published compose
+  file binds `127.0.0.1`).
+- `GET /health` gains `hostExposure` (`localhost-only` / `remote`) and
+  `degraded` — true once the configured remote storage backend failed a
+  write and local storage answered instead (fallback writes are never
+  replayed on recovery, so the flag stays until restart).
+- `tests/safe-default.test.ts`: guard predicate, degraded flag, and the
+  no-`/.dockerenv` bare-metal sanity check.
+
+## 1.15.3 — 2026-11-28
+- fix(graph): traverse route + MCP `query_graph` resolved the workspace by
+  name where `traverseGraph` expects its ID — every REST traverse 404'd on
+  real workspaces. Both now accept name or id.
+- fix(graph): one edge to an external superclass (e.g. `android.*` outside
+  the decompile batch) made the batch indexer drop the whole class graph;
+  edges are now filtered to both-ends-in-batch and the class graph survives.
+  Regression tests for both; found by the real-APK end-to-end pass, not by
+  the mocked-service suites.
+
+## 1.15.2 — 2026-11-28
+- fix(docker): the `analyzeHeadless` wrapper shipped a literal
+  `${GHIDRA_VERSION}` (single-quoted printf) — Ghidra was broken in the
+  runtime image since the ghidra agent landed. Expanded at build time.
+- fix(docker): compose healthcheck uses `CMD-SHELL` + `curl` (the list form
+  with an inline node script failed spec validation).
+
+## 1.15.1 — 2026-11-28
+- fix(docker): the runtime image's Ghidra JDK now comes from the Adoptium
+  tarball (`openjdk-25-jdk-headless` doesn't exist in Debian bookworm).
+
+## 1.15.0 — 2026-11-28
+- One-command install: `docker-compose.yml` (binds `127.0.0.1:8080` only,
+  named volumes, `/health` check) and a Release-workflow `docker` job
+  publishing `ghcr.io/boy-offi9-inc/hexforge-gateway` images
+  (`latest`/`vX.Y.Z` + `-runtime` variants, linux/amd64).
+- SETUP.md + README: Docker quick start.
+
+## 1.14.1 — 2026-11-28
+- fix(api): traffic-capture route built paths with bare `path.resolve`,
+  skipping containment — guards extracted to `src/utils/path-guard.ts`
+  (`sanitizeWorkspaceId` + `resolveWithin`) and wired into the route and
+  inbox-watcher; malformed ids are rejected with 400 before any path build
+  (regression: `..%2F..%2Fetc` writes nothing).
+- refactor: the duplicated HAR sniff in the route and `parseCapture` unified
+  into one exported `looksLikeHar`.
+
+## 1.14.0 — 2026-11-28
+- Traffic-capture producer: `POST /workspaces/:id/traffic-captures` imports
+  JSONL events or HAR (mitmproxy `--set hardump=file.har` export, device
+  collector, pasted) — parse-validated before write, 5 MB cap, each import a
+  separate `traffic-capture` artifact; MCP tool `record_traffic_capture`.
+  Query values/headers/bodies never reach the graph (redaction downstream in
+  the indexer); method, host, path and query-key names do.
+
 ## 1.13.1 — 2026-11-28
 - docs(safety): `docs/SAFETY.md` - the explicit safety model: network exposure
   and opt-in auth, what analysis touches (copies, never the original APK),

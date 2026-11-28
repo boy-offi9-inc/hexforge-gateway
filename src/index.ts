@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { buildServer } from "./core/server.js";
 import { config, isAiConfigured, isAuthEffectivelyEnabled } from "./core/config.js";
 import {
@@ -111,6 +112,29 @@ async function main() {
   }
 
   inboxWatcher.start();
+
+  // Remote exposure without working auth is refused, not warned about: this
+  // Gateway can run adb shell, write/delete files and rebuild APKs. The
+  // HOST env is the explicit opt-in - it defaults to 127.0.0.1. A container
+  // is the documented exception: its namespace is isolated and the real
+  // exposure is the host-side port mapping (the published compose file
+  // binds 127.0.0.1), which this process cannot see - so it warns instead.
+  const inContainer = existsSync("/.dockerenv");
+  const remoteHost = !["127.0.0.1", "localhost", "::1"].includes(config.HOST);
+  if (remoteHost && !isAuthEffectivelyEnabled && !inContainer) {
+    console.error(
+      `Refusing to start: HOST=${config.HOST} exposes the Gateway beyond localhost, but auth is not configured. ` +
+        "Set AUTH_ENABLED=true and API_KEYS, or remove HOST to bind 127.0.0.1 only (docs/SAFETY.md).",
+    );
+    process.exit(1);
+  }
+  if (remoteHost && !isAuthEffectivelyEnabled && inContainer) {
+    console.warn(
+      "WARNING: the container's Gateway listens on every interface with auth off. " +
+        "This is safe only while the host-side port mapping stays on 127.0.0.1 (as the published docker-compose.yml does). " +
+        "If you publish the port publicly, set AUTH_ENABLED=true and API_KEYS (docs/SAFETY.md).",
+    );
+  }
 
   try {
     await app.listen({ port: config.PORT, host: config.HOST });

@@ -5,10 +5,12 @@ Bus, Job/Workflow Engines, Knowledge Engine, all twelve MCP agents, Auth,
 nine AI providers, Terminal chat, the MCP Server Frontend, the Plugin
 System, local storage, and CI. This page tracks what's still open.
 
-## Release index (1.7.0 – 1.15.2)
+## Release index (1.7.0 – 1.16.0)
 
 | Version | Date | Headline |
-|---|---|---|
+| --- | --- | --- |
+| 1.16.0 | 2026-11-28 | Safe-by-default: localhost bind, refuse remote-without-auth, /health degraded + hostExposure |
+| 1.15.3 | 2026-11-28 | Traverse name-vs-id fix + external-superclass graph fix (real-APK E2E) |
 | 1.15.2 | 2026-11-28 | Runtime-image fixes: Ghidra wrapper, compose healthcheck |
 | 1.15.1 | 2026-11-28 | Runtime image builds on GHCR: Ghidra JDK via Adoptium |
 | 1.15.0 | 2026-11-28 | One-command Docker install: compose file + published GHCR images |

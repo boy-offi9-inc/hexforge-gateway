@@ -4,7 +4,14 @@ import { loadCustomAiProviders, type CustomAiProvider } from "../providers/ai-pr
 
 const envSchema = z.object({
   PORT: z.coerce.number().default(8080),
-  HOST: z.string().default("0.0.0.0"),
+  // Localhost by default: this Gateway can run adb shell, write/delete
+  // files and rebuild APKs - binding every interface with auth off was an
+  // unsafe default (SAFETY.md documents it as exactly that). Explicit
+  // ALLOW_REMOTE=true opts into network exposure; startup refuses remote
+  // exposure while auth is effectively off (ALLOW_REMOTE + no auth = exit,
+  // not a warning), because a silently exposed high-trust API is the one
+  // mistake this service must never make quietly.
+  HOST: z.string().default("127.0.0.1"),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
 
   // Off by default - this Gateway has always trusted whoever can reach it

@@ -86,6 +86,7 @@ async function buildApp(opts: { aiConfigured?: boolean } = {}) {
       AI_PROVIDER: "anthropic",
       STORAGE_BACKEND: "local",
       DATA_DIR: "./data",
+      HOST: "127.0.0.1",
       SUPABASE_URL: undefined,
       SUPABASE_SERVICE_ROLE_KEY: undefined,
     },
@@ -128,6 +129,8 @@ describe("GET /health", () => {
       aiProvider: "anthropic",
       aiConfigured: false,
       authEnabled: false,
+      degraded: false,
+      hostExposure: "localhost-only",
     });
   });
 });

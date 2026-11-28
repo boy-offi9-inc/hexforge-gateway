@@ -82,6 +82,13 @@ rather than silently making every route unreachable including to you.
 is configured, so you can confirm it's actually active rather than
 assuming from the env var alone.
 
+The Gateway also binds `127.0.0.1` by default since v1.16.0 - set `HOST`
+only if you deliberately want another interface, and note that a remote
+host with auth off refuses to start on bare metal (see
+[SAFETY](SAFETY.md#network-exposure)). The Docker image still listens on
+`0.0.0.0` inside its namespace; keep the host-side mapping on `127.0.0.1`
+(the published compose file already does) unless auth is on.
+
 The CLI wrapper picks this up automatically - set `HEXFORGE_API_KEY` and
 every `hf`/`smoke-test.sh` command sends it.
 
@@ -116,7 +123,11 @@ and `workflows` live:
 To use Supabase: create a project, run `supabase.schema.sql` in the SQL
 editor, then set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and
 `STORAGE_BACKEND=supabase` in `.env`. `GET /health`'s `storageBackend`
-field confirms which mode is actually active.
+field confirms which mode is actually active, and `degraded: true` means
+the backend failed at least once and writes are landing in local storage
+instead - fallback writes are NOT replayed to the remote backend on
+recovery, so reconcile manually before treating the database as the
+source of truth again.
 
 To use Postgres: run `postgres.schema.sql` against the database once (one
 table per collection, `id text primary key` plus the record in a `data

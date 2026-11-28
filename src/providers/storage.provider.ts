@@ -28,6 +28,21 @@ export interface StorageProvider {
 
 function warnFallback(source: string, op: string, message: string) {
   console.warn(`[storage:${source}] ${op} failed, falling back to local storage: ${message}`);
+  markStorageDegraded();
+}
+
+// Set the first time a remote-backend call degrades to local storage, so
+// /health can surface it (degraded: true) - fallback writes are never
+// replayed to the remote backend, so an operator must be able to SEE the
+// split-brain state instead of discovering it in a diff. Never cleared
+// automatically: recovery needs a human decision (reconciliation/export),
+// so the flag stays until the process restarts with a working backend.
+let degraded = false;
+export function markStorageDegraded() {
+  degraded = true;
+}
+export function isStorageDegraded(): boolean {
+  return degraded;
 }
 
 function errorMessage(err: unknown): string {

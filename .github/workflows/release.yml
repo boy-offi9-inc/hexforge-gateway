@@ -42,18 +42,33 @@ jobs:
             echo "package.json version '$VERSION' is not valid semver" >&2
             exit 1
           fi
+
+          # A version bump that forgot the lockfile used to fail the release
+          # ("bump both") - now the lockfile is synced automatically and the
+          # release proceeds on the bumped version. The sync commit is pushed
+          # with GITHUB_TOKEN, which does not retrigger workflows, so this run
+          # is the only one that acts.
           if [ "$VERSION" != "$LOCK_VERSION" ]; then
-            echo "package.json ($VERSION) and package-lock.json ($LOCK_VERSION) disagree - bump both" >&2
-            exit 1
+            echo "package.json ($VERSION) and package-lock.json ($LOCK_VERSION) disagree - syncing the lockfile"
+            npm install --package-lock-only
+            git config user.name "Boy Offi9"
+            git config user.email "boyxoffi9@gmail.com"
+            git add package-lock.json
+            git commit -m "chore: sync package-lock.json to v$VERSION"
+            git push origin HEAD:main
+            echo "synced=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "synced=false" >> "$GITHUB_OUTPUT"
           fi
 
           if git rev-parse -q --verify "refs/tags/v$VERSION" > /dev/null; then
-            echo "is_new=false" >> "$GITHUB_OUTPUT"
+            is_new=false
             echo "v$VERSION already released - nothing to do."
           else
-            echo "is_new=true" >> "$GITHUB_OUTPUT"
+            is_new=true
             echo "v$VERSION is new - releasing."
           fi
+          echo "is_new=$is_new" >> "$GITHUB_OUTPUT"
 
   ci:
     needs: detect

@@ -5,10 +5,13 @@ Bus, Job/Workflow Engines, Knowledge Engine, all twelve MCP agents, Auth,
 nine AI providers, Terminal chat, the MCP Server Frontend, the Plugin
 System, local storage, and CI. This page tracks what's still open.
 
-## Release index (1.7.0 – 1.14.1)
+## Release index (1.7.0 – 1.15.2)
 
 | Version | Date | Headline |
 |---|---|---|
+| 1.15.2 | 2026-11-28 | Runtime-image fixes: Ghidra wrapper, compose healthcheck |
+| 1.15.1 | 2026-11-28 | Runtime image builds on GHCR: Ghidra JDK via Adoptium |
+| 1.15.0 | 2026-11-28 | One-command Docker install: compose file + published GHCR images |
 | 1.14.1 | 2026-11-28 | Path containment guard for capture files; unified HAR detection |
 | 1.14.0 | 2026-11-28 | Traffic capture producer: `record_traffic_capture` + `POST /workspaces/:id/traffic-captures` — pipeline complete |
 | 1.13.1 | 2026-11-28 | Safety model docs (`docs/SAFETY.md`); Release workflow auto-syncs the lockfile |
@@ -95,6 +98,12 @@ no implementation by design and its entry criteria are stated.
   only when `package.json`/`package-lock.json` change, auto-syncs the lockfile
   when a version bump forgets it (proven live on 1.13.1), and validates semver
   before tagging
+- [x] One-command Docker install (1.15.0–1.15.2, 2026-11-28): `docker-compose.yml`
+  pulls the published runtime image from GHCR (no clone, no build) - port bound to
+  127.0.0.1 only, named volumes for workspaces/data, `/health` check - and the Release
+  workflow publishes both images on every release. The image's own `check-runtime`
+  verifies every pinned backend, including Ghidra's headless launcher, whose wrapper
+  1.15.2 fixed.
 - [x] Traffic capture producer (1.14.0, 2026-11-28): the traffic pipeline is
   complete end to end - `POST /workspaces/:id/traffic-captures` and the
   `record_traffic_capture` MCP tool record a JSONL or HAR capture (exported

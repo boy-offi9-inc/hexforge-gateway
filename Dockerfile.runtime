@@ -51,16 +51,20 @@ RUN curl -fsSL -o /usr/local/bin/apktool.jar \
 # GHIDRA_HOME and its bundled Java requirement check)
 ARG GHIDRA_VERSION=12.2
 ARG GHIDRA_JDK=25
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      openjdk-${GHIDRA_JDK}-jdk-headless \
-    && rm -rf /var/lib/apt/lists/* \
+# Debian bookworm ships no openjdk-25 package (apt exits 100), so the JDK
+# Ghidra 12.2 needs comes from the Adoptium tarball instead of apt.
+ARG TEMURIN_JDK_URL=https://api.adoptium.net/v3/binary/latest/25/ga/linux/x64/jdk/hotspot/normal/eclipse
+RUN curl -fsSL -o /tmp/jdk.tar.gz "$TEMURIN_JDK_URL" \
+    && mkdir -p /opt/jdk-${GHIDRA_JDK} \
+    && tar -xzf /tmp/jdk.tar.gz -C /opt/jdk-${GHIDRA_JDK} --strip-components=1 \
+    && rm /tmp/jdk.tar.gz \
     && curl -fsSL -o /tmp/ghidra.zip \
       "https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_${GHIDRA_VERSION}_build/ghidra_${GHIDRA_VERSION}_PUBLIC_20261016.zip" \
     && unzip -q /tmp/ghidra.zip -d /opt \
     && rm /tmp/ghidra.zip \
     && printf '#!/bin/sh\nexec /opt/ghidra_${GHIDRA_VERSION}_PUBLIC/support/analyzeHeadless "$@"\n' > /usr/local/bin/analyzeHeadless \
     && chmod +x /usr/local/bin/analyzeHeadless \
-    && sed -i "s|^JAVA_HOME_OVERRIDE=.*|JAVA_HOME_OVERRIDE=/usr/lib/jvm/java-${GHIDRA_JDK}-openjdk-amd64|" \
+    && sed -i "s|^JAVA_HOME_OVERRIDE=.*|JAVA_HOME_OVERRIDE=/opt/jdk-${GHIDRA_JDK}|" \
       /opt/ghidra_${GHIDRA_VERSION}_PUBLIC/support/launch.properties
 ENV GHIDRA_HOME=/opt/ghidra_${GHIDRA_VERSION}_PUBLIC
 

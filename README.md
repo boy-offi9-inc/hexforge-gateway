@@ -14,6 +14,7 @@
   <a href="docs/SETUP.md"><img src="https://img.shields.io/badge/runs%20on-Termux%20%7C%20PC-1E9BF0?style=for-the-badge&logo=termux&logoColor=white" alt="Runs on Termux or PC"></a>
   <img src="https://img.shields.io/badge/cloud-optional-7B3BE8?style=for-the-badge&logo=icloud&logoColor=white" alt="Cloud optional">
   <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-8A4BC8?style=for-the-badge&logo=github&logoColor=white" alt="PRs welcome"></a>
+  <a href="https://glama.ai/mcp/servers/boy-offi9-inc/hexforge-gateway"><img src="https://glama.ai/mcp/servers/boy-offi9-inc/hexforge-gateway/badges/score.svg" alt="Glama MCP server score"></a>
 </div>
 
 ---

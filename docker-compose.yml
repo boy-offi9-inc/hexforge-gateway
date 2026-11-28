@@ -1,0 +1,57 @@
+# HexForge Gateway - one-command install.
+#
+#   docker compose -f docker-compose.yml up -d
+#
+# (or, without cloning the repo:)
+#   curl -fsSL https://raw.githubusercontent.com/boy-offi9-inc/hexforge-gateway/main/docker-compose.yml -o docker-compose.yml && docker compose up -d
+#
+# Pulls the published runtime image (Gateway + the pinned RE toolchain:
+# jadx 1.5.1, apktool 2.7.0, build-tools 34, APKiD 3.2.0, frida-tools
+# 14.13.1, Ghidra 12.2). To build locally instead, uncomment the `build:`
+# line - `docker build -f Dockerfile.runtime -t hexforge-runtime .` is
+# what it runs.
+#
+# SAFETY: the port is published on 127.0.0.1 only. The Gateway's auth is
+# off unless you set AUTH_ENABLED and API_KEYS - do not change
+# "127.0.0.1:" to "8080:8080" and expose this to a network without
+# turning auth on first (docs/SAFETY.md). adb/frida need a device:
+# pass --privileged and mount /dev/bus/usb, or point the agents at a
+# remote adb host - without one, the agents list and fail cleanly.
+
+services:
+  gateway:
+    image: ghcr.io/boy-offi9-inc/hexforge-gateway:latest-runtime
+    # build:                    # build locally instead of pulling
+    #   context: .
+    #   dockerfile: Dockerfile.runtime
+    container_name: hexforge-gateway
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - hexforge-workspaces:/app/workspaces
+      - hexforge-data:/app/data
+    environment:
+      LOG_FORMAT: json
+      # defaults are relative (/app/.hexforge/workspaces, /app/data) - pinned
+      # absolute so the named volumes own them
+      WORKSPACES_ROOT: /app/workspaces
+      DATA_DIR: /app/data
+      # AUTH_ENABLED: "1"
+      # API_KEYS: "change-me"
+      # AI_PROVIDER: openai   # or a per-workspace override; see docs/AI.md
+      # WORKSPACES_ROOT: /app/workspaces
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch("http://127.0.0.1:8080/health").then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  hexforge-workspaces:
+  hexforge-data:

@@ -40,6 +40,16 @@ Android phone via Termux, a PC, or a VPS, with no cloud dependency.
 
 ## Getting started
 
+One command, no clone:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/boy-offi9-inc/hexforge-gateway/main/docker-compose.yml -o docker-compose.yml && docker compose up -d
+```
+
+This pulls the published runtime image (Gateway + pinned jadx/apktool/APKiD/frida/Ghidra), binds `127.0.0.1:8080` only — turn auth on (`AUTH_ENABLED` + `API_KEYS`) before exposing the port beyond localhost, see [docs/SAFETY.md](docs/SAFETY.md).
+
+Or from source:
+
 ```bash
 npm install
 cp .env.example .env

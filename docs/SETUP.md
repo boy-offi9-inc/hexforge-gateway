@@ -304,6 +304,20 @@ could drop APKs into instead of typing full paths - see the main
 README's Roadmap section); for now, just use full paths.
 
 
+## One-command install (Docker)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/boy-offi9-inc/hexforge-gateway/main/docker-compose.yml -o docker-compose.yml \
+  && docker compose up -d
+```
+
+(or `docker compose -f docker-compose.yml up -d` in a clone). This pulls the
+published runtime image from GHCR - the Gateway plus the pinned RE toolchain -
+binds the port to **127.0.0.1 only** (auth is off by default; see
+[SAFETY](SAFETY.md) before exposing it), and keeps workspaces and data in
+named Docker volumes. Health is checked against `/health`. adb/frida need a
+device (see below).
+
 ## Running with Docker (pinned runtime)
 
 The `Dockerfile.runtime` image ships the Gateway **plus the pinned RE

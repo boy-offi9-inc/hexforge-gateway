@@ -21,6 +21,7 @@ concurrency:
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
   detect:
@@ -123,3 +124,48 @@ jobs:
             --title "v$VERSION" \
             --notes-file notes.md \
             $KIND
+
+  docker:
+    # Publishes both images to GHCR so `docker compose up -d` (the compose
+    # file pulls ghcr.io/...:latest-runtime) is a one-command install with
+    # no clone or build: the tool-free MCP-introspection image and the
+    # full pinned runtime image. amd64 only - the pinned toolchain's
+    # downloads (Ghidra, jadx) are x86 binaries and multi-arch would
+    # double a already-heavy build. Skipped on dry runs.
+    needs: [detect, ci]
+    if: github.ref == 'refs/heads/main' && needs.detect.outputs.is_new == 'true' && inputs.dry_run != true
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push the MCP-introspection image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:v${{ needs.detect.outputs.version }}
+            ghcr.io/${{ github.repository }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Build and push the pinned runtime image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.runtime
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:v${{ needs.detect.outputs.version }}-runtime
+            ghcr.io/${{ github.repository }}:latest-runtime
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

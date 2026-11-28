@@ -76,7 +76,10 @@ export function parseDeclaredMethods(source: string): DeclaredMethod[] {
   return out;
 }
 
-function splitParams(params: string): string[] {
+/** split on commas at angle-bracket depth 0, so a generic argument's own
+ * commas (Map<String, String>) don't split one parameter in half.
+ * Exported for the accesses indexer, which must build identical signatures. */
+export function splitParams(params: string): string[] {
   if (params.trim().length === 0) return [];
   const out: string[] = [];
   // split on commas at angle-bracket depth 0, so a generic argument's own
@@ -133,8 +136,9 @@ const FIELD_RE =
   /(?:^|\n|[;{}])[ \t]*(?:(?:public|private|protected|static|final|volatile|transient|\s)*)\s*([A-Za-z_$][\w$.]*(?:<[^>\n]*>)?(?:\[\])?)\s+([A-Za-z_$][\w$]*)\s*(?:=[^\n]*)?;/g;
 
 /** Strip generics repeatedly so nested angle brackets (`Map<String, List<int>>`)
- * fully reduce to the raw type instead of leaving stray `<` behind. */
-function stripGenerics(type: string): string {
+ * fully reduce to the raw type instead of leaving stray `<` behind.
+ * Exported for the accesses indexer. */
+export function stripGenerics(type: string): string {
   let prev = type;
   let current = type.replace(/<[^<>]*>/g, "");
   while (current !== prev) {

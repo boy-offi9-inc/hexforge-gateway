@@ -7,6 +7,17 @@ full picture.
 
 ## Unreleased
 
+## 1.11.0 — 2026-11-28
+- feat(graph): `accesses` edges from `method` entities to new `field` entities.
+  A method body's field references (bare, `this.`-qualified, or resolved
+  through the receiver's declared type or a static class) become
+  `com.acme.Foo.fieldName` entities with `accesses` edges from the exact
+  method signature the calls indexer emits. Locals are never promoted to
+  fields (declarations inside method bodies are excluded by brace-matched
+  body ranges), and fields of classes the artifact does not contain are not
+  fabricated. `field` added to the graph entity type list and the
+  `list_graph_entities` tool schema.
+
 ## 1.10.1 — 2026-11-26
 - chore(deps): @supabase/supabase-js 2.119.2, @fastify/rate-limit 11.3.0,
   vitest 5.1.1 — landed via merged Dependabot PRs #26–#28; release cut

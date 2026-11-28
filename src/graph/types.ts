@@ -2,6 +2,7 @@ export const ENTITY_TYPES = [
   "package",
   "class",
   "method",
+  "field",
   "native-function",
   "resource",
   "url",

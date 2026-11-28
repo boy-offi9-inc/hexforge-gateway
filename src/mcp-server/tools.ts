@@ -833,6 +833,7 @@ export const META_TOOL_DEFINITIONS: ToolDefinition[] = [
             "package",
             "class",
             "method",
+            "field",
             "native-function",
             "resource",
             "url",

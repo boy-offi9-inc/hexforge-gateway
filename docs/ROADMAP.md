@@ -29,6 +29,14 @@ System, local storage, and CI. This page tracks what's still open.
   classes (simple names and declared field types) into `calls` edges, and marks
   reflection with self-looped `invokes` edges. Targets outside the artifact are never
   fabricated; comments/strings/keywords are stripped before matching.
+- [x] Graph field accesses (`graph/accesses-indexer.ts`): the jadx decompile index
+  also brace-matches each method body, resolves bare/`this.` field references
+  and receiver chains (declared field types + static class names) into new
+  `field` entities with `accesses` edges from the exact method signatures the
+  calls indexer emits. Locals are excluded by body ranges, unknown classes are
+  never fabricated, and comments/strings are stripped before matching.
+  `R.*` resource-name references remain a follow-up (manifest resource
+  entities are named `permission:`/`intent:` and cannot be joined reliably).
 - [x] Per-workspace AI provider selection: `PATCH /workspaces/:id/ai-provider` stores a
   workspace-scoped override (built-in or `AI_PROVIDERS_PATH` name, validated at set time
   against everything the AI layer can dispatch on) that applies to that workspace's chat,

@@ -9,6 +9,7 @@ import {
   MAX_EDGES as INHERITANCE_MAX_EDGES,
 } from "./inheritance-indexer.js";
 import { parseMethodAndCallGraph, MAX_CALL_EDGES, MAX_METHOD_ENTITIES } from "./calls-indexer.js";
+import { parseFieldAccessGraph, MAX_FIELD_ENTITIES, MAX_ACCESS_EDGES } from "./accesses-indexer.js";
 import type { BatchEdge, BatchEntity } from "./types.js";
 
 /**
@@ -118,12 +119,32 @@ export async function indexJavaArtifact(artifact: Artifact) {
       `[graph-indexer] ${artifact.path}: method/call indexing capped (${MAX_METHOD_ENTITIES} methods / ${MAX_CALL_EDGES} edges)`,
     );
   }
+  const accesses = await collectAccesses(root, files);
+  if (accesses.truncated) {
+    console.warn(
+      `[graph-indexer] ${artifact.path}: field-access indexing capped (${MAX_FIELD_ENTITIES} fields / ${MAX_ACCESS_EDGES} edges)`,
+    );
+  }
   return graphService.indexBatch({
     workspaceId: artifact.workspaceId,
     artifactId: artifact.id,
-    entities: [...entities, ...calls.entities],
-    edges: [...edges, ...inherited.edges, ...calls.edges],
+    entities: [...entities, ...calls.entities, ...accesses.entities],
+    edges: [...edges, ...inherited.edges, ...calls.edges, ...accesses.edges],
   });
+}
+
+/** Reads each class file and extracts `field` entities + method `accesses` edges. Never fatal. */
+async function collectAccesses(root: string, files: string[]) {
+  const contents = new Map<string, string>();
+  for (const file of files) {
+    if (!file.endsWith(".java")) continue;
+    try {
+      contents.set(file, await readFile(path.join(root, file), "utf8"));
+    } catch {
+      // unreadable file - skip it, the class entity still exists
+    }
+  }
+  return parseFieldAccessGraph({ files: contents });
 }
 
 /** Reads each class file and extracts `calls`/`invokes` edges and `method` entities. Never fatal. */

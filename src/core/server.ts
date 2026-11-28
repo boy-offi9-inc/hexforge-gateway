@@ -12,6 +12,7 @@ import { artifactRoutes } from "../api/v1/artifact.routes.js";
 import { findingRoutes } from "../api/v1/finding.routes.js";
 import { reportRoutes } from "../api/v1/report.routes.js";
 import { graphRoutes } from "../api/v1/graph.routes.js";
+import { trafficRoutes } from "../api/v1/traffic.routes.js";
 import { register as registerKnowledgeIndexer } from "../modules/knowledge/knowledge-indexer.js";
 import { register as registerArtifactRecorder } from "../artifacts/recorder.js";
 import { register as registerGraphIndexer } from "../graph/java-indexer.js";
@@ -70,6 +71,10 @@ export async function buildServer() {
   await app.register(findingRoutes);
   await app.register(reportRoutes);
   await app.register(graphRoutes);
+
+  // Records traffic-capture artifacts from uploaded JSONL/HAR content -
+  // the producer half of the traffic pipeline (the indexer is the consumer).
+  await app.register(trafficRoutes);
   await registerWebsocketGateway(app);
 
   // Background listener, not a route - turns finished workflow runs into

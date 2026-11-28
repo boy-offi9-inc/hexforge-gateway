@@ -93,6 +93,13 @@ no implementation by design and its entry criteria are stated.
   only when `package.json`/`package-lock.json` change, auto-syncs the lockfile
   when a version bump forgets it (proven live on 1.13.1), and validates semver
   before tagging
+- [x] Traffic capture producer (1.14.0, 2026-11-28): the traffic pipeline is
+  complete end to end - `POST /workspaces/:id/traffic-captures` and the
+  `record_traffic_capture` MCP tool record a JSONL or HAR capture (exported
+  from mitmproxy/mitmweb or a collector) as a `traffic-capture` artifact;
+  parse-validated before writing (empty captures refused), and the graph
+  indexer does the rest asynchronously. Small note: this ships the *recording*
+  half - generating the capture on a device stays a manual step for now.
 - [x] Per-workspace AI provider selection: `PATCH /workspaces/:id/ai-provider` stores a
   workspace-scoped override (built-in or `AI_PROVIDERS_PATH` name, validated at set time
   against everything the AI layer can dispatch on) that applies to that workspace's chat,

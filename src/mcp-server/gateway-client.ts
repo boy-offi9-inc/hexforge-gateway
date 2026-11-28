@@ -130,6 +130,13 @@ export async function getGraphEntity(entityId: string): Promise<unknown> {
   return request<unknown>("GET", `/graph/entities/${encodeURIComponent(entityId)}`);
 }
 
+export async function recordTrafficCapture(
+  workspaceId: string,
+  body: { content: string; source?: string },
+): Promise<unknown> {
+  return request<unknown>("POST", `/workspaces/${workspaceId}/traffic-captures`, body);
+}
+
 export async function queryGraph(
   entityId: string,
   filter: {

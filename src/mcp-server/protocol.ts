@@ -113,6 +113,19 @@ async function callTool(
         const artifacts = await gateway.listArtifacts(ws.id, args.kind as string | undefined);
         return toolTextResult(JSON.stringify(artifacts));
       }
+      case "record_traffic_capture": {
+        const content = args.content as string;
+        if (!content) return toolTextResult('"content" is required', true);
+        const ws = await gateway.getOrCreateWorkspace(workspaceName);
+        return toolTextResult(
+          JSON.stringify(
+            await gateway.recordTrafficCapture(ws.id, {
+              content,
+              source: args.source as string | undefined,
+            }),
+          ),
+        );
+      }
       case "list_graph_entities": {
         const ws = await gateway.getOrCreateWorkspace(workspaceName);
         const entities = await gateway.listGraphEntities(ws.id, {

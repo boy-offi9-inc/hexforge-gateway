@@ -852,6 +852,35 @@ export const META_TOOL_DEFINITIONS: ToolDefinition[] = [
     },
   },
   {
+    name: "record_traffic_capture",
+    description:
+      "Record a traffic capture into a workspace as a traffic-capture artifact: JSONL events ({ method, url, status?, contentType?, durationMs? } per line) or a HAR document, exported from mitmproxy/mitmweb ('File > export' or `mitmdump --set hardump=file.har`), a device-side collector, or pasted by hand. The file must contain at least one parsable event; the stored capture is the evidence file, and the knowledge graph indexes it asynchronously into traffic-event entities mapped to the url entities the requests hit. Returns { artifactId, path, events, truncated } - cite the artifactId from findings. Note: the capture's redacted shape (method, host, path, query-key NAMES) lands in the graph; query values, headers and bodies are never stored. This writes a workspace file and record (not destructive to the analysis target).",
+    annotations: {
+      title: "Record a traffic capture",
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        workspace: workspaceProp,
+        content: {
+          type: "string",
+          description:
+            "The capture file's full text: JSONL (one event object per line) or a HAR document. Max 5 MB.",
+        },
+        source: {
+          type: "string",
+          description:
+            "Optional human-readable origin of the capture, e.g. 'mitmproxy on the lab PC' or 'device collector, app com.acme'. Stored on the artifact's source.",
+        },
+      },
+      required: ["workspace", "content"],
+    },
+  },
+  {
     name: "get_graph_entity",
     description:
       "Get one knowledge-graph entity together with every edge touching it (a package containing a class, calls, invokes, accesses and so on), by entity id from list_graph_entities. Returns { entity, edges: [{ id, from, to, relation, createdAt }] }, where from and to are entity ids. Only reads. Errors if the entity doesn't exist.",

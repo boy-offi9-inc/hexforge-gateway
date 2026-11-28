@@ -115,9 +115,14 @@ jobs:
           fetch-depth: 0
 
       - name: gitleaks (full history)
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Raw binary instead of gitleaks-action@v2: that action requires a
+        # paid GITLEAKS_LICENSE for organization repos. The detector config
+        # (.gitleaksignore) documents every allowlisted fingerprint as a
+        # reviewed fixture.
+        run: |
+          curl -sSfL -o /tmp/gitleaks.tgz https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz
+          tar xzf /tmp/gitleaks.tgz -C /tmp gitleaks
+          /tmp/gitleaks detect --source . --redact --report-format json --report-path gitleaks-report.json --exit-code 1
 
       - uses: actions/setup-node@v4
         with:

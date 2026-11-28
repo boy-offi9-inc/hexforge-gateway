@@ -1,0 +1,12 @@
+# Every entry below is a deliberate, non-secret fixture - reviewed 2026-11-28:
+# - tests/secret-detectors.test.ts: fake tokens whose entire purpose is to be
+#   detected/redacted by the Gateway's own secret scanner (testing the detector).
+# - docs/SETUP.md + README.md: placeholder key strings in curl examples
+#   ("some-l...-key"), not credentials.
+
+05cb39eb84162d78880faea39e53c3b4f7582f23:tests/secret-detectors.test.ts:aws-access-token:4
+05cb39eb84162d78880faea39e53c3b4f7582f23:tests/secret-detectors.test.ts:generic-api-key:59
+cbb400446a4737a47ce589fa7adbc289bd5a1924:docs/SETUP.md:curl-auth-header:67
+cbb400446a4737a47ce589fa7adbc289bd5a1924:docs/SETUP.md:curl-auth-header:69
+a74e1eaed063b105e9fafaf6bb90644c001c74cf:README.md:curl-auth-header:113
+a74e1eaed063b105e9fafaf6bb90644c001c74cf:README.md:curl-auth-header:115

@@ -108,6 +108,20 @@ describe("POST /workspaces/:id/traffic-captures", () => {
     expect(res.statusCode).toBe(404);
   });
 
+  it("rejects a traversal-shaped id with 400 before touching the store or the filesystem", async () => {
+    const { app, recorded } = await buildApp();
+    const res = await app.inject({
+      method: "POST",
+      url: "/workspaces/..%2F..%2Fetc/traffic-captures",
+      payload: { content: jsonl },
+    });
+    // fastify decodes %2F, so the id arrives as "../..\/etc" - the shape
+    // guard must refuse it before any path is built
+    expect([400, 404]).toContain(res.statusCode);
+    expect(recorded).toHaveLength(0);
+    expect(await readdir(dataDir)).toHaveLength(0);
+  });
+
   it("validates the body shape", async () => {
     const { app } = await buildApp();
     const missing = await app.inject({

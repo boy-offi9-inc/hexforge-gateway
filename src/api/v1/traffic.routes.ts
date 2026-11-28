@@ -5,7 +5,8 @@ import { z } from "zod";
 import type { FastifyInstance } from "fastify";
 import * as workspaceService from "../../modules/workspace/workspace.service.js";
 import * as artifactService from "../../artifacts/artifact.service.js";
-import { parseCapture } from "../../graph/traffic-indexer.js";
+import { parseCapture, looksLikeHar } from "../../graph/traffic-indexer.js";
+import { resolveWithin, sanitizeWorkspaceId } from "../../utils/path-guard.js";
 import { config } from "../../core/config.js";
 
 /**
@@ -33,6 +34,14 @@ export async function trafficRoutes(app: FastifyInstance) {
   const captureOpts = { bodyLimit: 6 * 1024 * 1024 };
   app.post("/workspaces/:id/traffic-captures", captureOpts, async (req, reply) => {
     const { id } = req.params as { id: string };
+    // id shape first: a malformed id is a 400, never a path-building input.
+    // resolveWithin is the containment check every WORKSPACES_ROOT writer
+    // shares - a capture file can only ever land inside its own workspace.
+    try {
+      sanitizeWorkspaceId(id);
+    } catch {
+      return reply.code(400).send({ error: "Invalid workspace id" });
+    }
     const workspace = await workspaceService.getWorkspace(id);
     if (!workspace) return reply.code(404).send({ error: "Workspace not found" });
 
@@ -49,18 +58,19 @@ export async function trafficRoutes(app: FastifyInstance) {
       });
     }
 
-    // HAR is a JSON document, everything else is treated as JSONL - the
-    // extension tells a human what they are looking at, the indexer sniffs
-    const isHar = content.includes('"log"') && content.includes('"entries"') && content.trimStart().startsWith("{");
-    const file = path.resolve(
-      config.WORKSPACES_ROOT,
-      id,
-      "traffic",
-      `${new Date().toISOString().replace(/[:.]/g, "-")}-${randomBytes(3).toString("hex")}${
-        isHar ? ".har" : ".jsonl"
-      }`,
-    );
+    // the same sniff that decides which parser the indexer will run decides
+    // the stored extension - they can never disagree
+    const isHar = looksLikeHar(content);
+    let file: string;
     try {
+      file = resolveWithin(
+        config.WORKSPACES_ROOT,
+        id,
+        "traffic",
+        `${new Date().toISOString().replace(/[:.]/g, "-")}-${randomBytes(3).toString("hex")}${
+          isHar ? ".har" : ".jsonl"
+        }`,
+      );
       await mkdir(path.dirname(file), { recursive: true });
       await writeFile(file, content, "utf8");
     } catch (err) {

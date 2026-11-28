@@ -146,6 +146,16 @@ export function normalizeEvent(raw: unknown): TrafficEvent | null {
 }
 
 /** Pure part: a capture file's text -> normalized events (JSONL or HAR). */
+/** True when the text should be parsed as a HAR document rather than JSONL.
+ * One decision, used by parseCapture (which format to parse) and the capture
+ * route (which extension to store), so a stored file's extension always
+ * matches what the indexer will do with it. */
+export function looksLikeHar(content: string): boolean {
+  const nl = content.indexOf("\n");
+  const firstLine = content.slice(0, nl === -1 ? content.length : nl).trim();
+  return firstLine.startsWith("{") && content.includes('"log"') && content.includes('"entries"');
+}
+
 export function parseCapture(content: string, max = MAX_TRAFFIC_EVENTS): {
   events: TrafficEvent[];
   truncated: boolean;
@@ -154,8 +164,7 @@ export function parseCapture(content: string, max = MAX_TRAFFIC_EVENTS): {
   let truncated = false;
   // HAR is a JSON document; JSONL is one event per line. A HAR document
   // starts with a '{' and its first line is never a complete JSON object.
-  const firstLine = content.slice(0, content.indexOf("\n") === -1 ? content.length : content.indexOf("\n")).trim();
-  if (firstLine.startsWith("{") && content.includes('"log"') && content.includes('"entries"')) {
+  if (looksLikeHar(content)) {
     try {
       const har = JSON.parse(content) as { log?: { entries?: unknown[] } };
       for (const entry of har.log?.entries ?? []) {

@@ -37,6 +37,7 @@
 import { mkdir, readdir, rename, copyFile, unlink, stat } from "node:fs/promises";
 import path from "node:path";
 import { config } from "../../core/config.js";
+import { resolveWithin, sanitizeWorkspaceId } from "../../utils/path-guard.js";
 import * as workspaceService from "../workspace/workspace.service.js";
 import * as knowledgeService from "../knowledge/knowledge.service.js";
 import { detectConsoleCaps, notice } from "../../core/console-ui.js";
@@ -204,29 +205,7 @@ export class InboxWatcher {
   }
 }
 
-/** A workspace id must be exactly what the Gateway generated (a 12-char nanoid) - anything else can never name a real workspace's directory. */
-function sanitizeWorkspaceId(workspaceId: string): string {
-  if (!/^[A-Za-z0-9_-]{1,64}$/.test(workspaceId)) {
-    throw new Error(`Invalid workspace id: ${JSON.stringify(workspaceId.slice(0, 64))}`);
-  }
-  return workspaceId;
-}
-
-/**
- * Joins segments under a root and proves the result is still inside it.
- * The regex above already rejects traversal shapes; this is the containment
- * check that makes the guarantee visible to both a reader and a static
- * analyzer: whatever the segments are, the returned path is inside `root`
- * or the call throws.
- */
-function resolveWithin(root: string, ...segments: string[]): string {
-  const resolved = path.resolve(root, ...segments);
-  const base = path.resolve(root);
-  if (resolved !== base && !resolved.startsWith(base + path.sep)) {
-    throw new Error(`Refusing path outside ${base}: ${JSON.stringify(resolved)}`);
-  }
-  return resolved;
-}
+/** A workspace id must be exactly what the Gateway generated (a 12-char nanoid) - anything else can never name a real workspace's directory. Shared guard lives in utils/path-guard.ts. */
 
 export const inboxWatcher = new InboxWatcher();
 

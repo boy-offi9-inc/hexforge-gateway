@@ -140,7 +140,7 @@ stdio's "reachable by whoever can spawn this process":
 
 ## Tools exposed
 
-(`src/mcp-server/tools.ts`, shared by both transports) - a curated 31,
+(`src/mcp-server/tools.ts`, shared by both transports) - a curated 34,
 not a 1:1 mirror of every agent operation, picked for what's useful to
 drive directly: `list_workspaces`, `get_or_create_workspace`,
 `list_knowledge`, `get_inbox_apks`, `chat_with_workspace`, `decompile_apk`, `decode_apk`,
@@ -148,8 +148,8 @@ drive directly: `list_workspaces`, `get_or_create_workspace`,
 `read_file`, `list_files`, `adb_devices`, `adb_shell`, `adb_install`,
 `adb_logcat`, `frida_list_processes`, `frida_trace`, `summarize_text`,
 `list_capabilities`, `list_artifacts`, `list_graph_entities`, `get_graph_entity`,
-`list_findings`, `create_finding`, `update_finding`, `verify_finding`,
-`get_report`, `patch_apk_project`, `sign_apk`.
+`query_graph`, `record_traffic_capture`, `list_findings`, `create_finding`,
+`update_finding`, `verify_finding`, `get_report`, `patch_apk_project`, `sign_apk`.
 Every workspace-scoped tool takes an optional `workspace` name argument
 (not an id) defaulting to `"default"`, resolved through the Gateway's
 get-or-create-by-name endpoint - the calling AI never needs to know or
@@ -159,7 +159,7 @@ can resolve a real `apkPath` for it by name without anyone typing one.
 
 ### Capabilities, artifacts, the graph and findings
 
-Nine tools expose the Gateway's evidence side (the model is in
+Ten tools expose the Gateway's evidence side (the model is in
 [ARCHITECTURE](ARCHITECTURE.md#artifacts)), so an AI client can record what it
 finds and tie it to what was actually produced, instead of only reading it
 back over REST:
@@ -168,9 +168,20 @@ back over REST:
 - `list_artifacts` - what finished tasks produced (decompiled sources, a
   rebuilt APK, scan and trace results), optionally by `kind`. The ids are what
   evidence cites.
-- `list_graph_entities` / `get_graph_entity` - the knowledge graph: packages
-  and classes from a decompile, filterable by `type` and a name substring `q`,
-  and one entity with every edge touching it.
+- `list_graph_entities` / `get_graph_entity` - the knowledge graph: packages,
+  classes, methods, fields, urls, findings-as-entities, filterable by `type`
+  and a name substring `q`; `get_graph_entity` returns one entity with every
+  edge touching it.
+- `query_graph` - walk the graph from an entity: 1-3 hops BFS, filterable by
+  `relation` (contains, calls, invokes, maps-to, accesses, observed-by,
+  supports, inherits) and `direction` (out/in/both), capped by `maxEdges`
+  with a `truncated` flag - who-calls-X is `relation=calls, direction=in`.
+- `record_traffic_capture` - record a JSONL or HAR capture (mitmproxy/
+  mitmweb export, a device collector, pasted text) as a `traffic-capture`
+  artifact; the graph indexes it asynchronously into traffic-event entities
+  mapped to the url entities the requests hit. Parse-validated before
+  anything is written; the stored file is the evidence, redaction happens
+  in the entities, never in the file.
 - `list_findings` - claims recorded so far, by `status` or by a cited
   `entityId`.
 - `create_finding` / `update_finding` - record a claim with evidence, and
@@ -221,10 +232,15 @@ things worth knowing before editing them:
   bookkeeping.** Every workspace-scoped call also creates its workspace if
   missing and records a job in the workspace's history; the `workspace`
   parameter says so. `readOnlyHint: true` means "doesn't modify the files
-  or device being analyzed". Four tools are flagged `destructiveHint`:
+  or device being analyzed". Five tools are flagged `destructiveHint`:
   `adb_shell` (arbitrary commands), `adb_install` (can replace an installed
-  app), `frida_trace` (injects code into a running app), and `decode_apk`
-  (replaces the workspace's previous decode, including any edits to it).
+  app), `frida_trace` (injects code into a running app), `decode_apk`
+  (replaces the workspace's previous decode, including any edits to it),
+  and `patch_apk_project` (edits the decoded project in place).
+  `record_traffic_capture` writes a workspace file and record - the only
+  MCP tool that creates new files under `WORKSPACES_ROOT` besides the
+  agents - and is marked non-destructive for the same bookkeeping reason
+  as the findings tools.
 - **Return shapes are written from the agents' actual output**, including
   their limits (jadx/apktool list at most 200 files, `read_file` cuts at
   512 KB, `adb_shell` keeps the last 4000 characters of stdout). If an

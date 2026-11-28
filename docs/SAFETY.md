@@ -38,6 +38,11 @@ client can gate the mutating ones.
   - the original APK file is never edited in place, and re-signed output
   carries a new signature so it cannot silently update the original app
   (see [APK_MODIFICATION](APK_MODIFICATION.md)).
+- **Workspace files**: every writer that turns an id or filename into a
+  path under `WORKSPACES_ROOT` goes through the shared containment guard
+  (`src/utils/path-guard.ts`): a malformed id is refused before any path is
+  built, and the resulting path is proven to stay inside the workspace's
+  own directory - an uploaded capture or pulled file cannot land outside it.
 - **The knowledge graph and findings**: `query_graph`, `get_graph_entity`,
   `list_*` and `verify_finding` are pure reads. `create_finding` /
   `update_finding` write workspace records only, are marked non-destructive,

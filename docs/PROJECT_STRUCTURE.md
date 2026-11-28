@@ -25,10 +25,14 @@ src/
 │   ├── knowledge.routes.ts           #   knowledge entries + the /chat routes
 │   ├── artifact.routes.ts            #   artifact listing + fetch
 │   ├── finding.routes.ts             #   findings + verification
-│   ├── graph.routes.ts               #   graph entities + edges
+│   ├── graph.routes.ts               #   graph entities + edges + traversal
+│   ├── traffic.routes.ts             #   POST /workspaces/:id/traffic-captures - record JSONL/HAR captures as artifacts
 │   ├── report.routes.ts              #   workspace report (JSON / Markdown / SARIF)
 │   ├── capability.routes.ts          #   GET /capabilities
 │   └── plugin.routes.ts              #   plugin introspection
+│
+├── utils/
+│   └── path-guard.ts                 #   shared workspace-path containment guard (sanitizeWorkspaceId + resolveWithin)
 │
 ├── modules/                          # ── the engines & domain logic
 │   ├── workspace/

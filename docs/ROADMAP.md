@@ -5,10 +5,12 @@ Bus, Job/Workflow Engines, Knowledge Engine, all twelve MCP agents, Auth,
 nine AI providers, Terminal chat, the MCP Server Frontend, the Plugin
 System, local storage, and CI. This page tracks what's still open.
 
-## Release index (1.7.0 – 1.13.1)
+## Release index (1.7.0 – 1.14.1)
 
 | Version | Date | Headline |
 |---|---|---|
+| 1.14.1 | 2026-11-28 | Path containment guard for capture files; unified HAR detection |
+| 1.14.0 | 2026-11-28 | Traffic capture producer: `record_traffic_capture` + `POST /workspaces/:id/traffic-captures` — pipeline complete |
 | 1.13.1 | 2026-11-28 | Safety model docs (`docs/SAFETY.md`); Release workflow auto-syncs the lockfile |
 | 1.13.0 | 2026-11-28 | Graph-native queries: `query_graph` MCP tool + `/traverse` route |
 | 1.12.1 | 2026-11-28 | Graph bug fixes: method-body attribution, runtime-event aggregation |
